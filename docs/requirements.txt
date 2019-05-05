@@ -1,2 +1,1 @@
-openflexure-microscope
 sphinxcontrib.httpdomain
