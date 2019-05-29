@@ -17,11 +17,11 @@ class LockError(ThreadError):
             self.message = LockError.ERROR_CODES[code]
         else:
             self.message = "Unknown error."
-        
+
         self.string = "{}: {}".format(self.code, self.message)
         print(self.string)
 
         ThreadError.__init__(self)
-    
+
     def __str__(self):
         return self.string

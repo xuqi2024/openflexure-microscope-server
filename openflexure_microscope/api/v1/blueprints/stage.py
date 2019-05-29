@@ -1,4 +1,4 @@
-from openflexure_microscope.api.utilities import gen, JsonPayload
+from openflexure_microscope.api.utilities import JsonPayload
 from openflexure_microscope.api.v1.views import MicroscopeView
 from openflexure_microscope.utilities import axes_to_array, filter_dict
 

@@ -240,31 +240,30 @@ class StreamingCamera(BaseCamera):
     def start_preview(self, fullscreen=True, window=None) -> bool:
         """Start the on board GPU camera preview."""
         logging.info("Starting the GPU preview")
-        self.start_stream_recording()
+
+        # TODO: Commented out as I honestly can't remember why this was here. May need to put back?
+        # self.start_stream_recording()
+
         try:
-            with self.lock:
-                if not self.camera.preview:
-                    logging.debug("Starting preview")
-                    self.camera.start_preview(fullscreen=fullscreen, window=window)
-                else:
-                    logging.debug("Resizing preview")
-                    if window:
-                        self.camera.preview.window = window
-                    if fullscreen:
-                        self.camera.preview.fullscreen = fullscreen
-                self.state['preview_active'] = True
+            if not self.camera.preview:
+                logging.debug("Starting preview")
+                self.camera.start_preview(fullscreen=fullscreen, window=window)
+            else:
+                logging.debug("Resizing preview")
+                if window:
+                    self.camera.preview.window = window
+                if fullscreen:
+                    self.camera.preview.fullscreen = fullscreen
+            self.state['preview_active'] = True
         except picamera.exc.PiCameraMMALError as e:
             logging.error("Suppressed a MMALError in start_preview. Exception: {}".format(e))
         except picamera.exc.PiCameraValueError as e:
             logging.error("Suppressed a ValueError exception in start_preview. Exception: {}".format(e))
-        return True
 
     def stop_preview(self) -> bool:
         """Stop the on board GPU camera preview."""
-        with self.lock:
-            self.camera.stop_preview()
-            self.state['preview_active'] = False
-        return True
+        self.camera.stop_preview()
+        self.state['preview_active'] = False
 
     def start_recording(
             self,
@@ -340,21 +339,22 @@ class StreamingCamera(BaseCamera):
             splitter_port (int): Splitter port to stop recording on
             resolution ((int, int)): Resolution to set the camera to, after stopping recording.
         """
-        # If no resolution is specified, default to image_resolution
-        if not resolution:
-            resolution = self.config['image_resolution']
+        with self.lock:
+            # If no resolution is specified, default to image_resolution
+            if not resolution:
+                resolution = self.config['image_resolution']
 
-        # Stop the camera video recording on port 1
-        try:
-            self.camera.stop_recording(splitter_port=splitter_port)
-        except picamera.exc.PiCameraNotRecording:
-            logging.info("Not recording on splitter_port {}".format(splitter_port))
-        else:
-            logging.info("Stopped MJPEG stream on port {1}. Switching to {0}.".format(resolution, splitter_port))
+            # Stop the camera video recording on port 1
+            try:
+                self.camera.stop_recording(splitter_port=splitter_port)
+            except picamera.exc.PiCameraNotRecording:
+                logging.info("Not recording on splitter_port {}".format(splitter_port))
+            else:
+                logging.info("Stopped MJPEG stream on port {1}. Switching to {0}.".format(resolution, splitter_port))
 
-        # Increase the resolution for taking an image
-        time.sleep(0.2)  # Sprinkled a sleep to prevent camera getting confused by rapid commands
-        self.camera.resolution = resolution
+            # Increase the resolution for taking an image
+            time.sleep(0.2)  # Sprinkled a sleep to prevent camera getting confused by rapid commands
+            self.camera.resolution = resolution
 
     def start_stream_recording(
             self,
@@ -365,40 +365,42 @@ class StreamingCamera(BaseCamera):
 
         Args:
             splitter_port (int): Splitter port to start recording on
-            resolution ((int, int)): Resolution to set the camera to, before starting recording. Defaults to `self.config['stream_resolution']`.
+            resolution ((int, int)): Resolution to set the camera to, before starting recording. 
+                Defaults to `self.config['stream_resolution']`.
         """
-        # If stream object was destroyed
-        if not hasattr(self, 'stream'):
-            self.stream = io.BytesIO()  # Create a stream object
+        with self.lock:
+            # If stream object was destroyed
+            if not hasattr(self, 'stream'):
+                self.stream = io.BytesIO()  # Create a stream object
 
-        # If no explicit resolution is passed
-        if not resolution:
-            resolution = self.config['stream_resolution']  # Default to video recording resolution
+            # If no explicit resolution is passed
+            if not resolution:
+                resolution = self.config['stream_resolution']  # Default to video recording resolution
 
-        # Reduce the resolution for video streaming
-        try:
-            self.camera._check_recording_stopped()
-        except picamera.exc.PiCameraRuntimeError:
-            logging.info("Error while changing resolution: Recording already running.")
-        else:
-            self.camera.resolution = resolution
-
-        # If the stream should be active
-        if self.state['stream_active']:
+            # Reduce the resolution for video streaming
             try:
-                # Start recording on stream port
-                self.camera.start_recording(
-                    self.stream,
-                    format='mjpeg',
-                    quality=self.config['jpeg_quality'],
-                    bitrate=-1, # RWB: disable bitrate control 
-                    # (bitrate control makes JPEG size less good as a focus
-                    # metric)
-                    splitter_port=splitter_port)
-            except picamera.exc.PiCameraAlreadyRecording:
-                logging.info("Error while starting preview: Recording already running.")
+                self.camera._check_recording_stopped()
+            except picamera.exc.PiCameraRuntimeError:
+                logging.info("Error while changing resolution: Recording already running.")
             else:
-                logging.debug("Started MJPEG stream at {} on port {}".format(resolution, splitter_port))
+                self.camera.resolution = resolution
+
+            # If the stream should be active
+            if self.state['stream_active']:
+                try:
+                    # Start recording on stream port
+                    self.camera.start_recording(
+                        self.stream,
+                        format='mjpeg',
+                        quality=self.config['jpeg_quality'],
+                        bitrate=-1,  # RWB: disable bitrate control 
+                        # (bitrate control makes JPEG size less good as a focus
+                        # metric)
+                        splitter_port=splitter_port)
+                except picamera.exc.PiCameraAlreadyRecording:
+                    logging.info("Error while starting preview: Recording already running.")
+                else:
+                    logging.debug("Started MJPEG stream at {} on port {}".format(resolution, splitter_port))
 
     def capture(
             self,

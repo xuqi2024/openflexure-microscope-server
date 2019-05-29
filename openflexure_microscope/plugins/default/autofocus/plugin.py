@@ -45,7 +45,7 @@ class AutofocusPlugin(MicroscopePlugin):
                 sharpnesses.append(self.measure_sharpness(metric_fn))
 
             newposition = positions[np.argmax(sharpnesses)]
-            stage.focus_rel(newposition - stage.position[2])
+            stage.move_rel([0, 0, newposition - stage.position[2]])
 
         return positions, sharpnesses
 

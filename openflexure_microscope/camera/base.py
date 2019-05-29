@@ -3,7 +3,6 @@ import time
 import os
 import threading
 import datetime
-import yaml
 import logging
 
 try:
@@ -15,7 +14,6 @@ except ImportError:
         from _thread import get_ident
 
 from .capture import CaptureObject, BASE_CAPTURE_PATH, TEMP_CAPTURE_PATH
-from openflexure_microscope.config import USER_CONFIG_DIR
 from openflexure_microscope.utilities import entry_by_id
 from openflexure_microscope.lock import StrictLock
 
@@ -54,7 +52,7 @@ class CameraEvent(object):
     def __init__(self):
         self.events = {}
 
-    def wait(self, timeout: int=5):
+    def wait(self, timeout: int = 5):
         """Wait for the next frame (invoked from each client's thread)."""
         ident = get_ident()
         if ident not in self.events:
@@ -92,32 +90,47 @@ class CameraEvent(object):
 class BaseCamera(object):
     """
     Base implementation of StreamingCamera.
+
+    Attributes:
+        thread: Background thread reading frames from camera
+        camera: Camera object
+        lock (:py:class:`openflexure_microscope.lock.StrictLock`): Strict lock controlling thread
+            access to stage hardware
+        frame (bytes): Current frame is stored here by background thread
+        last_access (time): Time of last client access to the camera
+        stream_timeout (int): Number of inactive seconds before timing out the stream
+        stream_timeout_enabled (bool): Enable or disable timing out the stream
+        state (dict): Dictionary for capture state
+        config (dict): Dictionary of base camera config
+        paths (dict): Dictionary of capture paths
+        images (list): List of image capture objects
+        videos (list): List of video capture objects
     """
     def __init__(self):
-        self.thread = None  #: Background thread reading frames from camera
-        self.camera = None  #: Camera object
+        self.thread = None
+        self.camera = None 
 
-        self.lock = StrictLock(timeout=1)  #: :py:class:`openflexure_microscope.lock.StrictLock`: Strict lock controlling thread access to camera hardware
+        self.lock = StrictLock(timeout=1)
 
-        self.frame = None  #: bytes: Current frame is stored here by background thread
-        self.last_access = 0  #: time: Time of last client access to the camera
+        self.frame = None
+        self.last_access = 0
         self.event = CameraEvent()
 
-        self.stream_timeout = 20  #: int: Number of inactive seconds before timing out the stream
-        self.stream_timeout_enabled = False  #: bool: Enable or disable timing out the stream
+        self.stream_timeout = 20
+        self.stream_timeout_enabled = False
 
-        self.state = {}  #: dict: Dictionary for capture state
-        self.config = {}  #: dict: Dictionary of base camera config
+        self.state = {}
+        self.config = {}
         self.paths = {
             'image': BASE_CAPTURE_PATH,
             'video': BASE_CAPTURE_PATH,
             'image_tmp': TEMP_CAPTURE_PATH,
             'video_tpm': TEMP_CAPTURE_PATH
-        }  #: dict: Dictionary of capture paths
+        } 
 
         # Capture data
-        self.images = []  #: list: List of image capture objects
-        self.videos = []  #: list: List of video recording objects
+        self.images = []
+        self.videos = []
 
     def apply_config(self, config):
         """Update settings from a config dictionary"""
@@ -164,7 +177,6 @@ class BaseCamera(object):
         self.last_access = time.time()
         self.stop = False
         
-        #if self.thread is None:
         if not self.state['stream_active']:
             # start background frame thread
             self.thread = threading.Thread(target=self._thread)
@@ -185,13 +197,11 @@ class BaseCamera(object):
         logging.debug("Stopping worker thread")
         timeout_time = time.time() + timeout
 
-        #if self.thread:
         if self.state['stream_active']:
             self.stop = True
             self.thread.join()  # Wait for stream thread to exit
             logging.debug("Waiting for stream thread to exit.")
 
-        #while self.thread:
         while self.state['stream_active']:
             if time.time() > timeout_time:
                 logging.debug("Timeout waiting for worker thread close.")
@@ -255,7 +265,8 @@ class BaseCamera(object):
 
         Args:
             write_to_file (bool): Should the StreamObject write to a file, or an in-memory byte stream.
-            temporary (bool): Should the data be deleted after session ends. Creating the capture with a content manager sets this to true.
+            temporary (bool): Should the data be deleted after session ends. 
+                Creating the capture with a content manager sets this to true.
             filename (str): Name of the stored file. Defaults to timestamp.
             fmt (str): Format of the capture.
         """
@@ -298,7 +309,8 @@ class BaseCamera(object):
 
         Args:
             write_to_file (bool): Should the StreamObject write to a file, or an in-memory byte stream.
-            temporary (bool): Should the data be deleted after session ends. Creating the capture with a content manager sets this to true.
+            temporary (bool): Should the data be deleted after session ends. 
+                Creating the capture with a content manager sets this to true.
             filename (str): Name of the stored file. Defaults to timestamp.
             fmt (str): Format of the capture.
         """
@@ -363,6 +375,3 @@ class BaseCamera(object):
         logging.debug("BaseCamera worker thread exiting...")
         # Set stream_activate state
         self.state['stream_active'] = False
-        # Reset thread
-        #self.thread = None
-        logging.debug("Stream thread is None")

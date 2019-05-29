@@ -19,11 +19,16 @@ def set_gain(camera, gain, value):
     """
     if gain not in [MMAL_PARAMETER_ANALOG_GAIN, MMAL_PARAMETER_DIGITAL_GAIN]:
         raise ValueError("The gain parameter was not valid")
-    ret = mmal.mmal_port_parameter_set_rational(camera._camera.control._port, 
-                                                    gain,
-                                                    to_rational(value))
+    ret = mmal.mmal_port_parameter_set_rational(
+        camera._camera.control._port, 
+        gain,
+        to_rational(value)
+    )
     if ret == 4:
-        raise exc.PiCameraMMALError(ret, "Are you running the latest version of the userland libraries? Gain setting was introduced in late 2017.")
+        raise exc.PiCameraMMALError(
+            ret,
+            "Are you running the latest version of the userland libraries? Gain setting was introduced in late 2017."
+        )
     elif ret != 0:
         raise exc.PiCameraMMALError(ret)
 
@@ -40,7 +45,7 @@ def set_digital_gain(camera, value):
 
 if __name__ == "__main__":
     with picamera.PiCamera() as cam:
-        cam.start_preview(fullscreen=False, window=(0,50,640,480))
+        cam.start_preview(fullscreen=False, window=(0, 50, 640, 480))
         time.sleep(2)
 
         # fix the auto white balance gains at their current values
@@ -58,10 +63,10 @@ if __name__ == "__main__":
         logging.info("Attempting to set digital gain to 1")
         set_digital_gain(cam, 1)
         # The old code is left in here in case it is a useful example...
-        #ret = mmal.mmal_port_parameter_set_rational(cam._camera.control._port, 
+        # ret = mmal.mmal_port_parameter_set_rational(cam._camera.control._port, 
         #                                            MMAL_PARAMETER_DIGITAL_GAIN,
         #                                            to_rational(1))
-        #print("Return code: {}".format(ret))
+        # print("Return code: {}".format(ret))
 
         try:
             while True:
@@ -69,5 +74,3 @@ if __name__ == "__main__":
                 time.sleep(1)
         except KeyboardInterrupt:
             logging.info("Stopping...")
-
-

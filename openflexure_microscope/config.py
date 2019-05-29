@@ -7,13 +7,21 @@ import copy
 from fractions import Fraction
 from collections import abc
 
+"""
+Attributes:
+    USER_CONFIG_DIR (str): Default path of the user-config directory, containing runtime-config and
+        calibration files. Obtained from ``os.path.join(os.path.expanduser("~"), ".openflexure")``.
+    USER_CONFIG_FILE (str): Default path of the user microscope_settings.yaml runtime-config file. 
+        Obtained from ``os.path.join(USER_CONFIG_DIR, "microscope_settings.yaml")``
+"""
+
 # HANDLE THE DEFAULT CONFIGURATION FILE
 
 HERE = os.path.abspath(os.path.dirname(__file__))
 DEFAULT_CONFIG_PATH = os.path.join(HERE, 'microscope_settings.default.yaml')
 
-USER_CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".openflexure")  #: str: Default path of the user-config directory, containing runtime-config and calibration files. Obtained from ``os.path.join(os.path.expanduser("~"), ".openflexure")``.
-USER_CONFIG_FILE = os.path.join(USER_CONFIG_DIR, "microscope_settings.yaml")  #: str: Default path of the user microscope_settings.yaml runtime-config file. Obtained from ``os.path.join(USER_CONFIG_DIR, "microscope_settings.yaml")``
+USER_CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".openflexure")
+USER_CONFIG_FILE = os.path.join(USER_CONFIG_DIR, "microscope_settings.yaml")
 
 USER_CONFIG_FILE_OLD = os.path.join(USER_CONFIG_DIR, "microscoperc.yaml")
 
@@ -44,7 +52,9 @@ def construct_yaml_bool(self, node):
     value = self.construct_scalar(node)
     return override_bool_values[value.lower()]
 
+
 yaml.Loader.add_constructor(u'tag:yaml.org,2002:bool', construct_yaml_bool)
+
 
 # HANDLE CONVERTING ARBITRARY CONFIG TO JSON-SAFE JSON
 
@@ -98,6 +108,7 @@ def json_map(data, clean_keys=True):
                 d['picamera_settings']['lens_shading_table'] = True
 
     return to_map(d, json_convert)
+
 
 # HANDLE BASIC LOADING AND SAVING OF YAML FILES
 
@@ -213,7 +224,8 @@ class OpenflexureConfig:
         Read the current full config.
 
         Args:
-            json_safe (bool): Converts invalid data types to JSON types, and removes any excessively large values (e.g. lens-shading tables).
+            json_safe (bool): Converts invalid data types to JSON types, and removes any 
+                excessively large values (e.g. lens-shading tables).
         """
         if json_safe:
             logging.info("Reading config as JSON-safe dictionary")

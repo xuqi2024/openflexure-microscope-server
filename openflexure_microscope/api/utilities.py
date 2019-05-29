@@ -1,7 +1,7 @@
-import pprint
 import logging
 from werkzeug.exceptions import BadRequest
 from flask import url_for
+
 
 class JsonPayload:
     def __init__(self, request):
@@ -32,7 +32,8 @@ class JsonPayload:
         Args:
             key (str): JSON key to look for
             default: Value to return if no matching key-value pair is found.
-            convert: Converter function. By passing a type, the value will be converted to that type. **Use with caution!**
+            convert: Converter function. By passing a type, the value will be converted to that type. 
+                **Use with caution!**
         """
         # If no JSON payload exists, make an empty dictionary
         if not self.json:

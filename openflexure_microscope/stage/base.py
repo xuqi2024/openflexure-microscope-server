@@ -1,16 +1,22 @@
 from abc import ABCMeta, abstractmethod
 from openflexure_microscope.lock import StrictLock
 
+
 class BaseStage(metaclass=ABCMeta):
+    """
+    Attributes:
+        lock (:py:class:`openflexure_microscope.lock.StrictLock`): Strict lock controlling thread
+            access to camera hardware
+    """
     def __init__(self):
-        self.lock = StrictLock(timeout=5)  #: :py:class:`openflexure_microscope.lock.StrictLock`: Strict lock controlling thread access to camera hardware
+        self.lock = StrictLock(timeout=5)
 
     @property
     @abstractmethod
     def state(self):
         """The general state dictionary of the board.
         Should at least contain 'position', and 'board' keys.
-        Note: A None/Null value for 'board' will disable stage 
+        Note: A None/Null value for 'board' will disable stage
         movement in the OpenFlexure eV client software,
         """
         pass

@@ -7,7 +7,7 @@ from contextlib import contextmanager
 @contextmanager
 def set_properties(obj, **kwargs):
     """A context manager to set, then reset, certain properties of an object.
-    
+
     The first argument is the object, subsequent keyword arguments are properties
     of said object, which are set initially, then reset to their previous values.
     """

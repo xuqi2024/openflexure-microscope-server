@@ -1,8 +1,5 @@
-from .sangaboard import Sangaboard
 from openflexure_microscope.stage.base import BaseStage
-from openflexure_microscope.lock import StrictLock
 
-import logging
 
 class MockStage(BaseStage):
     def __init__(self, port=None, **kwargs):
@@ -25,16 +22,14 @@ class MockStage(BaseStage):
         }
         return state
 
-
     @property
     def n_axes(self):
-        return self._n_axis 
+        return self._n_axis
 
     @property
     def position(self):
         return self._position
 
-    
     @property
     def backlash(self):
         return self._backlash if self._backlash else [0]*self.n_axes
@@ -43,11 +38,8 @@ class MockStage(BaseStage):
     def backlash(self, blsh):
         if blsh is None:
             self._backlash = None
-        try:
-            assert len(blsh) == self.n_axes
-            self._backlash = blsh
-        except:
-            self._backlash = [int(blsh)]*self.n_axes
+        assert len(blsh) == self.n_axes
+        self._backlash = [int(blsh)]*self.n_axes
 
     def move_rel(self, displacement, axis=None, backlash=True):
         pass

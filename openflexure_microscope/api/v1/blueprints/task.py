@@ -121,7 +121,7 @@ class TaskAPI(MicroscopeView):
         """
 
         success = self.microscope.task.delete(task_id)
-        
+
         if success:
             data = {
                 'status': 'success',

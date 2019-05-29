@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 
 from flask import (
-    Flask, render_template, jsonify, send_file)
+    Flask, jsonify, send_file)
 
-from flask.logging import default_handler
 from serial import SerialException
 from datetime import datetime
 
@@ -21,9 +20,12 @@ from openflexure_microscope.camera.capture import build_captures_from_exif
 
 from openflexure_microscope.config import USER_CONFIG_DIR
 
+from openflexure_microscope.api.v1 import blueprints
+
 import atexit
 import logging
-import sys, os
+import sys
+import os
 
 # Handle logging
 is_gunicorn = "gunicorn" in os.environ.get("SERVER_SOFTWARE", "")
@@ -63,6 +65,7 @@ api_microscope = Microscope(None, None)
 # TODO: Offload to a thread?
 stored_image_list = build_captures_from_exif()
 
+
 # Generate API URI based on version from filename
 def uri(suffix, api_version, base=None):
     if not base:
@@ -91,7 +94,7 @@ def attach_microscope():
 
     logging.debug("Creating camera object...")
     api_camera = StreamingCamera(config=api_microscope.rc.read())
-    
+
     logging.debug("Creating stage object...")
     try:
         api_stage = SangaStage()
@@ -113,10 +116,9 @@ def attach_microscope():
         logging.debug("Microscope successfully attached!")
 
 
-##### WEBAPP ROUTES ######
+# WEBAPP ROUTES
 
-##### API ROUTES ######
-from openflexure_microscope.api.v1 import blueprints
+# API ROUTES
 
 # Base routes
 base_blueprint = blueprints.base.construct_blueprint(api_microscope)
@@ -138,6 +140,7 @@ app.register_blueprint(plugin_blueprint, url_prefix=uri('/plugin', 'v1'))
 task_blueprint = blueprints.task.construct_blueprint(api_microscope)
 app.register_blueprint(task_blueprint, url_prefix=uri('/task', 'v1'))
 
+
 @app.route('/routes')
 def routes():
     """
@@ -145,13 +148,19 @@ def routes():
     """
     return jsonify(list_routes(app))
 
+
 @app.route('/log')
 def err_log():
     """
     Most recent 1mb of log output
     """
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    return send_file(DEFAULT_LOGFILE, as_attachment=True, attachment_filename='openflexure_microscope_{}.log'.format(timestamp))
+    return send_file(
+        DEFAULT_LOGFILE, 
+        as_attachment=True, 
+        attachment_filename='openflexure_microscope_{}.log'.format(timestamp)
+    )
+
 
 # Automatically clean up microscope at exit
 def cleanup():
@@ -165,6 +174,7 @@ def cleanup():
     # Close down the microscope
     api_microscope.close()
     logging.debug("App teardown complete.")
+
 
 atexit.register(cleanup)
 

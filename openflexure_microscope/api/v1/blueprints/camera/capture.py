@@ -1,4 +1,4 @@
-from openflexure_microscope.api.utilities import gen, get_bool, JsonPayload
+from openflexure_microscope.api.utilities import get_bool, JsonPayload
 from openflexure_microscope.api.v1.views import MicroscopeView
 from openflexure_microscope.utilities import filter_dict
 
@@ -201,7 +201,10 @@ class CaptureAPI(MicroscopeView):
 
         # If available, also add download link
         if capture_metadata['available']:
-            uri_dict['uri']['download'] = '{}download/{}'.format(url_for('.capture', capture_id=capture_obj.id), capture_obj.filename)
+            uri_dict['uri']['download'] = '{}download/{}'.format(
+                url_for('.capture', capture_id=capture_obj.id),
+                capture_obj.filename
+            )
 
         capture_metadata.update(uri_dict)
 
@@ -297,7 +300,12 @@ class DownloadRedirectAPI(MicroscopeView):
 
         thumbnail = get_bool(request.args.get('thumbnail'))
 
-        return redirect(url_for('.capture_download', capture_id=capture_id, filename=capture_obj.filename, thumbnail=thumbnail), code=307)
+        return redirect(url_for(
+            '.capture_download',
+            capture_id=capture_id,
+            filename=capture_obj.filename,
+            thumbnail=thumbnail
+        ), code=307)
 
 
 class DownloadAPI(MicroscopeView):
@@ -312,7 +320,12 @@ class DownloadAPI(MicroscopeView):
 
         # If no filename is specified, redirect to the capture's currently set filename
         if not filename:
-            return redirect(url_for('capture_download', capture_id=capture_id, filename=capture_obj.filename, thumbnail=thumbnail), code=307)
+            return redirect(url_for(
+                'capture_download',
+                capture_id=capture_id,
+                filename=capture_obj.filename,
+                thumbnail=thumbnail
+            ), code=307)
 
         # Download the image data using the requested filename
         if thumbnail:
@@ -360,7 +373,11 @@ class MetadataRedirectAPI(MicroscopeView):
         if not capture_obj or not capture_obj.state['available']:
             return abort(404)  # 404 Not Found
 
-        return redirect(url_for('.metadata_download', capture_id=capture_id, filename=capture_obj.metadataname), code=307)
+        return redirect(url_for(
+            '.metadata_download',
+            capture_id=capture_id,
+            filename=capture_obj.metadataname
+        ), code=307)
 
 
 class MetadataAPI(MicroscopeView):
@@ -373,7 +390,11 @@ class MetadataAPI(MicroscopeView):
 
         # If no filename is specified, redirect to the capture's currently set filename
         if not filename:
-            return redirect(url_for('capture_download', capture_id=capture_id, filename=capture_obj.metadataname), code=307)
+            return redirect(url_for(
+                'capture_download',
+                capture_id=capture_id,
+                filename=capture_obj.metadataname
+            ), code=307)
 
         # Download the metadata using the requested filename
         data = capture_obj.yaml

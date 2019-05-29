@@ -12,9 +12,13 @@ class TaskOrchestrator:
     """
     Class responsible for spawning threaded tasks, and storing their returns.
     A microscope should contain exactly one instance of `TaskOrchestrator`.
+
+    Attributes:
+        tasks (list): List of `Task` objects
+
     """
     def __init__(self):
-        self.tasks = []  #: list: List of `Task` objects
+        self.tasks = []
 
     @property
     def state(self):
@@ -39,14 +43,14 @@ class TaskOrchestrator:
         Attach and start a new long-running task, if allowed by `start_condition()`.
         Returns an instance of :py:class:`openflexure_microscope.task.Task`, which can be used to check the state
         or eventual return of the task.
-    
+
         Args:
             function (function): The target function to run in the background
             args, kwargs: Arguments that will be passed to `function` at runtime.
         """
         # Create a task object
         task = Task(function, *args, **kwargs)
-        
+
         # If the task isn't allowed to run
         if not self.start_condition(task):
             raise TaskDeniedException("Unable to start this task. Aborting.")
@@ -88,16 +92,29 @@ class Task:
     """
     Class responsible for running a task function in a thread, and handling return or errors.
     Tasks should be created by an instance of :py:class:`openflexure_microscope.task.TaskOrchestrator`.
+
+    Args:
+        function (function): Function to be called in the task thread.
+
+    Attributes:
+        task (function): Function to be called in the task thread.
+        args: Positional arguments to be passed to the task function
+        kwargs: Keyword arguments to be passed to the task function.
+        _running (bool): If task is currently running
+        id (str): Unique ID for the task
+        state (dict): Dictionary describing the full state of the task.
+            `status` will be one of 'idle'', 'running', 'error', or 'success'.
+            `return` eventually holds the return value of the task function.
     """
     def __init__(self, function, *args, **kwargs):
         # The task long-running method
-        self.task = function  #: function: Function to be called in the task thread.
-        self.args = args  #: Positional arguments to be passed to the task function.
-        self.kwargs = kwargs  #: Keyword arguments to be passed to the task function.
+        self.task = function
+        self.args = args
+        self.kwargs = kwargs
 
-        self._running = False  #: bool: If task is currently running
-        
-        self.id = uuid.uuid4().hex  #: str: Unique ID for the task
+        self._running = False
+
+        self.id = uuid.uuid4().hex
 
         self.state = {
             'id': self.id,
@@ -105,7 +122,7 @@ class Task:
             'return': None,
             'start_time': None,
             'end_time': None,
-        }  #: dict: Dictionary describing the full state of the task. `status` will be one of 'idle'', 'running', 'error', or 'success'. `return` eventually holds the return value of the task function.
+        }
 
     def process(self, f):
         """

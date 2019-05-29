@@ -10,13 +10,20 @@ from PIL import Image
 import atexit
 
 from openflexure_microscope.camera import piexif
+from openflexure_microscope.camera.piexif._exceptions import InvalidImageDataError
+
+"""
+Attributes:
+    BASE_CAPTURE_PATH (str): Base path to store all captures
+    TEMP_CAPTURE_PATH (str): Base path to store all temporary captures (automatically emptied)
+"""
 
 PIL_FORMATS = ['JPG', 'JPEG', 'PNG', 'TIF', 'TIFF']
 EXIF_FORMATS = ['JPG', 'JPEG', 'TIF', 'TIFF']
 THUMBNAIL_SIZE = (200, 150)
 
-BASE_CAPTURE_PATH = os.path.join(os.path.expanduser('~'), 'micrographs')  #: str: Base path to store all captures
-TEMP_CAPTURE_PATH = os.path.join(BASE_CAPTURE_PATH, 'tmp')  #: str: Base path to store all temporary captures (automatically emptied)
+BASE_CAPTURE_PATH = os.path.join(os.path.expanduser('~'), 'micrographs')
+TEMP_CAPTURE_PATH = os.path.join(BASE_CAPTURE_PATH, 'tmp')
 
 
 # TODO: Move these methods to a camera utilities module?
@@ -38,11 +45,15 @@ def pull_usercomment_dict(filepath):
     Args:
         filepath: Path to the Exif-containing file
     """
-    exif_dict = piexif.load(filepath)
+    try:
+        exif_dict = piexif.load(filepath)
+    except InvalidImageDataError:
+        logging.error("Invalid data at {}. Skipping.".format(filepath))
+        return None
     if 'Exif' in exif_dict and 37510 in exif_dict['Exif']:
         return yaml.load(exif_dict['Exif'][37510].decode())
     else:
-        return {}
+        return None
 
 
 def make_file_list(directory, formats):
@@ -65,8 +76,11 @@ def build_captures_from_exif():
     for f in files:
         logging.debug("Reloading capture {}...".format(f))
         exif = pull_usercomment_dict(f)
-        capture = capture_from_exif(f, exif)
-        captures.append(capture)
+        if exif:
+            capture = capture_from_exif(f, exif)
+            captures.append(capture)
+        else:
+            logging.error("Invalid data at {}. Skipping.".format(f))
 
     logging.info("{} capture files successfully reloaded".format(len(captures)))
 
@@ -107,7 +121,20 @@ class CaptureObject(object):
     """
     StreamObject used to store and process capture data, and metadata.
 
-    Note: Captures cannot be stored in a lower-level directory than BASE_CAPTURE_PATH.
+    Attributes:
+        timestring (str): Timestring of capture creation time
+        temporary (bool): Mark the capture as temporary, to be deleted as the server closes,
+            or as resources are required
+        _metadata (dict): Dictionary of custom metadata to be included in metadata file
+        tags (list): List of tags. Essentially just as extra custom metadata field, but useful for quick organisation
+        bytestream (:py:class:`io.BytesIO`): Byte bytestream that data will be written to
+        filefolder (str): Folder in which the capture file will be stored
+        filename (str): Full name of the capture file
+        basename (str): Filename of the capture, without a file extension
+        format (str): Format of the capture data
+
+    Notes:
+        Captures cannot be stored in a lower-level directory than BASE_CAPTURE_PATH.
     """
 
     def __init__(
@@ -120,10 +147,10 @@ class CaptureObject(object):
         # Store a nice ID
         self.id = uuid.uuid4().hex  #: str: Unique capture ID
         logging.debug("Created StreamObject {}".format(self.id))
-        self.timestring = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  #: str: Timestring of capture creation time
+        self.timestring = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         # Keep on disk after close by default
-        self.temporary = temporary  #: bool: Mark the capture as temporary, to be deleted as the server closes, or as resources are required
+        self.temporary = temporary
 
         # Create file name. Default to UUID
         if not filepath:
@@ -133,13 +160,13 @@ class CaptureObject(object):
         self.split_file_path(self.file)
 
         # Dictionary for storing custom metadata
-        self._metadata = {}  #: dict: Dictionary of custom metadata to be included in metadata file
+        self._metadata = {}
 
         # List for storing tags
-        self.tags = []  #: list: List of tags. Essentially just as extra custom metadata field, but useful for quick organisation
+        self.tags = []
 
         # Byte bytestream properties
-        self.bytestream = io.BytesIO()  # Byte bytestream that data will be written to
+        self.bytestream = io.BytesIO()
 
         # Set default write target
         if not write_to_file:
@@ -182,12 +209,14 @@ class CaptureObject(object):
     def split_file_path(self, filepath):
         """
         Take a full file path, and split it into separated class properties.
-        
+
         Args:
             filepath (str): String of the full file path, including file format extension
         """
-        self.filefolder, self.filename = os.path.split(filepath)  # Split the full file path into a folder and a filename
-        self.basename = os.path.splitext(self.filename)[0]  # Split the filename out from it's file extension
+        # Split the full file path into a folder and a filename
+        self.filefolder, self.filename = os.path.split(filepath)
+        # Split the filename out from it's file extension
+        self.basename = os.path.splitext(self.filename)[0]
         self.format = self.filename.split('.')[-1]
 
         # Create folder and file

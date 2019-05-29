@@ -35,7 +35,7 @@ class ZoomAPI(MicroscopeView):
           Accept: application/json
 
           {
-            "zoom_value": 2.5, 
+            "zoom_value": 2.5,
           }
 
         :>header Accept: application/json
@@ -83,8 +83,8 @@ class OverlayAPI(MicroscopeView):
           Accept: application/json
 
           {
-            "text": "2019/01/15 14:48", 
-            "size": 50 
+            "text": "2019/01/15 14:48",
+            "size": 50
           }
 
         :>header Accept: application/json
@@ -92,7 +92,7 @@ class OverlayAPI(MicroscopeView):
         :<header Content-Type: application/json
         :status 200: preview started/stopped
         """
-        
+
         payload = JsonPayload(request)
         text = payload.param('text', default="", convert=str)
         size = payload.param('size', default=50, convert=int)

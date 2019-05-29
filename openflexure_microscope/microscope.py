@@ -25,24 +25,36 @@ class Microscope(object):
     Args:
         camera (:py:class:`openflexure_microscope.camera.pi.StreamingCamera`): camera object
         stage (:py:class:`openflexure_stage.stage.OpenFlexureStage`): stage object
-        config (:py:class:`openflexure_microscope.config.OpenflexureConfig`): Runtime-config object, automatically created if None.
+        config (:py:class:`openflexure_microscope.config.OpenflexureConfig`): Runtime-config object,
+            automatically created if None.
         attach_plugins (bool): Should the microscope attach plugins listen in 'config' immediately.
+
+    Attributes:
+        rc (:py:class:`openflexure_microscope.config.OpenflexureConfig`): Runtime-config object,
+            automatically created if None.
+        lock (:py:class:`openflexure_microscope.lock.CompositeLock`): Composite lock controlling thread access
+            to multiple pieces of hardware.
+        camera (:py:class:`openflexure_microscope.camera.pi.StreamingCamera`): Camera object
+        stage (:py:class:`openflexure_stage.stage.OpenFlexureStage`): Stage object
+        task: (:py:class:`openflexure_microscope.task.TaskOrchestrator`): Threaded ask orchestrator for managing
+            background tasks using microscope hardware
+        plugin (:py:class:`openflexure_microscope.plugins.PluginMount`): Mounting point for all microscope plugins
     """
     def __init__(
             self,
             camera: StreamingCamera,
             stage: OpenFlexureStage,
-            config = None,
+            config=None,
             attach_plugins: bool = True):
 
         # Create RC object
         if config:
             self.rc = config
         else:
-            self.rc = OpenflexureConfig(expand=True)  # Load config from default path
+            self.rc = OpenflexureConfig(expand=True)
 
         # Initialise with an empty composite lock
-        self.lock = CompositeLock([])  #: :py:class:`openflexure_microscope.lock.CompositeLock`: Composite lock controlling thread access to multiple pieces of hardware
+        self.lock = CompositeLock([])
 
         # Attach initial hardware (may be NoneTypes)
         self.camera = None
@@ -50,23 +62,22 @@ class Microscope(object):
         self.attach(camera, stage)
 
         # Create a task orchestrator
-        self.task = TaskOrchestrator()  #: :py:class:`openflexure_microscope.task.TaskOrchestrator`: Threaded task orchestrator
+        self.task = TaskOrchestrator()
 
         # Create plugin mount-point
-        self.plugin = PluginMount(self)  #: :py:class:`openflexure_microscope.plugins.PluginMount`: Mounting point for all microscope plugins
+        self.plugin = PluginMount(self)
 
         # Attach plugins
         if attach_plugins:
             self.attach_plugins()
-        
+
         # Set default parameters
         if 'name' not in self.rc.config:
             self.rc.write({'name': uuid.uuid4().hex})
-        
+
         if 'fov' not in self.rc.config:
             self.rc.write({'fov': [0, 0]})
-        
-        
+
     def __enter__(self):
         """Create microscope on context enter."""
         return self
@@ -160,7 +171,8 @@ class Microscope(object):
         """Dictionary of the basic microscope state.
 
         Return:
-            dict: Dictionary containing position data, and :py:attr:`openflexure_microscope.camera.base.BaseCamera.state`
+            dict: Dictionary containing position data, 
+                and :py:attr:`openflexure_microscope.camera.base.BaseCamera.state`
         """
         state = {
             'camera': self.camera.state,
