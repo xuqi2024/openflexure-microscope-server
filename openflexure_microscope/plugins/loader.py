@@ -78,8 +78,13 @@ def load_plugin_module(plugin_path):
 
     # If the loader was found (i.e. plugin probably exists)
     if check_module(plugin_path):
-        plugin_module = importlib.import_module(plugin_path)
-        plugin_name = name_from_module(plugin_path)
+        try:
+            plugin_module = importlib.import_module(plugin_path)
+            plugin_name = name_from_module(plugin_path)
+        except Exception as e:
+            logging.error("Error loading plugin.")
+            logging.error(e)
+            return None, None
 
     # If no loader was found, try finding a file from path
     else:
@@ -126,7 +131,8 @@ class PluginMount(object):
     """
     def __init__(self, parent):
         self.parent = parent
-        self.plugins = []
+        self.plugins = []  # List of plugin objects
+        self.schemas = []  # List of plugin schemas
         logging.info("Creating plugin mount")
 
     @property
@@ -155,24 +161,28 @@ class PluginMount(object):
         """
         plugin_class, plugin_name = class_from_map(plugin_map)
 
-        pythonsafe_plugin_name = plugin_name.replace("/", "_")
+        if plugin_class is not None:
 
-        if plugin_class and plugin_name:
-            plugin_object = plugin_class()
+            pythonsafe_plugin_name = plugin_name.replace("/", "_")
 
-            if hasattr(self, plugin_name):  # If a plugin with the same name is already attached.
-                logging.warning(ConColors.WARNING + "A plugin named {} has already been loaded. Skipping {}.".format(plugin_name, plugin_map) + ConColors.ENDC)
+            if plugin_class and plugin_name:
+                plugin_object = plugin_class()
 
-            elif isinstance(plugin_object, MicroscopePlugin):  # If plugin_object is an instance of MicroscopePlugin
-                # Attach plugin_object to the plugin mount
-                setattr(self, pythonsafe_plugin_name, plugin_object)
-                self.plugins.append((plugin_name, plugin_object))
+                if hasattr(self, plugin_name):  # If a plugin with the same name is already attached.
+                    logging.warning(ConColors.WARNING + "A plugin named {} has already been loaded. Skipping {}.".format(plugin_name, plugin_map) + ConColors.ENDC)
 
-                # Grant plugin access to the hardware
-                plugin_object.microscope = self.parent
+                elif isinstance(plugin_object, MicroscopePlugin):  # If plugin_object is an instance of MicroscopePlugin
+                    # Attach plugin_object to the plugin mount
+                    setattr(self, pythonsafe_plugin_name, plugin_object)
+                    self.plugins.append((plugin_name, plugin_object))
 
-                logging.info(ConColors.OKGREEN + "Plugin {} loaded as {}.".format(plugin_map, plugin_name) + ConColors.ENDC)
+                    # Grant plugin access to the hardware
+                    plugin_object.microscope = self.parent
 
+                    logging.info(ConColors.OKGREEN + "Plugin {} loaded as {}.".format(plugin_map, plugin_name) + ConColors.ENDC)
+
+        else:
+            logging.error("Error loading plugin. Moving on.")
 
 class MicroscopePlugin:
     """

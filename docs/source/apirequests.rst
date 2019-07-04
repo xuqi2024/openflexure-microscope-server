@@ -42,21 +42,23 @@ CURL
 .. code-block:: none
 
    curl -X POST -H "Content-Type: application/json" -d \\
-   '{"picamera_settings": {"shutter_speed": 2000}, "jpeg_quality": 90}' http://192.168.1.126:5000/api/v1/config
+   '{"camera_settings": {"picamera_settings": {"shutter_speed": 2000}, "jpeg_quality": 90}}' http://192.168.1.126:5000/api/v1/config
 
 HTTPie
 ++++++
 .. code-block:: none
 
-   http POST http://192.168.1.126:5000/api/v1/config jpeg_quality:=90 picamera_settings:='{"shutter_speed": 2000}'
+   http POST http://192.168.1.126:5000/api/v1/config camera_settings:='{"jpeg_quality": 90, "picamera_settings": {"shutter_speed": 2000}}' 
 
 Python Requests
 +++++++++++++++
 .. code-block:: python
 
    json_payload = {
-        "jpeg_quality": 90,
-        "picamera_settings": {"shutter_speed": 2000}
+       camera_settings: {
+            "jpeg_quality": 90,
+            "picamera_settings": {"shutter_speed": 2000}
+        }
    }
    requests.post('http://192.168.1.126:5000/api/v1/config', json=json_payload)
 

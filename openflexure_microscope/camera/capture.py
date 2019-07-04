@@ -203,8 +203,12 @@ class CaptureObject(object):
         Construct a full file path, based on filename, folder, and file format.
         Defaults to UUID.
         """
-        global TEMP_CAPTURE_PATH
-        return os.path.join(self.folder, self.filename)  # Full file name by joining given folder to given name
+        global TEMP_CAPTURE_PATH, BASE_CAPTURE_PATH 
+        if self.temporary:
+            base_dir = TEMP_CAPTURE_PATH
+        else:
+            base_dir = BASE_CAPTURE_PATH
+        return os.path.join(base_dir, self.filename)  # Full file name by joining given folder to given name
 
     def split_file_path(self, filepath):
         """

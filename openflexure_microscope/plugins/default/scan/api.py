@@ -1,7 +1,5 @@
-from openflexure_microscope.api.v1.views import MicroscopeViewPlugin
-from openflexure_microscope.api.utilities import JsonPayload
+from openflexure_microscope.devel import MicroscopeViewPlugin, JsonPayload, request, jsonify, abort
 
-from flask import request, jsonify, abort
 import logging
 
 class TileScanAPI(MicroscopeViewPlugin):

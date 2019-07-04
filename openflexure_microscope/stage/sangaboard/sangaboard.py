@@ -10,8 +10,10 @@ It is (c) Richard Bowman & Julian Stirling 2019 and released under GNU GPL v3
 from __future__ import print_function, division
 import time
 from .extensible_serial_instrument import ExtensibleSerialInstrument, OptionalModule, QueriedProperty, EIGHTBITS, PARITY_NONE, STOPBITS_ONE
+import serial, serial.tools.list_ports
 import re
 import warnings
+import logging
 
 class Sangaboard(ExtensibleSerialInstrument):
     """Class managing serial communications with a Sangaboard
@@ -28,17 +30,27 @@ class Sangaboard(ExtensibleSerialInstrument):
 
     This class can be used as a context manager, i.e. it's encouraged to use it as::
 
-       with Sangaboard() as sb:
-           sb.move_rel([1000,0,0])
+        with Sangaboard() as sb:
+            sb.move_rel([1000,0,0])
 
     In that case, the serial port will automatically be closed at the end of the block,
     even if an error occurs.  Otherwise, be sure to call the
     :meth:`~.ExtensibleSerialInstrument.close()` method to release the serial port.
     """
+
+    # List of valid and deprecated firmwares, for communication checks
+    valid_firmwares = [
+        (0, 5), 
+        (0, 4)
+    ]
+    deprecated_firmwares = [
+        (0, 4)
+    ]
+
+    # These are the settings for the sangaboards serial port, and can usually be left as default.
     port_settings = {'baudrate':115200, 'bytesize':EIGHTBITS, 'parity':PARITY_NONE, 'stopbits':STOPBITS_ONE}
-    """These are the settings for the sangaboards serial port, and can usually be left as default."""
-    # position, step time and ramp time are get/set using simple serial
-    # commands.
+    
+    # position, step time and ramp time are get/set using simple serial commands.
     position = QueriedProperty(get_cmd="p?", response_string=r"%d %d %d",
             doc="Get the position of the axes as a tuple of 3 integers.")
     step_time = QueriedProperty(get_cmd="dt?", set_cmd="dt %d", response_string="minimum step delay %d",
@@ -52,10 +64,12 @@ class Sangaboard(ExtensibleSerialInstrument):
                 "control.  Small moves may last less than `2*ramp_time`, in which case the acceleration "
                 "will be the same, but the motor will never reach full speed.  It is saved to EEPROM on "
                 "the sangaboard, so it will be persistent even if the motor controller is turned off.")
+
+    # The names of the sangaboard's axes.  NB this also defines the number of axes
     axis_names = ('x', 'y', 'z')
-    """The names of the sangaboard's axes.  NB this also defines the number of axes."""
+
+    # Once initialised, `firmware` is a string that identifies the firmware version
     firmware = None
-    """Once initialised, `firmware` is a string that identifies the firmware version."""
 
     def __init__(self, port=None, **kwargs):
         """Create a sangaboard object.
@@ -66,30 +80,18 @@ class Sangaboard(ExtensibleSerialInstrument):
         you will use to communicate with the motor controller.  That's the first argument so
         it doesn't need to be named.
         """
-        super(Sangaboard, self).__init__(port, **kwargs)
-        try:
-            # Request firmware version from the board
-            self.firmware = self.query("version",timeout=2).rstrip()
-            # The slightly complicated regexp below will match the version string,
-            # and store the version number in the "groups" of the regexp.  The version
-            # number should be in the format 1.2 and the groups will be "1.2", "1", "2"
-            # (for any number of elements).
-            try:
-                match = re.match(r"Sangaboard Firmware v(([\d]+)(?:\.([\d]+))+)", self.firmware)
-                assert match, "Version string \"{}\" not recognised.".format(self.firmware)
-            except AssertionError:
-                match = re.match(r"OpenFlexure Motor Board v(([\d]+)(?:\.([\d]+))+)", self.firmware)
-                assert match, "Version string \"{}\" not recognised.".format(self.firmware)
 
-            version = [int(g) for g in match.groups()[1:]]
-            self.firmware_version = match.group(1)
-            support_str = "This version of the Python module requires firmware v0.5 (with legacy support for v0.4)"
-            assert version[0] == 0, support_str
-            if version[1] == 4:
-                warnings.warn("Warning this Sangaboard is using v0.4 of the firmware, this will soon be depreciated!\n"+
-                              "Please consider updating the Sangaboard firmware",Warning)
-            else:
-                assert version[1] == 5, support_str
+        # If no port is specified
+        if not port:
+            # Scan all available ports, and check for valid firmware
+            scanned_port = self.scan_ports()
+
+        # Initialise basic serial instrument with specified
+        ExtensibleSerialInstrument.__init__(self, scanned_port, **kwargs)
+
+        try:
+            # Make absolutely sure that whatever port we're on is valid
+            self.check_valid_firmware()
 
             #Bit messy: Defining all valid modules as not available, then overwriting with available information if available.
             self.light_sensor = LightSensor(False)
@@ -101,11 +103,11 @@ class Sangaboard(ExtensibleSerialInstrument):
                     if module_model in self.supported_light_sensors:
                         self.light_sensor = LightSensor(True,parent=self,model=module_model)
                     else:
-                        warnings.warn("Light sensor model \"%s\" not recognised."%(module_model),RuntimeWarning)
+                        logging.warning("Light sensor model \"%s\" not recognised."%(module_model))
                 elif module_type.startswith('Endstops'):
                     self.endstops = Endstops(True, parent=self, model=module_model)
                 else:
-                    warnings.warn("Module type \"{}\" not recognised.".format(module_type),RuntimeWarning)
+                    logging.warning("Module type \"{}\" not recognised.".format(module_type))
 
             self.board = self.query("board",timeout=2).rstrip()
 
@@ -113,8 +115,78 @@ class Sangaboard(ExtensibleSerialInstrument):
             # If an error occurred while setting up (e.g. because the board isn't connected or something)
             # make sure we close the serial port cleanly (otherwise it hangs open).
             self.close()
-            warnings.warn("You may need to update the firmware running on the Sangaboard.")
+            logging.error(e)
+            logging.error("You may need to update the firmware running on the Sangaboard.")
             raise e
+
+    def scan_ports(self):
+        """Iterate through the available serial ports and query them to see
+        if our instrument is there."""
+        logging.debug("Running Sangaboard port scanner")
+        with self.communications_lock:
+            success = False
+            for port_name, _, _ in serial.tools.list_ports.comports(): #loop through serial ports, apparently 256 is the limit?!
+                try:
+                    logging.info("Trying port {}".format(port_name))
+                    self.open(port_name)
+                    success = True
+
+                    logging.info("Checking firmware")
+                    fw = self.check_valid_firmware()
+                    if not fw:
+                        success = False
+                except Exception as e:
+                    logging.warning("Error on port {}".format(port_name))
+                    logging.warning(e)
+                    pass
+                finally:
+                    try:
+                        self.close()
+                    except:
+                        pass #we don't care if there's an error closing the port...
+                if success:
+                    break #again, make sure this happens *after* closing the port
+            if success:
+                return port_name
+            else:
+                return None
+
+    def check_valid_firmware(self):
+        logging.debug("Running firmware checks")
+
+        # Request firmware version from the board
+        self.firmware = self.query("version",timeout=2).rstrip()
+
+        # Check for valid firmware string
+        if self.firmware:
+            match = re.match(r"Sangaboard Firmware v(([\d]+)(?:\.([\d]+))+)", self.firmware)
+            if not match:
+                # Try old firmware format
+                match = re.match(r"OpenFlexure Motor Board v(([\d]+)(?:\.([\d]+))+)", self.firmware)
+            if not match:
+                logging.error("Version string \"{}\" not recognised.".format(self.firmware))
+                return False
+        else:
+            logging.error("No firmware version string was returned.")
+            return False
+
+        # Check for matching/valid version number
+        version = [int(g) for g in match.groups()[1:]]
+        version_tuple = (version[0], version[1])
+
+        self.firmware_version = match.group(1)
+
+        if version_tuple not in Sangaboard.valid_firmwares:
+            logging.error("This version of the Python module requires firmware v0.5 (with legacy support for v0.4)")
+            return False
+        
+        if version_tuple in Sangaboard.deprecated_firmwares:
+            logging.warning(
+                "Warning this Sangaboard is using v0.4 of the firmware, this will soon be depreciated! "
+                "Please consider updating the Sangaboard firmware"
+            )
+        
+        return True
 
     def move_rel(self, displacement, axis=None):
         """Make a relative move.
@@ -170,10 +242,12 @@ class LightSensor(OptionalModule):
     """
     valid_gains = None
     _valid_gains_int = None
-    integration_time = QueriedProperty(get_cmd="light_sensor_integration_time?",
-                                       set_cmd="light_sensor_integration_time %d",
-                                       response_string="light sensor integration time %d ms",
-                                       doc="Get or set the integration time of the light sensor in milliseconds.")
+    integration_time = QueriedProperty(
+        get_cmd="light_sensor_integration_time?",
+        set_cmd="light_sensor_integration_time %d",
+        response_string="light sensor integration time %d ms",
+        doc="Get or set the integration time of the light sensor in milliseconds."
+    )
     intensity = QueriedProperty(get_cmd="light_sensor_intensity?", response_string="%d",
                                 doc="Read the current intensity measured by the light sensor (arbitrary units).")
 

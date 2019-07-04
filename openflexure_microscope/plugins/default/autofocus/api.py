@@ -1,11 +1,7 @@
 import numpy as np
 import logging
 
-from openflexure_microscope.api.v1.views import MicroscopeViewPlugin
-from openflexure_microscope.api.utilities import JsonPayload
-
-from flask import request, jsonify
-
+from openflexure_microscope.devel import MicroscopeViewPlugin, JsonPayload, request, jsonify
 
 class MeasureSharpnessAPI(MicroscopeViewPlugin):
     def post(self):
@@ -32,9 +28,9 @@ class FastAutofocusAPI(MicroscopeViewPlugin):
         
         # Figure out the parameters to use
         dz = payload.param("dz", default=2000, convert=int)
-        backlash = payload.param("backlash", default=None, convert=int)
+        backlash = payload.param("backlash", default=0, convert=int)
         if backlash < 0:
-            backlash = None
+            backlash = 0
 
         logging.info("Running autofocus...")
         task = self.microscope.task.start(self.plugin.fast_autofocus, dz, backlash=backlash)

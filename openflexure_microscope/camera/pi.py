@@ -12,7 +12,7 @@ Video port:
     Splitter port 2: Video capture
     Splitter port 3: [Currently unused]
 
-StreamingCamera streams at stream_resolution
+StreamingCamera streams at video_resolution
 Camera capture resolution set to stream_resolution in frames()
 Video port uses that resolution for everything. If a different resolution
 is specified for video capture, this is handled by the resizer.
@@ -39,36 +39,23 @@ from .base import BaseCamera, CaptureObject
 # Richard's fix gain
 from .set_picamera_gain import set_analog_gain, set_digital_gain
 
-# Handle config and picamera settings
-CONFIG_KEYS = {
-    'stream_resolution': (832, 624),
-    'image_resolution': (2592, 1944),  # Default for PiCamera v1. Overridden in __init__
-    'numpy_resolution': (1312, 976),
-    'jpeg_quality': 75,
-    'picamera_settings': {
-        'exposure_mode': None,
-        'awb_mode': None,
-        'awb_gains': None,
-        'framerate': None,
-        'shutter_speed': None,
-        'saturation': None,
-        'analog_gain': None,
-        'digital_gain': None,
-        'lens_shading_table': None,
-    },
-}
-
 
 # MAIN CLASS
 class StreamingCamera(BaseCamera):
-    """Raspberry Pi camera implementation of StreamingCamera.
+    """Raspberry Pi camera implementation of StreamingCamera."""
+    picamera_settings_keys = [
+        'exposure_mode',
+        'analog_gain',
+        'digital_gain',
+        'shutter_speed',
+        'awb_gains',
+        'awb_mode',
+        'framerate',
+        'saturation',
+        'lens_shading_table'
+    ]
 
-    Args:
-        config (dict): Dictionary of config parameters to apply on init. If None, will default to basic config.
-    """
-    def __init__(self, config: dict = None):
-        global CONFIG_KEYS
-
+    def __init__(self):
         # Run BaseCamera init
         BaseCamera.__init__(self)
         # Attach to Pi camera
@@ -83,17 +70,11 @@ class StreamingCamera(BaseCamera):
         # Reset variable states
         self.set_zoom(1.0)
 
-        # Populate config and settings with all available keys
-        self.config.update(CONFIG_KEYS)
-
-        # Update config based on PiCamera parameters
-        self.config.update({
-            'image_resolution': tuple(self.camera.MAX_RESOLUTION)
-        })
-
-        # Load config dictionary if passed
-        if config:
-            self.apply_config(config)
+        # Update config properties
+        self.image_resolution = tuple(self.camera.MAX_RESOLUTION)
+        self.stream_resolution = (832, 624)
+        self.numpy_resolution = (1312, 976)
+        self.jpeg_quality = 75
 
         # Create an empty stream
         self.stream = io.BytesIO()
@@ -114,43 +95,31 @@ class StreamingCamera(BaseCamera):
             self.camera.close()
 
     # HANDLE SETTINGS
-    @property
-    def supports_lens_shading(self):
-        """Determine whether the picamera module supports lens shading.
-
-        As of March 2018, picamera did not wrap the necessary MMAL commands to
-        set the lens shading table, or to write the value of analog or digital
-        gain.  I have a forked version of the library that does support these.
-        For ease of use by people who don't want those features, this library
-        does not have a hard dependency on lens shading.  However, we need to
-        check in some places whether it's available.
-        """
-        return hasattr(self.camera, "lens_shading_table")
-
-    def read_config(self):
+    def read_config(self) -> dict:
         """
         Return config dictionary of the StreamingCamera.
         """
+
         conf_dict = {
+            'stream_resolution': self.stream_resolution,
+            'image_resolution': self.image_resolution,
+            'numpy_resolution': self.numpy_resolution,
+            'jpeg_quality': self.jpeg_quality,
             'picamera_settings': {},
         }
 
-        # PiCamera parameters (obtained directly from PiCamera object)
-        for key, _ in CONFIG_KEYS['picamera_settings'].items():
+        # PiCamera parameters
+        for key in StreamingCamera.picamera_settings_keys:
             try:
                 value = getattr(self.camera, key)
+                logging.debug("Reading PiCamera().{}: {}".format(key, value))
                 conf_dict['picamera_settings'][key] = value
             except AttributeError:
                 logging.debug("Unable to read PiCamera attribute {}".format(key))
 
-        # StreamingCamera parameters (obtained from StreamingCamera _config)
-        for key in CONFIG_KEYS:
-            if (key != 'picamera_settings') and (key in self.config):
-                conf_dict[key] = self.config[key]
-
         return conf_dict
 
-    def apply_config(self, config: dict) -> None:
+    def apply_config(self, config: dict):
         """
         Write a config dictionary to the StreamingCamera config.
 
@@ -160,16 +129,16 @@ class StreamingCamera(BaseCamera):
         Args:
             config (dict): Dictionary of config parameters.
         """
-        
+        # TODO: Include timing and batching logic when applying PiCamera settings
+
         paused_stream = False
+        logging.debug("StreamingCamera: Applying config:")
+        logging.debug(config)
 
         with self.lock:
 
             # Apply valid config params to Picamera object
             if not self.state['record_active']:  # If not recording a video
-
-                logging.debug("Applying config:")
-                logging.debug(config)
 
                 # Pause stream while changing settings
                 if self.state['stream_active']:  # If stream is active
@@ -177,32 +146,14 @@ class StreamingCamera(BaseCamera):
                     self.stop_stream_recording()  # Pause stream
                     paused_stream = True  # Remember to unpause stream when done
 
-                # PiCamera parameters (applied directly to PiCamera object)
+                # PiCamera parameters
                 if 'picamera_settings' in config:  # If new settings are given
-                    for key, value in config['picamera_settings'].items():  # For each given setting
-                        if hasattr(self.camera, key):
-                            self.config['picamera_settings'][key] = None  # Add the key to the list of returned settings
-                            logging.debug("Setting parameter {}: {}".format(key, config['picamera_settings'][key]))
+                    self.apply_picamera_settings(config['picamera_settings'], pause_for_effect=True)
 
-                            # Handle special attributes:
-                            if key == 'digital_gain':
-                                set_digital_gain(self.camera, value)
-                            elif key == 'analog_gain':
-                                set_analog_gain(self.camera, value)
-                            elif key == "shutter_speed":
-                                # TODO: use types from CONFIG_KEYS? @jtc42
-                                self.camera.shutter_speed = int(value)
-                            else:
-                                setattr(self.camera, key, value)  # Write setting to camera
-
-                # StreamingCamera parameters (applied via StreamingCamera config)
+                # StreamingCamera parameters
                 for key, value in config.items():  # For each provided setting
-                    if key != 'picamera_settings':  # We already handled this
-                        if key not in CONFIG_KEYS.keys():
-                            logging.warn("{} is not in the streaming camera settings dictionary - adding it.")
-                            #continue #TODO: filter settings somehow?
-                        logging.debug("Setting parameter {}: {}".format(key, value))
-                        self.config[key] = value
+                    if (key != 'picamera_settings') and hasattr(self, key):
+                        setattr(self, key, value)
 
                 # If stream was paused to update config, unpause
                 if paused_stream:
@@ -212,6 +163,53 @@ class StreamingCamera(BaseCamera):
             else:
                 raise Exception(
                     "Cannot update camera config while recording is active.")
+
+    def apply_picamera_settings(self, settings_dict: dict, pause_for_effect: bool=True):
+        # Set exposure mode
+        if 'exposure_mode' in settings_dict:
+            logging.debug("Applying exposure_mode: {}".format(settings_dict['exposure_mode']))
+            self.camera.exposure_mode = settings_dict['exposure_mode']
+
+        # Apply gains and let them settle
+        if 'analog_gain' in settings_dict:
+            logging.debug("Applying analog_gain: {}".format(settings_dict['analog_gain']))
+            set_analog_gain(self.camera, settings_dict['analog_gain'])
+        if 'digital_gain' in settings_dict:
+            logging.debug("Applying digital_gain: {}".format(settings_dict['digital_gain']))
+            set_digital_gain(self.camera, settings_dict['digital_gain'])
+        
+        # Apply shutter speed
+        if 'shutter_speed' in settings_dict:
+            logging.debug("Applying shutter_speed: {}".format(settings_dict['shutter_speed']))
+            self.camera.shutter_speed = settings_dict['shutter_speed']
+
+        time.sleep(0.2)  # Let gains settle
+
+        # Handle AWB in a half-smart way
+        if 'awb_gains' in settings_dict:
+            logging.debug("Applying awb_mode: off")
+            self.camera.awb_mode = 'off'
+            logging.debug("Applying awb_gains: {}".format(settings_dict['awb_gains']))
+            self.camera.awb_gains = settings_dict['awb_gains']
+        elif 'awb_mode' in settings_dict:
+            logging.debug("Applying awb_mode: {}".format(settings_dict['awb_mode']))
+            self.camera.awb_mode = settings_dict['awb_mode']
+
+        # Handle some properties that can be quickly applied
+        batched_keys = ['framerate', 'saturation']
+        for key in batched_keys:
+            if (key in settings_dict) and hasattr(self.camera, key):
+                logging.debug("Applying {}: {}".format(key, settings_dict[key]))
+                setattr(self.camera, key, settings_dict[key])
+
+        # Handle lens shading if camera supports it
+        if ('lens_shading_table' in settings_dict) and hasattr(self.camera, 'lens_shading_table'):
+            logging.debug("Applying lens_shading_table: {}".format(settings_dict['lens_shading_table']))
+            self.camera.lens_shading_table = settings_dict['lens_shading_table']
+
+        # Final optional pause to settle
+        if pause_for_effect:
+            time.sleep(0.2)
 
     def set_zoom(self, zoom_value: float = 1.) -> None:
         """
@@ -223,21 +221,21 @@ class StreamingCamera(BaseCamera):
                 self.state['zoom_value'] = 1
             # Richard's code for zooming !
             fov = self.camera.zoom
-            centre = np.array([fov[0] + fov[2]/2.0, fov[1] + fov[3]/2.0])
-            size = 1.0/self.state['zoom_value']
+            centre = np.array([fov[0] + fov[2] / 2.0, fov[1] + fov[3] / 2.0])
+            size = 1.0 / self.state['zoom_value']
             # If the new zoom value would be invalid, move the centre to
             # keep it within the camera's sensor (this is only relevant
             # when zooming out, if the FoV is not centred on (0.5, 0.5)
             for i in range(2):
-                if np.abs(centre[i] - 0.5) + size/2 > 0.5:
-                    centre[i] = 0.5 + (1.0 - size)/2 * np.sign(centre[i]-0.5)
+                if np.abs(centre[i] - 0.5) + size / 2 > 0.5:
+                    centre[i] = 0.5 + (1.0 - size) / 2 * np.sign(centre[i] - 0.5)
             logging.info("setting zoom, centre {}, size {}".format(centre, size))
-            new_fov = (centre[0] - size/2, centre[1] - size/2, size, size)
+            new_fov = (centre[0] - size / 2, centre[1] - size / 2, size, size)
             self.camera.zoom = new_fov
 
     # LAUNCH ACTIONS
 
-    def start_preview(self, fullscreen=True, window=None) -> bool:
+    def start_preview(self, fullscreen=True, window=None):
         """Start the on board GPU camera preview."""
         logging.info("Starting the GPU preview")
 
@@ -260,7 +258,7 @@ class StreamingCamera(BaseCamera):
         except picamera.exc.PiCameraValueError as e:
             logging.error("Suppressed a ValueError exception in start_preview. Exception: {}".format(e))
 
-    def stop_preview(self) -> bool:
+    def stop_preview(self):
         """Stop the on board GPU camera preview."""
         self.camera.stop_preview()
         self.state['preview_active'] = False
@@ -289,8 +287,6 @@ class StreamingCamera(BaseCamera):
 
                 # If output is a StreamObject
                 if isinstance(output, CaptureObject):
-                    # Lock the StreamObject while recording
-                    output.lock()
                     # Set target to capture stream
                     output_stream = output.stream
                 else:
@@ -303,7 +299,7 @@ class StreamingCamera(BaseCamera):
                     output_stream,
                     format=fmt,
                     splitter_port=2,
-                    resize=self.config['stream_resolution'],
+                    resize=self.stream_resolution,
                     quality=quality)
 
                 # Update state dictionary
@@ -342,7 +338,7 @@ class StreamingCamera(BaseCamera):
         with self.lock:
             # If no resolution is specified, default to image_resolution
             if not resolution:
-                resolution = self.config['image_resolution']
+                resolution = self.image_resolution
 
             # Stop the camera video recording on port 1
             try:
@@ -366,7 +362,7 @@ class StreamingCamera(BaseCamera):
         Args:
             splitter_port (int): Splitter port to start recording on
             resolution ((int, int)): Resolution to set the camera to, before starting recording. 
-                Defaults to `self.config['stream_resolution']`.
+                Defaults to `self.stream_resolution`.
         """
         with self.lock:
             # If stream object was destroyed
@@ -375,7 +371,7 @@ class StreamingCamera(BaseCamera):
 
             # If no explicit resolution is passed
             if not resolution:
-                resolution = self.config['stream_resolution']  # Default to video recording resolution
+                resolution = self.stream_resolution  # Default to video recording resolution
 
             # Reduce the resolution for video streaming
             try:
@@ -392,7 +388,7 @@ class StreamingCamera(BaseCamera):
                     self.camera.start_recording(
                         self.stream,
                         format='mjpeg',
-                        quality=self.config['jpeg_quality'],
+                        quality=self.jpeg_quality,
                         bitrate=-1,  # RWB: disable bitrate control 
                         # (bitrate control makes JPEG size less good as a focus
                         # metric)
@@ -463,9 +459,9 @@ class StreamingCamera(BaseCamera):
         """
         with self.lock:
             if use_video_port:
-                resolution = self.config['stream_resolution']
+                resolution = self.stream_resolution
             else:
-                resolution = self.config['numpy_resolution']
+                resolution = self.numpy_resolution
 
             if resize:
                 size = resize
@@ -503,9 +499,9 @@ class StreamingCamera(BaseCamera):
         """
         with self.lock:
             if use_video_port:
-                resolution = self.config['stream_resolution']
+                resolution = self.stream_resolution
             else:
-                resolution = self.config['numpy_resolution']
+                resolution = self.numpy_resolution
 
             if resize:
                 size = resize
@@ -533,6 +529,15 @@ class StreamingCamera(BaseCamera):
 
     # HANDLE STREAM FRAMES
 
+    def wait_for_camera(self, timeout=5):
+        """Wait for camera object, with 5 second timeout."""
+        timeout_time = time.time() + timeout
+        while not self.camera:
+            if time.time() > timeout_time:
+                raise TimeoutError("Timeout waiting for camera")
+            else:
+                pass
+
     def frames(self):
         """
         Create generator that returns frames from the camera.
@@ -557,7 +562,7 @@ class StreamingCamera(BaseCamera):
                 self.stream.seek(0)
                 self.stream.truncate()
                 # to stream, read the new frame
-                time.sleep(1/self.camera.framerate*0.1)
+                time.sleep(1 / self.camera.framerate * 0.1)
                 # yield the result to be read
                 frame = self.stream.getvalue()
 

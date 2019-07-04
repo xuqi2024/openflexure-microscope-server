@@ -1,5 +1,5 @@
 Microscope configuration
-=======================================================
+========================
 
 .. toctree::
    :maxdepth: 2
@@ -13,52 +13,13 @@ Microscope RC file
 Microscope configuration is made persistent via a microscope runtime-config (RC) file. By default, this
 file exists at ``~/.openflexure/microscope_settings.yaml``, and contains basic parameters to set up the microscope.
 
-Additionally, by default, configurations for specific pieces of hardware (i.e. the Pi camera) are located
+Additionally, by default, configurations for specific pieces of hardware (i.e. the stage and camera) are located
 in separate "auxillary" config files, and are linked together by adding the config file's path to your main
-microscope RC file. This is set up by default, as shown below:
-
-Default microscope_settings.yaml
-+++++++++++++++++++++++++
-.. code-block:: yaml
-
-    # Resolutions for streaming and capture
-    stream_resolution: [832, 624]
-    image_resolution: [2592, 1944]
-    numpy_resolution: [1312, 976]
-
-    # Field of view, in stage steps
-    fov: [4100, 3146]
-
-    # Capture quality
-    jpeg_quality: 75
-
-    # Parameters specific to PiCamera objects
-    picamera_settings: ~/.openflexure/picamera_settings.yaml
-
-    # Default plugins
-    plugins:
-    - openflexure_microscope.plugins.default.autofocus:AutofocusPlugin
-    - openflexure_microscope.plugins.default.camera_calibration:Plugin
-
-Example picamera_settings.yaml
-++++++++++++++++++++++++++++++
-.. code-block:: yaml
-
-    analog_gain: !!python/object/apply:fractions.Fraction ['1']
-    awb_gains: !!python/tuple
-    - !!python/object/apply:fractions.Fraction [221/256]
-    - !!python/object/apply:fractions.Fraction [709/256]
-    awb_mode: auto
-    digital_gain: !!python/object/apply:fractions.Fraction [585/256]
-    exposure_mode: auto
-    framerate: !!python/object/apply:picamera.mmalobj.PiCameraFraction ['30']
-    lens_shading_table: ...
-    saturation: 0
-    shutter_speed: 0
+microscope RC file. 
 
 
 Loading the runtime-config
-+++++++
+++++++++++++++++++++++++++
 
 By default, a microscope object will load the a runtime-config from the default location.
 This RC can then be passed to any hardware attached to the microscope. This can be particularly

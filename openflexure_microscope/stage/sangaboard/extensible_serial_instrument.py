@@ -16,18 +16,18 @@ that is read and/or set with a single serial query (i.e. a read followed by a wr
 """
 
 
-from __future__ import print_function, division
+from __future__ import division
 import re
 from functools import partial
 import threading
 import serial
-import serial.tools.list_ports
 from serial import FIVEBITS, SIXBITS, SEVENBITS, EIGHTBITS
 from serial import PARITY_NONE, PARITY_EVEN, PARITY_ODD, PARITY_MARK, PARITY_SPACE
 from serial import STOPBITS_ONE, STOPBITS_ONE_POINT_FIVE, STOPBITS_TWO
 import io
 import time
 import warnings
+import logging
 
 class ExtensibleSerialInstrument(object):
     """
@@ -54,14 +54,17 @@ class ExtensibleSerialInstrument(object):
     ignore_echo = False
     port_settings = {}
 
-    def __init__(self, port=None, **kwargs):
+    def __init__(self, port, **kwargs):
         """
         Set up the serial port and so on.
         """
+        logging.info("Updating ESI port settings")
         self.port_settings.update(kwargs)
+        logging.info("Opening ESI connection to port {}".format(port))
         self.open(port, False) # Eventually this shouldn't rely on init...
+        logging.info("Opened ESI connection to port {}".format(port))
 
-    def open(self, port=None, quiet=True):
+    def open(self, port, quiet=True):
         """Open communications with the serial port.
         
         If no port is specified, it will attempt to autodetect.  If quiet=True
@@ -69,10 +72,9 @@ class ExtensibleSerialInstrument(object):
         """
         with self.communications_lock:
             if hasattr(self,'_ser') and self._ser.isOpen():
-                if not quiet: print("Warning: attempted to open an already-open port!")
+                if not quiet: logging.warning("Attempted to open an already-open port!")
                 return
-            if port is None: port=self.find_port()
-            assert port is not None, "We don't have a serial port to open, meaning you didn't specify a valid port and autodetection failed.  Are you sure the instrument is connected?"
+            assert port is not None, "We don't have a serial port to open, meaning you didn't specify a valid port.  Are you sure the instrument is connected?"
             self._ser = serial.Serial(port,**self.port_settings)
             #the block above wraps the serial IO layer with a text IO layer
             #this allows us to read/write in neat lines.  NB the buffer size must
@@ -81,11 +83,13 @@ class ExtensibleSerialInstrument(object):
 
     def close(self):
         """Release the serial port"""
+        logging.debug("Closing serial connection")
         with self.communications_lock:
             try:
                 self._ser.close()
             except Exception as e:
-                print("The serial port didn't close cleanly:", e)
+                logging.warning("The serial port didn't close cleanly:", e)
+        logging.debug("Connection closed")
 
     def __del__(self):
         """Close the port when the object is deleted
@@ -164,7 +168,7 @@ class ExtensibleSerialInstrument(object):
                 if first_line == queryString:
                     return self.readline(timeout).strip()
                 else:
-                    print('This command did not echo!!!')
+                    logging.info('This command did not echo!!!')
                     return first_line
     
             if termination_line is not None:
@@ -238,9 +242,9 @@ class ExtensibleSerialInstrument(object):
             else:
                 return parsed_result
         except ValueError:
-            print("Parsing Error")
-            print("Matched Groups:", res.groups())
-            print("Parsing Functions:", parse_function)
+            logging.error("Parsing Error")
+            logging.info("Matched Groups:", res.groups())
+            logging.info("Parsing Functions:", parse_function)
             raise ValueError("Stage response to %s ('%s') couldn't be parsed by the supplied function" % (query_string, reply))
     def int_query(self, query_string, **kwargs):
         """Perform a query and return the result(s) as integer(s) (see parsedQuery)"""
@@ -257,31 +261,6 @@ class ExtensibleSerialInstrument(object):
         Usually this function sends a command and checks for a known reply."""
         with self.communications_lock:
             return True
-            
-    def find_port(self):
-        """Iterate through the available serial ports and query them to see
-        if our instrument is there."""
-        with self.communications_lock:
-            success = False
-            for port_name, _, _ in serial.tools.list_ports.comports(): #loop through serial ports, apparently 256 is the limit?!
-                try:
-                    print("Trying port",port_name)
-                    self.open(port_name)
-                    success = True
-                    print("Success!")
-                except:
-                    pass
-                finally:
-                    try:
-                        self.close()
-                    except:
-                        pass #we don't care if there's an error closing the port...
-                if success:
-                    break #again, make sure this happens *after* closing the port
-            if success:
-                return port_name
-            else:
-                return None
     
 class OptionalModule(object):
     """This allows a `ExtensibleSerialInstrument` to have optional features.
@@ -363,7 +342,6 @@ class QueriedProperty(object):
 
     # TODO: standardise the return (single value only vs parsed result), consider bool
     def __get__(self, obj, objtype=None):
-        #print 'get', obj, objtype
         if issubclass(type(obj),OptionalModule):
             obj.confirm_available()
             obj=obj._parent
@@ -386,7 +364,6 @@ class QueriedProperty(object):
         return value
 
     def __set__(self, obj, value):
-        #print 'set', obj, value
         if issubclass(type(obj),OptionalModule):
             obj.confirm_available()
             obj=obj._parent

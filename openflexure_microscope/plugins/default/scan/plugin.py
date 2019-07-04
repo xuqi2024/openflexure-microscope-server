@@ -2,10 +2,12 @@ import time
 import numpy as np
 from typing import Tuple
 import uuid
+import itertools
 import logging
 
 from openflexure_microscope.camera.base import generate_basename
-from openflexure_microscope.plugins import MicroscopePlugin
+
+from openflexure_microscope.devel import MicroscopePlugin
 
 from .api import TileScanAPI
 
@@ -86,6 +88,8 @@ class ScanPlugin(MicroscopePlugin):
             'position': self.microscope.state['stage']['position'],
             'scan_id': scan_id,
             'basename': basename,
+            'microscope_id': self.microscope.id,
+            'microscope_name': self.microscope.name
         })
 
         output.put_metadata(metadata)

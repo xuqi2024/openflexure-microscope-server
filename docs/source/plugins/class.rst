@@ -22,12 +22,17 @@ Lock module
 Default plugins
 ---------------
 
-Microscope plugin
-+++++++++++++++++
-.. automodule:: openflexure_microscope.plugins.default.plugin
+Autofocus
++++++++++
+.. automodule:: openflexure_microscope.plugins.default.autofocus
     :members:
 
-Web API plugin
+Camera calibration
+++++++++++++++++++
+.. automodule:: openflexure_microscope.plugins.default.camera_calibration
+    :members:
+
+Scan and Stack
 ++++++++++++++
-.. automodule:: openflexure_microscope.plugins.default.api
+.. automodule:: openflexure_microscope.plugins.default.scan
     :members:

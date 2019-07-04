@@ -3,12 +3,12 @@ import logging
 import numpy as np
 from contextlib import contextmanager
 
-from openflexure_microscope.plugins import MicroscopePlugin
 from openflexure_microscope.utilities import set_properties
 
 from .focus_utils import sharpness_sum_lap2, JPEGSharpnessMonitor
 from .api import MeasureSharpnessAPI, AutofocusAPI, FastAutofocusAPI
 
+from openflexure_microscope.devel import MicroscopePlugin
 
 class AutofocusPlugin(MicroscopePlugin):
     """
@@ -89,30 +89,41 @@ class AutofocusPlugin(MicroscopePlugin):
 
         This autofocus method is very efficient, as it only passes the peak once.
         The sequence of moves it performs is:
-        1. Move to the top of the range `dz/2` (can be disabled)
-        2. Move down by `dz` while monitoring JPEG size to find the focus.
-        3. Move back up to the `target_z` position, relative to the sharpest image.
-        4. Measure the sharpness, and compare against the curve recorded in (2) to 
-           estimate how much further we need to go.  Make this move, to reach our
-           target position.
+
+        1.  Move to the top of the range `dz/2` (can be disabled)
+
+        2.  Move down by `dz` while monitoring JPEG size to find the focus.
+
+        3.  Move back up to the `target_z` position, relative to the sharpest image.
+
+        4.  Measure the sharpness, and compare against the curve recorded in (2) to \\
+            estimate how much further we need to go.  Make this move, to reach our \\
+            target position.
+
         Moving back to the target position in two steps allows us to correct for
         backlash, by using the sharpness-vs-z curve as a rough encoder for Z.
 
         Parameters:
-        dz: number of steps over which to scan (optional, default 2000)
-        target_z: we aim to finish at this position, relative to focus.  This may
-           be useful if, for example, you want to acquire a stack of images in Z.
-           It is optional, and the default value of 0 will finish at the focus.
-        initial_move_up: (optional, default True) set this to `False` to move down
-           from the starting position.  Mostly useful if you're able to combine
-           the initial move with something else, e.g. moving to the next scan point.
-        mini_backlash: (optional, default 50) is a small extra move made in step
-           3 to help counteract backlash.  It should be small enough that you
-           would always expect there to be greater backlash than this.  Too small
-           might slightly hurt accuracy, but is unlikely to be a big issue.  Too big
-           may cause you to overshoot, which is a problem.
+            dz: number of steps over which to scan (optional, default 2000)
+
+            target_z: we aim to finish at this position, relative to focus.  This may 
+                be useful if, for example, you want to acquire a stack of images in Z. 
+                It is optional, and the default value of 0 will finish at the focus.
+
+            initial_move_up: (optional, default True) set this to `False` to move down
+                from the starting position.  Mostly useful if you're able to combine
+                the initial move with something else, e.g. moving to the next scan point.
+
+            mini_backlash: (optional, default 50) is a small extra move made in step
+                3 to help counteract backlash.  It should be small enough that you
+                would always expect there to be greater backlash than this.  Too small
+                might slightly hurt accuracy, but is unlikely to be a big issue.  Too big
+                may cause you to overshoot, which is a problem.
         """
-        with self.monitor_sharpness() as m:
+        with self.monitor_sharpness() as m, self.microscope.camera.lock:
+            # Ensure the MJPEG stream has started
+            self.microscope.camera.start_stream_recording()
+
             df = dz #TODO: refactor so I actually use dz in the code below!
             if initial_move_up:
                 m.focus_rel(df/2)

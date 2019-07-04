@@ -12,16 +12,20 @@ from openflexure_microscope.api.exceptions import JSONExceptionHandler
 from openflexure_microscope.api.utilities import list_routes
 
 from openflexure_microscope import Microscope
-from openflexure_microscope.camera.pi import StreamingCamera
+
+try:
+    from openflexure_microscope.camera.pi import StreamingCamera
+except ImportError:
+    from openflexure_microscope.camera.mock import StreamingCamera
+
 from openflexure_microscope.stage.sanga import SangaStage
 from openflexure_microscope.stage.mock import MockStage
 
 from openflexure_microscope.camera.capture import build_captures_from_exif
-
 from openflexure_microscope.config import USER_CONFIG_DIR
-
 from openflexure_microscope.api.v1 import blueprints
 
+import time
 import atexit
 import logging
 import sys
@@ -59,7 +63,7 @@ else:
     root.setLevel(logging.getLogger("gunicorn.error").level)
 
 # Create a dummy microscope object, with no hardware attachments
-api_microscope = Microscope(None, None)
+api_microscope = Microscope()
 
 # Rebuild the capture list
 # TODO: Offload to a thread?
@@ -89,16 +93,18 @@ handler = JSONExceptionHandler(app)
 @app.before_first_request
 def attach_microscope():
     # Create the microscope object globally (common to all spawned server threads)
-    global api_microscope, capture_list
+    global api_microscope, stored_image_list
     logging.debug("First request made. Populating microscope with hardware...")
 
     logging.debug("Creating camera object...")
-    api_camera = StreamingCamera(config=api_microscope.rc.read())
+    # TODO: Try except finally, like with stage
+    api_camera = StreamingCamera()
 
     logging.debug("Creating stage object...")
+    # TODO: Tidy this up. api_stage may be referenced before assignment. Use some form of Maybe monad?
     try:
         api_stage = SangaStage()
-    except (SerialException, OSError) as e:
+    except Exception as e:
         logging.error(e)
         logging.warning("No valid stage hardware found. Falling back to mock stage!")
         api_stage = MockStage()
@@ -145,6 +151,12 @@ app.register_blueprint(task_blueprint, url_prefix=uri('/task', 'v1'))
 def routes():
     """
     List of all connected API routes
+
+    .. :quickref: System; Routes
+
+    :>header Accept: application/json
+    :>header Content-Type: application/json
+    :status 200: stream active
     """
     return jsonify(list_routes(app))
 
@@ -153,6 +165,12 @@ def routes():
 def err_log():
     """
     Most recent 1mb of log output
+
+    .. :quickref: System; Log
+
+    :>header Accept: application/json
+    :>header Content-Type: application/json
+    :status 200: stream active
     """
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     return send_file(
@@ -166,13 +184,23 @@ def err_log():
 def cleanup():
     global api_microscope
     logging.debug("App teardown started...")
+    logging.debug("Settling...")
+    time.sleep(0.5)
 
     # Save config
-    if api_microscope.rc:
-        api_microscope.rc.save(backup=True)
+    logging.debug("Saving config for teardown...")
+    api_microscope.save_config(backup=True)
+
+    logging.debug("Settling...")
+    time.sleep(0.5)
 
     # Close down the microscope
+    logging.debug("Closing devices...")
     api_microscope.close()
+
+    logging.debug("Settling...")
+    time.sleep(0.5)
+
     logging.debug("App teardown complete.")
 
 

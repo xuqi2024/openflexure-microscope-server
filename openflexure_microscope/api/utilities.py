@@ -44,7 +44,7 @@ class JsonPayload:
         else:
             val = default
 
-        if convert:
+        if convert and (val is not None):
             val = convert(val)
         return val
 

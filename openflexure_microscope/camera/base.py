@@ -5,6 +5,8 @@ import threading
 import datetime
 import logging
 
+from abc import ABCMeta, abstractmethod
+
 try:
     from greenlet import getcurrent as get_ident
 except ImportError:
@@ -41,6 +43,11 @@ def generate_numbered_basename(obj_list: list) -> str:
         iterator += 1
 
     return basename
+
+
+def shunt_captures(target_list: list):
+    for obj in target_list:  # For each older capture
+        obj.shunt()  # Shunt capture from memory to storage
 
 
 class CameraEvent(object):
@@ -87,7 +94,7 @@ class CameraEvent(object):
         self.events[get_ident()][0].clear()
 
 
-class BaseCamera(object):
+class BaseCamera(metaclass=ABCMeta):
     """
     Base implementation of StreamingCamera.
 
@@ -101,7 +108,6 @@ class BaseCamera(object):
         stream_timeout (int): Number of inactive seconds before timing out the stream
         stream_timeout_enabled (bool): Enable or disable timing out the stream
         state (dict): Dictionary for capture state
-        config (dict): Dictionary of base camera config
         paths (dict): Dictionary of capture paths
         images (list): List of image capture objects
         videos (list): List of video capture objects
@@ -115,12 +121,12 @@ class BaseCamera(object):
         self.frame = None
         self.last_access = 0
         self.event = CameraEvent()
+        self.stop = False  # Used to indicate that the stream loop should break
 
         self.stream_timeout = 20
         self.stream_timeout_enabled = False
 
         self.state = {}
-        self.config = {}
         self.paths = {
             'image': BASE_CAPTURE_PATH,
             'video': BASE_CAPTURE_PATH,
@@ -132,13 +138,15 @@ class BaseCamera(object):
         self.images = []
         self.videos = []
 
-    def apply_config(self, config):
+    @abstractmethod
+    def apply_config(self, config: dict):
         """Update settings from a config dictionary"""
-        self.config.update(config)
+        pass
 
-    def read_config(self, config):
+    @abstractmethod
+    def read_config(self) -> dict:
         """Return the current settings as a dictionary"""
-        return self.config
+        pass
 
     def __enter__(self):
         """Create camera on context enter."""
@@ -159,15 +167,6 @@ class BaseCamera(object):
         self.stop_worker()
         logging.info("Closed {}".format(self))
 
-    def wait_for_camera(self, timeout=5):
-        """Wait for camera object, with 5 second timeout."""
-        timeout_time = time.time() + timeout
-        while not self.camera:
-            if time.time() > timeout_time:
-                raise TimeoutError("Timeout waiting for camera")
-            else:
-                pass
-
     # START AND STOP WORKER THREAD
 
     def start_worker(self, timeout: int = 5) -> bool:
@@ -176,7 +175,7 @@ class BaseCamera(object):
 
         self.last_access = time.time()
         self.stop = False
-        
+
         if not self.state['stream_active']:
             # start background frame thread
             self.thread = threading.Thread(target=self._thread)
@@ -222,9 +221,10 @@ class BaseCamera(object):
 
         return self.frame
 
+    @abstractmethod
     def frames(self):
         """Create generator that returns frames from the camera."""
-        raise RuntimeError('Must be implemented by subclasses.')
+        pass
 
     # RETURNING CAPTURES
 
@@ -248,10 +248,6 @@ class BaseCamera(object):
 
     # CREATING NEW CAPTURES
 
-    def shunt_captures(self, target_list: list):
-        for obj in target_list:  # For each older capture
-            obj.shunt()  # Shunt capture from memory to storage
-
     def new_image(
             self,
             write_to_file: bool = True,
@@ -268,6 +264,7 @@ class BaseCamera(object):
             temporary (bool): Should the data be deleted after session ends. 
                 Creating the capture with a content manager sets this to true.
             filename (str): Name of the stored file. Defaults to timestamp.
+            folder (str): Name of the folder in which to store the capture.
             fmt (str): Format of the capture.
         """
 
@@ -291,7 +288,7 @@ class BaseCamera(object):
             filepath=filepath)
 
         # Update capture list
-        self.shunt_captures(self.images)
+        shunt_captures(self.images)
         self.images.append(output)
 
         return output
@@ -312,6 +309,7 @@ class BaseCamera(object):
             temporary (bool): Should the data be deleted after session ends. 
                 Creating the capture with a content manager sets this to true.
             filename (str): Name of the stored file. Defaults to timestamp.
+            folder (str): Name of the folder in which to store the capture.
             fmt (str): Format of the capture.
         """
 
@@ -335,7 +333,7 @@ class BaseCamera(object):
             filepath=filepath)
 
         # Update capture list
-        self.shunt_captures(self.videos)
+        shunt_captures(self.videos)
         self.videos.append(output)
 
         return output

@@ -58,7 +58,7 @@ yaml.Loader.add_constructor(u'tag:yaml.org,2002:bool', construct_yaml_bool)
 
 # HANDLE CONVERTING ARBITRARY CONFIG TO JSON-SAFE JSON
 
-def json_convert(v):
+def convert_type_to_json_safe(v):
     """Make an individual attribute JSON-safe"""
     if isinstance(v, Fraction):
         return float(v)
@@ -66,7 +66,7 @@ def json_convert(v):
         return v
 
 
-def to_map(data, func):
+def recursively_apply(data, func):
     """
     Recursively apply a function to a dictionary, list, array, or tuple
 
@@ -76,18 +76,18 @@ def to_map(data, func):
     """
     # If the object is a dictionary
     if isinstance(data, abc.Mapping):
-        return {key: to_map(val, func) for key, val in data.items()}
+        return {key: recursively_apply(val, func) for key, val in data.items()}
     # If the object is iterable but NOT a dictionary or a string
     elif (isinstance(data, abc.Iterable) and
           not isinstance(data, abc.Mapping) and
           not isinstance(data, str)):
-        return [to_map(x, func) for x in data]
+        return [recursively_apply(x, func) for x in data]
     # if the object is neither a map nor iterable
     else:
         return func(data)
 
 
-def json_map(data, clean_keys=True):
+def settings_to_json(data: dict, clean_keys=True):
     """
     Make a copy of an input dictionary that's safe for JSON return
 
@@ -102,12 +102,12 @@ def json_map(data, clean_keys=True):
     # If we're cleaning up unsuitable keys
     if clean_keys:
         # Convert lens_shading_table to a bool
-        if 'picamera_settings' in d and 'lens_shading_table' in d['picamera_settings']:
+        if 'picamera_settings' in d['camera_settings'] and 'lens_shading_table' in d['camera_settings']['picamera_settings']:
             logging.debug("Bool-ifying lens_shading_table")
-            if d['picamera_settings']['lens_shading_table'] is not None:
-                d['picamera_settings']['lens_shading_table'] = True
+            if d['camera_settings']['picamera_settings']['lens_shading_table'] is not None:
+                d['camera_settings']['picamera_settings']['lens_shading_table'] = True
 
-    return to_map(d, json_convert)
+    return recursively_apply(d, convert_type_to_json_safe)
 
 
 # HANDLE BASIC LOADING AND SAVING OF YAML FILES
@@ -142,6 +142,7 @@ def save_yaml_file(config_path: str, config_dict: dict, safe: bool = False):
     config_path = os.path.expanduser(config_path)
 
     logging.info("Saving {}...".format(config_path))
+    logging.debug(config_dict)
 
     with open(config_path, 'w') as outfile:
         if not safe:
@@ -183,7 +184,7 @@ def initialise_file(config_path, populate: str = ""):
 
 
 # MAIN CONFIG CLASS
-class OpenflexureConfig:
+class OpenflexureSettingsFile:
     """
     An object to handle expansion, conversion, and saving of the microscope configuration.
 
@@ -195,82 +196,56 @@ class OpenflexureConfig:
         global DEFAULT_CONFIG, USER_CONFIG_FILE
 
         self.expandable_keys = {
-            'picamera_settings': None,
-            'openflexure_stage_settings': None
+            'camera_settings': None,
+            'stage_settings': None
         }  #: Dictionary of keys that can be passed as a file path string and expanded automatically
 
         # Set arguments
         self.config_path = config_path or USER_CONFIG_FILE
         self.expand = expand
 
-        # Create empty config dictionaries
-        self._config = {}
-
         # Initialise basic config file with defaults if it doesn't exist
         initialise_file(self.config_path, populate=DEFAULT_CONFIG)
-
-        # Load the config in, setting self._config and self.config
-        self.load()
-
-    @property
-    def config(self):
-        """
-        Return a dictionary representation of the current config as a property.
-        """
-        return self.read()
-
-    def read(self, json_safe=False):
-        """
-        Read the current full config.
-
-        Args:
-            json_safe (bool): Converts invalid data types to JSON types, and removes any 
-                excessively large values (e.g. lens-shading tables).
-        """
-        if json_safe:
-            logging.info("Reading config as JSON-safe dictionary")
-            return json_map(self._config)
-        else:
-            logging.info("Reading config directly")
-            return self._config
-
-    def write(self, update_dict: dict):
-        """
-        Write properties to the config. Merges dictionaries, rather than fully replacing.
-
-        Args:
-            update_dict (dict): Dictionary of config data to merge.
-        """
-        self._config.update(update_dict)
 
     def load(self):
         """
         Loads config from a file on-disk, and expands auxillary config files if available.
         """
         # Unexpanded config dictionary (used at load/save time)
-        self._config = load_yaml_file(self.config_path)
+        loaded_config = load_yaml_file(self.config_path)
 
         # If the loaded config is in contracted format
         if self.expand:
             # Expand self.raw_config into self._config
-            self._config = self.expand_config(self._config)
+            loaded_config = self.expand_config(loaded_config)
 
-    def save(self, backup: bool = True):
+        logging.debug("Reading settings from disk")
+        return loaded_config
+
+    def save(self, config: dict, backup: bool = True):
         """
         Save config to a file on-disk, and splits into auxillary config files if available.
         """
         # If the loaded config was in contracted format
         if self.expand:
             # Contract self._config into self.raw_config
-            save_config = self.contract_config(self._config)
+            save_config = self.contract_config(config)
         else:
-            save_config = self._config
+            save_config = config
     
         if backup:
             if os.path.isfile(self.config_path):
                 shutil.copyfile(self.config_path, self.config_path+".bk")
 
+        logging.debug("Saving settings dictionary to disk")
         save_yaml_file(self.config_path, save_config)
+
+    def merge(self, config: dict, backup: bool = True):
+        logging.debug("Merging settings with file on disk")
+        settings = self.load()
+        settings.update(config)
+
+        return settings
 
     def expand_config(self, config_dict):
         """

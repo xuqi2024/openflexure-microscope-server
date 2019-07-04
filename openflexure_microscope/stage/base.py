@@ -11,6 +11,16 @@ class BaseStage(metaclass=ABCMeta):
     def __init__(self):
         self.lock = StrictLock(timeout=5)
 
+    @abstractmethod
+    def apply_config(self, config: dict):
+        """Update settings from a config dictionary"""
+        pass
+
+    @abstractmethod
+    def read_config(self):
+        """Return the current settings as a dictionary"""
+        pass
+
     @property
     @abstractmethod
     def state(self):

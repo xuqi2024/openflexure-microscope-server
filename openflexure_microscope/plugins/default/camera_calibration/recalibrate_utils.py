@@ -1,8 +1,8 @@
 import numpy as np
-from picamera import PiCamera
-from picamera.array import PiRGBArray, PiBayerArray
 import time
 
+from picamera import PiCamera
+from picamera.array import PiRGBArray, PiBayerArray
 
 def rgb_image(camera, resize=None, **kwargs):
     """Capture an image and return an RGB numpy array"""

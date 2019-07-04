@@ -1,8 +1,5 @@
-from openflexure_microscope.plugins import MicroscopePlugin
-from openflexure_microscope.api.v1.views import MicroscopeViewPlugin
-from openflexure_microscope.api.utilities import JsonPayload
+from openflexure_microscope.devel import MicroscopePlugin, MicroscopeViewPlugin, JsonPayload, request, jsonify
 
-from flask import request, jsonify
 import logging
 
 from .recalibrate_utils import recalibrate_camera, auto_expose_and_freeze_settings
@@ -10,10 +7,6 @@ from .recalibrate_utils import recalibrate_camera, auto_expose_and_freeze_settin
 
 class RecalibrateAPIView(MicroscopeViewPlugin):
     def post(self):
-        payload = JsonPayload(request)
-        
-        # TODO: Figure out the range of z values to use
-
         logging.info("Starting microscope recalibration...")
         task = self.microscope.task.start(self.plugin.recalibrate)
 

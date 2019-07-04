@@ -26,7 +26,7 @@ Generally, for adding anything other than very simple functionality, plugins sho
 The main restriction is that the plugin package must be importable using an absolute import from within the Python environment being used to load your microscope. 
 
 Loading plugins with microscope_settings.yaml
---------------------------------------
+---------------------------------------------
 Both types of plugin are loaded by specifying the plugin class in your :ref:`MicroscopeRC`. In the case of a single-file plugin, specify the path to the plugin file, followed by the name of your :py:class:`openflexure_microscope.plugins.MicroscopePlugin` child class, separated by a colon. For packaged plugins, specify the absolute module name in place of the path.
 
 For example, the plugins section of your microscope_settings.yaml file may look like:

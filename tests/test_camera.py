@@ -81,9 +81,9 @@ class TestCaptureMethods(unittest.TestCase):
                         dims = resize
                     else:
                         if use_video_port:
-                            dims = camera.config['stream_resolution']
+                            dims = camera.stream_resolution
                         else:
-                            dims = camera.config['image_resolution']
+                            dims = camera.image_resolution
 
                     # Ensure PIL image size matches expected size
                     print(image.size, dims)
@@ -148,9 +148,9 @@ class TestUnencodedMethods(unittest.TestCase):
                     dims = resize
                 else:
                     if use_video_port:
-                        dims = camera.config['stream_resolution']
+                        dims = camera.stream_resolution
                     else:
-                        dims = camera.config['numpy_resolution']
+                        dims = camera.numpy_resolution
 
                 # Ensure array shape matches expected dimensions
                 self.assertTrue(yuv.shape == (dims[1], dims[0], 3))
@@ -180,9 +180,9 @@ class TestUnencodedMethods(unittest.TestCase):
                     dims = resize
                 else:
                     if use_video_port:
-                        dims = camera.config['stream_resolution']
+                        dims = camera.stream_resolution
                     else:
-                        dims = camera.config['numpy_resolution']
+                        dims = camera.numpy_resolution
 
                 # Ensure array shape matches expected dimensions
                 self.assertTrue(rgb.shape == (dims[1], dims[0], 3))

@@ -1,36 +1,13 @@
 OpenFlexure Microscope Software
 =====================
 
-# Installation
+# Quickstart
 
-A general guide on setting up your microscope can be found [here on our website](https://www.openflexure.org/projects/microscope/).
+A general user-guide on setting up your microscope can be found [**here on our website**](https://www.openflexure.org/projects/microscope/).
+This includes basic installation instructions suitable for most users.
 
-## Easy
-- Run `curl -LSs get.openflexure.org/microscope |sudo bash`
-- Follow on-screen prompts
-
-## Manual
-### User
-- (Recommended) create a virtual environment
-  - `pip3 install virtualenv`
-  - `mkdir ~/.openflexure`
-  - `python3 -m virtualenv ~/.openflexure/envmicroscope`
-  - Activate with `source /.openflexure/envmicroscope/bin/activate`
-- Install non-python dependencies with `sudo apt-get install libatlas-base-dev libjasper-dev libjpeg-dev`
-- **Users:** Install module by running `pip install openflexure-microscope`
-- **Developers:** Install [Poetry](https://github.com/sdispater/poetry), clone this repo, and `poetry install` from inside the repo.
-
-# Usage
-## Running the web API in Gunicorn (port 5000)
-- Ensure Gunicorn is installed to the current environment (`pip install gunicorn`)
-- Run `gunicorn --threads 5 --workers 1 --graceful-timeout 3 --bind 0.0.0.0:5000 openflexure_microscope.api.app:app`
-
-# REST(ish) API
-The Flask app serves a (reasonably) RESTful web API. For most user-facing functionality, this is the preferred interface. 
-API documentation, with example requests, is available [here](https://openflexure-microscope-software.readthedocs.io/en/latest/api.html).
-
-
-# Developer notes
+Full developer documentation can be found on [**ReadTheDocs**](https://openflexure-microscope-software.readthedocs.io/en/stable/). 
+This includes installing the server in a mode better suited for active development.
 
 ## Build-system
 As of 1.0.0b0, we're using [Poetry](https://github.com/sdispater/poetry) to manage dependencies, build, and distribute the package. All package information and dependencies are found in `pyproject.toml`, in line with [PEP 518](https://www.python.org/dev/peps/pep-0518/). If you're developing this package, make use of `poetry.lock` to ensure you're using the latest locked dependency list.

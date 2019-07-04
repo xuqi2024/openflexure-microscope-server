@@ -1,5 +1,6 @@
 # Pyenv files
 .python-version
+.venv/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -4,6 +4,7 @@ import logging
 from collections.abc import Iterable
 from .sangaboard import Sangaboard
 from openflexure_microscope.stage.base import BaseStage
+from openflexure_microscope.utilities import axes_to_array
 
 
 class SangaStage(BaseStage):
@@ -22,8 +23,9 @@ class SangaStage(BaseStage):
         BaseStage.__init__(self)
 
         self.board = Sangaboard(port, **kwargs)
-        self._backlash = None
-        self.axis_names = ['x', 'y', 'z']
+
+        self._backlash = None  # Initialise backlash storage, used by property setter/getter
+        self.axis_names = ['x', 'y', 'z']  # Assume all sangaboards are 3 axis
 
     @property
     def state(self):
@@ -79,6 +81,28 @@ class SangaStage(BaseStage):
             self._backlash = np.array(blsh)
         else:
             self._backlash = np.array([int(blsh)]*self.n_axes, dtype=np.int)
+
+    def apply_config(self, config: dict):
+        """Update settings from a config dictionary"""
+
+        # Set backlash. Expects a dictionary with axis labels
+        if 'backlash' in config:
+            # Construct backlash array
+            backlash = axes_to_array(config['backlash'], ['x', 'y', 'z'], [0, 0, 0])
+            self.backlash = backlash
+
+    def read_config(self) -> dict:
+        """Return the current settings as a dictionary"""
+        blsh = self.backlash.tolist()
+        config = {
+                'backlash': {
+                    'x': blsh[0],
+                    'y': blsh[1],
+                    'z': blsh[2],
+                }
+            }
+
+        return config
 
     def move_rel(self, displacement, axis=None, backlash=True):
         """Make a relative move, optionally correcting for backlash.
@@ -162,7 +186,8 @@ class SangaStage(BaseStage):
 
     def close(self):
         """Cleanly close communication with the stage"""
-        self.board.close()
+        if hasattr(self, 'board'):
+            self.board.close()
 
     # Methods specific to Sangaboard
     def release_motors(self):
