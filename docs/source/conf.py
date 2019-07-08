@@ -64,7 +64,7 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinxcontrib.httpdomain',
     'sphinxcontrib.autohttp.flask',
-    'sphinxcontrib.autohttp.flaskqref',
+    'sphinxcontrib.autohttp.flaskqref'
 ]
 
 # Override ordering

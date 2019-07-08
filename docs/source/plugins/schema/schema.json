@@ -1,0 +1,187 @@
+{
+    "definitions": {},
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://example.com/root.json",
+    "type": "object",
+    "title": "The Root Schema",
+    "required": [
+      "id",
+      "icon",
+      "forms"
+    ],
+    "properties": {
+      "id": {
+        "$id": "#/properties/id",
+        "type": "string",
+        "title": "Unique ID",
+        "description": "A unique name for the plugin UI",
+        "default": "",
+        "examples": [
+          "test-plugin"
+        ],
+        "pattern": "^(.*)$"
+      },
+      "icon": {
+        "$id": "#/properties/icon",
+        "type": "string",
+        "title": "Icon name",
+        "description": "Name of the Material Design icon to use for the plugin tab",
+        "default": "",
+        "examples": [
+          "pets"
+        ],
+        "pattern": "^(.*)$"
+      },
+      "forms": {
+        "$id": "#/properties/forms",
+        "type": "array",
+        "title": "Forms array",
+        "description": "Array of form descriptions to be displayed",
+        "default": null,
+        "items": {
+          "$id": "#/properties/forms/items",
+          "type": "object",
+          "title": "The Items Schema",
+          "required": [
+            "name",
+            "route",
+            "schema"
+          ],
+          "properties": {
+            "name": {
+              "$id": "#/properties/forms/items/properties/name",
+              "type": "string",
+              "title": "Form name",
+              "description": "Human-readable form name",
+              "default": "",
+              "examples": [
+                "Simple request"
+              ],
+              "pattern": "^(.*)$"
+            },
+            "isCollapsible": {
+              "$id": "#/properties/forms/items/properties/isCollapsible",
+              "type": "boolean",
+              "title": "The isCollapsible Schema",
+              "description": "Should the form be rendered as a collapsible item",
+              "default": false,
+              "examples": [
+                true
+              ]
+            },
+            "isTask": {
+              "$id": "#/properties/forms/items/properties/isTask",
+              "type": "boolean",
+              "title": "The isTask Schema",
+              "description": "Should the form's submit function be treated as a long-running task",
+              "default": false,
+              "examples": [
+                false
+              ]
+            },
+            "selfUpdate": {
+              "$id": "#/properties/forms/items/properties/selfUpdate",
+              "type": "boolean",
+              "title": "The selfUpdate Schema",
+              "description": "Should the form's component values be automatically updated with a GET request",
+              "default": false,
+              "examples": [
+                true
+              ]
+            },
+            "route": {
+              "$id": "#/properties/forms/items/properties/route",
+              "type": "string",
+              "title": "The Route Schema",
+              "description": "Form submit POST request's corresponding api_views route",
+              "default": "",
+              "examples": [
+                "/do"
+              ],
+              "pattern": "^(.*)$"
+            },
+            "submitLabel": {
+              "$id": "#/properties/forms/items/properties/submitLabel",
+              "type": "string",
+              "title": "The submitLabel Schema",
+              "description": "String to place in submit button",
+              "default": "Submit",
+              "examples": [
+                "Do my function"
+              ],
+              "pattern": "^(.*)$"
+            },
+            "schema": {
+              "$id": "#/properties/forms/items/properties/schema",
+              "type": "array",
+              "title": "Form component array",
+              "items": {
+                "$id": "#/properties/forms/items/properties/schema/items",
+                "type": "object",
+                "title": "A form component",
+                "required": [
+                  "fieldType",
+                  "name"
+                ],
+                "properties": {
+                  "fieldType": {
+                    "$id": "#/properties/forms/items/properties/schema/items/properties/fieldType",
+                    "type": "string",
+                    "title": "Component type",
+                    "default": "",
+                    "examples": [
+                      "numberInput", 
+                      "textInput", 
+                      "radioList", 
+                      "checkList", 
+                      "htmlBlock",
+                      "selectList",
+                      "textInput",
+                      "keyvalList",
+                      "taglList"
+                    ],
+                    "pattern": "^(.*)$"
+                  },
+                  "placeholder": {
+                    "$id": "#/properties/forms/items/properties/schema/items/properties/placeholder",
+                    "type": "string",
+                    "title": "Component placeholder value",
+                    "default": "",
+                    "examples": [
+                      "Enter your name"
+                    ],
+                    "pattern": "^(.*)$"
+                  },
+                  "name": {
+                    "$id": "#/properties/forms/items/properties/schema/items/properties/name",
+                    "type": "string",
+                    "title": "Unique component name",
+                    "examples": [
+                      "my_form_component_1"
+                    ],
+                    "pattern": "^(.*)$"
+                  },
+                  "label": {
+                    "$id": "#/properties/forms/items/properties/schema/items/properties/label",
+                    "type": "string",
+                    "title": "Component label (if applicable)",
+                    "default": "",
+                    "examples": [
+                      "My form component"
+                    ],
+                    "pattern": "^(.*)$"
+                  },
+                  "value": {
+                    "$id": "#/properties/forms/items/properties/schema/items/properties/value",
+                    "type": ["array", "boolean", "integer", "number", "object", "string"],
+                    "title": "Component value",
+                    "pattern": "^(.*)$"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }

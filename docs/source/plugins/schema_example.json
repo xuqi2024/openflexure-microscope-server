@@ -1,0 +1,87 @@
+{
+    "id": "test-plugin",
+    "icon": "pets",
+    "forms": [
+      {
+        "name": "Simple request",
+        "isCollapsible": false,
+        "isTask": false,
+        "selfUpdate": true,
+        "route": "/do",
+        "submitLabel": "Do things",
+        "schema": [
+          {
+            "fieldType": "numberInput",
+            "placeholder": "Some integer",
+            "name": "val_int",
+            "label": "Number value"
+          },
+          {
+            "fieldType": "textInput",
+            "placeholder": "Some string",
+            "label": "String value",
+            "name": "val_str"
+          },
+          {
+            "fieldType": "radioList",
+            "name": "val_radio",
+            "label": "Radio value",
+            "options": ["First", "Second", "Third"]
+          },
+          {
+            "fieldType": "checkList",
+            "name": "val_check",
+            "label": "Checklist values",
+            "options": ["Foo", "Bar", "Baz"]
+          },
+          {
+            "fieldType": "htmlBlock",
+            "name": "html_block",
+            "content": "<i>This is a block of HTML in a plugin!</i>"
+          },
+          {
+            "fieldType": "selectList",
+            "name": "val_select",
+            "multi": false,
+            "label": "Some selection",
+            "options": ["Most", "Average", "Least"]
+          },
+          {
+            "fieldType": "textInput",
+            "placeholder": "Some string",
+            "label": "Non-persistent string",
+            "name": "val_disposable"
+          },
+          {
+            "fieldType": "keyvalList",
+            "label": "A key-val object",
+            "name": "val_keyval",
+            "value": {
+              "key1": "foo",
+              "key2": "bar"
+            }
+          },
+          {
+            "fieldType": "tagList",
+            "label": "A tag list",
+            "name": "val_tags",
+            "value": ["tag2", "tag2", "squidward"]
+          }
+        ]
+      },
+      {
+        "name": "Task form",
+        "isTask": true,
+        "selfUpdate": true,
+        "route": "/task",
+        "submitLabel": "Start task",
+        "schema": [
+            {
+              "fieldType": "numberInput",
+              "name": "run_time",
+              "label": "Run time (seconds)"
+            }
+        ]
+      }
+    ] 
+  }
