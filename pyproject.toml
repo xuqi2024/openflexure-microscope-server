@@ -4,7 +4,7 @@ build-backend = "poetry.masonry.api"
 
 [tool.poetry]
 name = "openflexure_microscope"
-version = "1.1.0"
+version = "1.1.1"
 description = "Python module, and Flask-based web API, to run the OpenFlexure Microscope."
 
 authors = [
@@ -37,3 +37,4 @@ picamera = { git = "https://github.com/rwb27/picamera.git", branch = "lens-shadi
 
 [tool.poetry.dev-dependencies]
 sphinxcontrib-httpdomain = "^1.7"
+rope = "^0.14.0"

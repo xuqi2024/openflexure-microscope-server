@@ -194,13 +194,6 @@ class SangaStage(BaseStage):
         """De-energise the stepper motor coils"""
         self.board.release_motors()
 
-    def __del__(self):
-        """Close the port when the object is deleted
-        
-        NB if the object is created in a with statement, this will cause
-        the port to be closed at the end of the with block."""
-        self.close()
-
     def __enter__(self):
         """When we use this in a with statement, remember where we started."""
         self._position_on_enter = self.position

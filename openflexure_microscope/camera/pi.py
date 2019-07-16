@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Raspberry Pi camera implementation of the StreamingCamera class.
+Raspberry Pi camera implementation of the PiCameraStreamer class.
 
 NOTES:
 Still port used for image capture
@@ -12,7 +12,7 @@ Video port:
     Splitter port 2: Video capture
     Splitter port 3: [Currently unused]
 
-StreamingCamera streams at video_resolution
+PiCameraStreamer streams at video_resolution
 Camera capture resolution set to stream_resolution in frames()
 Video port uses that resolution for everything. If a different resolution
 is specified for video capture, this is handled by the resizer.
@@ -41,8 +41,8 @@ from .set_picamera_gain import set_analog_gain, set_digital_gain
 
 
 # MAIN CLASS
-class StreamingCamera(BaseCamera):
-    """Raspberry Pi camera implementation of StreamingCamera."""
+class PiCameraStreamer(BaseCamera):
+    """Raspberry Pi camera implementation of PiCameraStreamer."""
     picamera_settings_keys = [
         'exposure_mode',
         'analog_gain',
@@ -61,7 +61,7 @@ class StreamingCamera(BaseCamera):
         # Attach to Pi camera
         self.camera = picamera.PiCamera()  #: :py:class:`picamera.PiCamera`: Picamera object
 
-        # Store state of StreamingCamera
+        # Store state of PiCameraStreamer
         self.state.update({
             'stream_active': False,
             'record_active': False,
@@ -87,7 +87,7 @@ class StreamingCamera(BaseCamera):
         pass
 
     def close(self):
-        """Close the Raspberry Pi StreamingCamera."""
+        """Close the Raspberry Pi PiCameraStreamer."""
         # Run BaseCamera close method
         BaseCamera.close(self)
         # Detach Pi camera
@@ -97,7 +97,7 @@ class StreamingCamera(BaseCamera):
     # HANDLE SETTINGS
     def read_config(self) -> dict:
         """
-        Return config dictionary of the StreamingCamera.
+        Return config dictionary of the PiCameraStreamer.
         """
 
         conf_dict = {
@@ -109,7 +109,7 @@ class StreamingCamera(BaseCamera):
         }
 
         # PiCamera parameters
-        for key in StreamingCamera.picamera_settings_keys:
+        for key in PiCameraStreamer.picamera_settings_keys:
             try:
                 value = getattr(self.camera, key)
                 logging.debug("Reading PiCamera().{}: {}".format(key, value))
@@ -121,7 +121,7 @@ class StreamingCamera(BaseCamera):
 
     def apply_config(self, config: dict):
         """
-        Write a config dictionary to the StreamingCamera config.
+        Write a config dictionary to the PiCameraStreamer config.
 
         The passed dictionary may contain other parameters not relevant to
         camera config. Eg. Passing a general config file will work fine.
@@ -132,7 +132,7 @@ class StreamingCamera(BaseCamera):
         # TODO: Include timing and batching logic when applying PiCamera settings
 
         paused_stream = False
-        logging.debug("StreamingCamera: Applying config:")
+        logging.debug("PiCameraStreamer: Applying config:")
         logging.debug(config)
 
         with self.lock:
@@ -150,7 +150,7 @@ class StreamingCamera(BaseCamera):
                 if 'picamera_settings' in config:  # If new settings are given
                     self.apply_picamera_settings(config['picamera_settings'], pause_for_effect=True)
 
-                # StreamingCamera parameters
+                # PiCameraStreamer parameters
                 for key, value in config.items():  # For each provided setting
                     if (key != 'picamera_settings') and hasattr(self, key):
                         setattr(self, key, value)

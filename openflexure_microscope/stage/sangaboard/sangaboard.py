@@ -81,13 +81,8 @@ class Sangaboard(ExtensibleSerialInstrument):
         it doesn't need to be named.
         """
 
-        # If no port is specified
-        if not port:
-            # Scan all available ports, and check for valid firmware
-            scanned_port = self.scan_ports()
-
         # Initialise basic serial instrument with specified
-        ExtensibleSerialInstrument.__init__(self, scanned_port, **kwargs)
+        ExtensibleSerialInstrument.__init__(self, port, **kwargs)
 
         try:
             # Make absolutely sure that whatever port we're on is valid
@@ -119,44 +114,18 @@ class Sangaboard(ExtensibleSerialInstrument):
             logging.error("You may need to update the firmware running on the Sangaboard.")
             raise e
 
-    def scan_ports(self):
-        """Iterate through the available serial ports and query them to see
-        if our instrument is there."""
-        logging.debug("Running Sangaboard port scanner")
-        with self.communications_lock:
-            success = False
-            for port_name, _, _ in serial.tools.list_ports.comports(): #loop through serial ports, apparently 256 is the limit?!
-                try:
-                    logging.info("Trying port {}".format(port_name))
-                    self.open(port_name)
-                    success = True
-
-                    logging.info("Checking firmware")
-                    fw = self.check_valid_firmware()
-                    if not fw:
-                        success = False
-                except Exception as e:
-                    logging.warning("Error on port {}".format(port_name))
-                    logging.warning(e)
-                    pass
-                finally:
-                    try:
-                        self.close()
-                    except:
-                        pass #we don't care if there's an error closing the port...
-                if success:
-                    break #again, make sure this happens *after* closing the port
-            if success:
-                return port_name
-            else:
-                return None
+    def test_communications(self):
+        """
+        Overrides superclass, used in self.open(), and port scanning
+        """
+        return self.check_valid_firmware()
 
     def check_valid_firmware(self):
         logging.debug("Running firmware checks")
 
         # Request firmware version from the board
         self.firmware = self.query("version",timeout=2).rstrip()
-
+        logging.info("Firmware response: {}".format(self.firmware))
         # Check for valid firmware string
         if self.firmware:
             match = re.match(r"Sangaboard Firmware v(([\d]+)(?:\.([\d]+))+)", self.firmware)

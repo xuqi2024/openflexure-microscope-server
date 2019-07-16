@@ -19,13 +19,13 @@ from .base import BaseCamera, CaptureObject
 
 
 # MAIN CLASS
-class StreamingCamera(BaseCamera):
+class MockStreamer(BaseCamera):
 
     def __init__(self):
         # Run BaseCamera init
         BaseCamera.__init__(self)
 
-        # Store state of StreamingCamera
+        # Store state of PiCameraStreamer
         self.state.update({
             'stream_active': False,
             'record_active': False
@@ -49,14 +49,14 @@ class StreamingCamera(BaseCamera):
         pass
 
     def close(self):
-        """Close the Raspberry Pi StreamingCamera."""
+        """Close the Raspberry Pi PiCameraStreamer."""
         # Run BaseCamera close method
         BaseCamera.close(self)
 
     # HANDLE SETTINGS
     def read_config(self) -> dict:
         """
-        Return config dictionary of the StreamingCamera.
+        Return config dictionary of the PiCameraStreamer.
         """
 
         conf_dict = {
@@ -70,7 +70,7 @@ class StreamingCamera(BaseCamera):
 
     def apply_config(self, config: dict):
         """
-        Write a config dictionary to the StreamingCamera config.
+        Write a config dictionary to the PiCameraStreamer config.
 
         The passed dictionary may contain other parameters not relevant to
         camera config. Eg. Passing a general config file will work fine.
@@ -81,7 +81,7 @@ class StreamingCamera(BaseCamera):
         # TODO: Include timing and batching logic when applying PiCamera settings
 
         paused_stream = False
-        logging.debug("StreamingCamera: Applying config:")
+        logging.debug("PiCameraStreamer: Applying config:")
         logging.debug(config)
 
         with self.lock:
@@ -89,7 +89,7 @@ class StreamingCamera(BaseCamera):
             # Apply valid config params to Picamera object
             if not self.state['record_active']:  # If not recording a video
 
-                # StreamingCamera parameters
+                # PiCameraStreamer parameters
                 for key, value in config.items():  # For each provided setting
                     if hasattr(self, key):
                         setattr(self, key, value)

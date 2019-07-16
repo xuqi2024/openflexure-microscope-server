@@ -26,8 +26,8 @@ from serial import PARITY_NONE, PARITY_EVEN, PARITY_ODD, PARITY_MARK, PARITY_SPA
 from serial import STOPBITS_ONE, STOPBITS_ONE_POINT_FIVE, STOPBITS_TWO
 import io
 import time
-import warnings
 import logging
+import warnings
 
 class ExtensibleSerialInstrument(object):
     """
@@ -54,7 +54,7 @@ class ExtensibleSerialInstrument(object):
     ignore_echo = False
     port_settings = {}
 
-    def __init__(self, port, **kwargs):
+    def __init__(self, port=None, **kwargs):
         """
         Set up the serial port and so on.
         """
@@ -64,7 +64,7 @@ class ExtensibleSerialInstrument(object):
         self.open(port, False) # Eventually this shouldn't rely on init...
         logging.info("Opened ESI connection to port {}".format(port))
 
-    def open(self, port, quiet=True):
+    def open(self, port=None, quiet=True):
         """Open communications with the serial port.
         
         If no port is specified, it will attempt to autodetect.  If quiet=True
@@ -74,6 +74,8 @@ class ExtensibleSerialInstrument(object):
             if hasattr(self,'_ser') and self._ser.isOpen():
                 if not quiet: logging.warning("Attempted to open an already-open port!")
                 return
+            if port is None: 
+                port=self.find_port()
             assert port is not None, "We don't have a serial port to open, meaning you didn't specify a valid port.  Are you sure the instrument is connected?"
             self._ser = serial.Serial(port,**self.port_settings)
             #the block above wraps the serial IO layer with a text IO layer
@@ -82,28 +84,33 @@ class ExtensibleSerialInstrument(object):
             assert self.test_communications(), "The instrument doesn't seem to be responding.  Did you specify the right port?"
 
     def close(self):
-        """Release the serial port"""
+        """Cleanly close the device. Includes proper logging statements."""
         logging.debug("Closing serial connection")
         with self.communications_lock:
             try:
                 self._ser.close()
             except Exception as e:
-                logging.warning("The serial port didn't close cleanly:", e)
-        logging.debug("Connection closed")
+                logging.warning("The serial port didn't close cleanly: {}".format(e))
+            logging.debug("Connection closed")
 
     def __del__(self):
-        """Close the port when the object is deleted
-        
-        NB if the object is created in a with statement, this will cause
-        the port to be closed at the end of the with block."""
-        self.close()
+        """Emergency close the device. Try to avoid having to use this."""
+        if hasattr(self, '_ser') and self._ser.isOpen():
+            with self.communications_lock:
+                print(
+                    "Closing an open serial communication has been triggered by garbage collection!\n"\
+                    "Please close this device more sensibly in future.")
+                try:
+                    self._ser.close()
+                except Exception as e:
+                    print("The serial port didn't close cleanly: {}".format(e))
 
     def __enter__(self):
         return self
 
     def __exit__(self, type, value, traceback):
-        """Close down the instrument.  This happens in __del__ though."""
-        pass
+        """Cleanly close down the instrument at end of a with block."""
+        self.close()
         
     def write(self,query_string):
         """Write a string to the serial port"""
@@ -199,15 +206,15 @@ class ExtensibleSerialInstrument(object):
         response_regex = response_string
         noop = lambda x: x #placeholder null parse function
         placeholders = [ #tuples of (regex matching placeholder, regex to replace it with, parse function)
-            (r"%c",r".", noop),
-            (r"%(\d+)c",r".{\1}", noop), #TODO support %cn where n is a number of chars
-            (r"%d",r"[-+]?\d+", int),
-            (r"%[eEfg]",r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?", float),
-            (r"%i",r"[-+]?(?:0[xX][\dA-Fa-f]+|0[0-7]*|\d+)", lambda x: int(x, 0)), #0=autodetect base
-            (r"%o",r"[-+]?[0-7]+", lambda x: int(x, 8)), #8 means octal
-            (r"%s",r"\S+",noop),
-            (r"%u",r"\d+",int),
-            (r"%[xX]",r"[-+]?(?:0[xX])?[\dA-Fa-f]+",lambda x: int(x, 16)), #16 forces hexadecimal
+            (r"%c", r".", noop),
+            (r"%(\d+)c", r".{\1}", noop), #TODO support %cn where n is a number of chars
+            (r"%d", r"[-+]?\\d+", int),
+            (r"%[eEfg]", r"[-+]?(?:\\d+(?:\.\\d*)?|\.\\d+)(?:[eE][-+]?\\d+)?", float),
+            (r"%i", r"[-+]?(?:0[xX][\\dA-Fa-f]+|0[0-7]*|\\d+)", lambda x: int(x, 0)), #0=autodetect base
+            (r"%o", r"[-+]?[0-7]+", lambda x: int(x, 8)), #8 means octal
+            (r"%s", r"\\s+", noop),
+            (r"%u", r"\\d+", int),
+            (r"%[xX]", r"[-+]?(?:0[xX])?[\\dA-Fa-f]+", lambda x: int(x, 16)), #16 forces hexadecimal
         ]
         matched_placeholders = []
         for placeholder, regex, parse_fun in placeholders:
@@ -232,7 +239,7 @@ class ExtensibleSerialInstrument(object):
                 reply = self.readline().strip()
                 res=re.search(response_regex, reply, flags=re_flags)
                 if res is not None:
-                    warnings.warn("Query suceeded after initially receieving unmatched response ('%s') to '%s'. Match pattern /%s/ (generated regex /%s/)"%(original_reply, query_string, response_string, response_regex),RuntimeWarning)
+                    warnings.warn("Query suceeded after initially receieving unmatched response ('%s') to '%s'. Match pattern /%s/ (generated regex /%s/)"%(original_reply, query_string, response_string, response_regex), RuntimeWarning)
             else:
                 raise ValueError("Stage response to '%s' ('%s') wasn't matched by /%s/ (generated regex /%s/)" % (query_string, original_reply, response_string, response_regex))
         try:
@@ -242,9 +249,8 @@ class ExtensibleSerialInstrument(object):
             else:
                 return parsed_result
         except ValueError:
-            logging.error("Parsing Error")
-            logging.info("Matched Groups:", res.groups())
-            logging.info("Parsing Functions:", parse_function)
+            logging.info("Matched Groups: {}".format(res.groups()))
+            logging.info("Parsing Functions {}:".format(parse_function))
             raise ValueError("Stage response to %s ('%s') couldn't be parsed by the supplied function" % (query_string, reply))
     def int_query(self, query_string, **kwargs):
         """Perform a query and return the result(s) as integer(s) (see parsedQuery)"""
@@ -261,7 +267,32 @@ class ExtensibleSerialInstrument(object):
         Usually this function sends a command and checks for a known reply."""
         with self.communications_lock:
             return True
-    
+
+    def find_port(self):
+        """Iterate through the available serial ports and query them to see
+        if our instrument is there."""
+        with self.communications_lock:
+            success = False
+            for port_name, _, _ in serial.tools.list_ports.comports(): #loop through serial ports, apparently 256 is the limit?!
+                try:
+                    logging.info("Trying port {}".format(port_name))
+                    self.open(port_name)
+                    success = True
+                    logging.info("Success!")
+                except:
+                    pass
+                finally:
+                    try:
+                        self.close()
+                    except:
+                        pass #we don't care if there's an error closing the port...
+                if success:
+                    break #again, make sure this happens *after* closing the port
+            if success:
+                return port_name
+            else:
+                return None
+
 class OptionalModule(object):
     """This allows a `ExtensibleSerialInstrument` to have optional features.
 

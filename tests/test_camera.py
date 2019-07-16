@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from openflexure_microscope.camera.pi import StreamingCamera, CaptureObject
+from openflexure_microscope.camera.pi import PiCameraStreamer, CaptureObject
 
 import os
 import io
@@ -279,7 +279,7 @@ class TestThreadStarting(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    with StreamingCamera() as camera:
+    with PiCameraStreamer() as camera:
 
         suites = [
             unittest.TestLoader().loadTestsFromTestCase(TestCaptureMethods),

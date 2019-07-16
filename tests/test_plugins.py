@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from openflexure_microscope.camera.pi import StreamingCamera
+from openflexure_microscope.camera.pi import PiCameraStreamer
 from openflexure_stage import OpenFlexureStage
 from openflexure_microscope import Microscope, config
 
@@ -31,7 +31,9 @@ class TestPluginMethods(unittest.TestCase):
 
 if __name__ == '__main__':
 
-        with Microscope(StreamingCamera(), OpenFlexureStage("/dev/ttyUSB0")) as microscope:
+        with Microscope() as microscope:
+
+            microscope.attach(PiCameraStreamer(), OpenFlexureStage())
 
             microscope.plugin.attach("openflexure_microscope.plugins.testing:Plugin")
 

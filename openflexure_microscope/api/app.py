@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+import time
+import atexit
+import logging
+import sys
+import os
+
 from flask import (
     Flask, jsonify, send_file)
 
@@ -13,23 +19,22 @@ from openflexure_microscope.api.utilities import list_routes
 
 from openflexure_microscope import Microscope
 
-try:
-    from openflexure_microscope.camera.pi import StreamingCamera
-except ImportError:
-    from openflexure_microscope.camera.mock import StreamingCamera
-
-from openflexure_microscope.stage.sanga import SangaStage
-from openflexure_microscope.stage.mock import MockStage
-
 from openflexure_microscope.camera.capture import build_captures_from_exif
 from openflexure_microscope.config import USER_CONFIG_DIR
 from openflexure_microscope.api.v1 import blueprints
 
-import time
-import atexit
-import logging
-import sys
-import os
+# Import device modules
+# NB this will eventually be handled by the RC file, so you can choose what device
+# class should be attached.
+try:
+    from openflexure_microscope.camera.pi import PiCameraStreamer
+except ImportError:
+    logging.warning("Unable to import PiCameraStreamer")
+from openflexure_microscope.camera.mock import MockStreamer
+
+from openflexure_microscope.stage.sanga import SangaStage
+from openflexure_microscope.stage.mock import MockStage
+
 
 # Handle logging
 is_gunicorn = "gunicorn" in os.environ.get("SERVER_SOFTWARE", "")
@@ -96,30 +101,37 @@ def attach_microscope():
     global api_microscope, stored_image_list
     logging.debug("First request made. Populating microscope with hardware...")
 
+    # Initialise camera
     logging.debug("Creating camera object...")
-    # TODO: Try except finally, like with stage
-    api_camera = StreamingCamera()
+    try:
+        api_camera = PiCameraStreamer()
+    except Exception as e:
+        logging.error(e)
+        logging.warning("No valid camera hardware found. Falling back to mock camera!")
+        api_camera = MockStreamer()
 
+    # Initialise stage
     logging.debug("Creating stage object...")
-    # TODO: Tidy this up. api_stage may be referenced before assignment. Use some form of Maybe monad?
     try:
         api_stage = SangaStage()
     except Exception as e:
         logging.error(e)
         logging.warning("No valid stage hardware found. Falling back to mock stage!")
         api_stage = MockStage()
-    finally:
-        logging.debug("Attaching devices to microscope...")
-        api_microscope.attach(
-            api_camera,
-            api_stage
-        )
 
-        logging.debug("Restoring captures...")
-        if stored_image_list:
-            api_microscope.camera.images = stored_image_list
+    # Attach devices to microscope
+    logging.debug("Attaching devices to microscope...")
+    api_microscope.attach(
+        api_camera,
+        api_stage
+    )
 
-        logging.debug("Microscope successfully attached!")
+    # Restore loaded capture array to camera object
+    logging.debug("Restoring captures...")
+    if stored_image_list:
+        api_microscope.camera.images = stored_image_list
+
+    logging.debug("Microscope successfully attached!")
 
 
 # WEBAPP ROUTES
