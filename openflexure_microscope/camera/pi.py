@@ -173,15 +173,15 @@ class PiCameraStreamer(BaseCamera):
         # Apply gains and let them settle
         if 'analog_gain' in settings_dict:
             logging.debug("Applying analog_gain: {}".format(settings_dict['analog_gain']))
-            set_analog_gain(self.camera, settings_dict['analog_gain'])
+            set_analog_gain(self.camera, float(settings_dict['analog_gain']))
         if 'digital_gain' in settings_dict:
             logging.debug("Applying digital_gain: {}".format(settings_dict['digital_gain']))
-            set_digital_gain(self.camera, settings_dict['digital_gain'])
+            set_digital_gain(self.camera, float(settings_dict['digital_gain']))
         
         # Apply shutter speed
         if 'shutter_speed' in settings_dict:
             logging.debug("Applying shutter_speed: {}".format(settings_dict['shutter_speed']))
-            self.camera.shutter_speed = settings_dict['shutter_speed']
+            self.camera.shutter_speed = int(settings_dict['shutter_speed'])
 
         time.sleep(0.2)  # Let gains settle
 

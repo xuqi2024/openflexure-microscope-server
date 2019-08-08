@@ -9,7 +9,7 @@ Stable installation
 For most users, this is the reccommended installation method.
 
 - Run ``curl -LSs get.openflexure.org/microscope |sudo bash``
-    - See the `GitLab repo <https://gitlab.com/openflexure/openflexure-microscope-installer>`_ for details.
+    - See the `GitLab repo <https://gitlab.com/openflexure/openflexure-microscope-cli>`_ for details.
 - Follow on-screen prompts
 
 Developer and non-interactive installation
@@ -17,7 +17,7 @@ Developer and non-interactive installation
 The installer script can pull the latest development package from our git repository, and use install into a developer environment using Poetry. 
 Options also exist to run the installer without any user prompts.
 
-See the `installer script GitLab repo <https://gitlab.com/openflexure/openflexure-microscope-installer>`_ for details.
+See the `installer script GitLab repo <https://gitlab.com/openflexure/openflexure-microscope-cli>`_ for details.
 
 Manual installation
 +++++++++++++++++++

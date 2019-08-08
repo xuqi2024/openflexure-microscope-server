@@ -13,6 +13,12 @@ class PluginSchemaAPI(MicroscopeView):
 
         .. :quickref: Plugin; Get schemas
 
+        Returns an array of present plugin schemas (describing plugin user interfaces.)
+        Please note, this is *not* a list of all enabled plugins, only those with associated
+        user interface forms.
+
+        A complete list of enabled plugins can be found in the microscope state.
+
         """
         out = self.microscope.plugin.schemas
         return jsonify(out)

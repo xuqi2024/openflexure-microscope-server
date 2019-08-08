@@ -205,7 +205,8 @@ class ConfigAPI(MicroscopeView):
         """
         payload = JsonPayload(request)
 
-        logging.debug("Updating settings from POST request.")
+        logging.debug("Updating settings from POST request:")
+        logging.debug(payload.json)
 
         self.microscope.apply_config(payload.json)
         self.microscope.save_config()
