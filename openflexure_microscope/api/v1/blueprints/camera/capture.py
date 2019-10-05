@@ -6,7 +6,6 @@ from flask import Response, jsonify, request, abort, url_for, redirect, send_fil
 
 
 class ListAPI(MicroscopeView):
-
     def get(self):
         """
         Get list of image captures.
@@ -30,12 +29,16 @@ class ListAPI(MicroscopeView):
         :status 200: capture found
         :status 404: no capture found with that id
         """
-        include_unavailable = get_bool(request.args.get('include_unavailable'))
+        include_unavailable = get_bool(request.args.get("include_unavailable"))
 
         if include_unavailable:
             captures = [image.state for image in self.microscope.camera.images]
         else:
-            captures = [image.state for image in self.microscope.camera.images if image.state['available']]
+            captures = [
+                image.state
+                for image in self.microscope.camera.images
+                if image.state["available"]
+            ]
 
         return jsonify(captures)
 
@@ -100,38 +103,40 @@ class ListAPI(MicroscopeView):
         """
         payload = JsonResponse(request)
 
-        filename = payload.param('filename')
-        temporary = payload.param('temporary', default=False, convert=bool)
-        use_video_port = payload.param('use_video_port', default=False, convert=bool)
-        bayer = payload.param('bayer', default=True, convert=bool)
-        metadata = payload.param('metadata', default={}, convert=dict)
-        tags = payload.param('tags', default=[], convert=list)
+        filename = payload.param("filename")
+        temporary = payload.param("temporary", default=False, convert=bool)
+        use_video_port = payload.param("use_video_port", default=False, convert=bool)
+        bayer = payload.param("bayer", default=True, convert=bool)
+        metadata = payload.param("metadata", default={}, convert=dict)
+        tags = payload.param("tags", default=[], convert=list)
 
-        resize = payload.param('size', default=None)
+        resize = payload.param("size", default=None)
         if resize:
-            if ('width' in resize) and ('height' in resize):
-                resize = (int(resize['width']), int(resize['height']))  # Convert dict to tuple
+            if ("width" in resize) and ("height" in resize):
+                resize = (
+                    int(resize["width"]),
+                    int(resize["height"]),
+                )  # Convert dict to tuple
             else:
                 abort(404)
 
         # Explicitally acquire lock (prevents empty files being created if lock is unavailable)
         with self.microscope.camera.lock:
             output = self.microscope.camera.new_image(
-                write_to_file=True,
-                temporary=temporary,
-                filename=filename)
+                temporary=temporary, filename=filename
+            )
 
             self.microscope.camera.capture(
-                output,
-                use_video_port=use_video_port,
-                resize=resize,
-                bayer=bayer)
+                output.file, use_video_port=use_video_port, resize=resize, bayer=bayer
+            )
 
-            metadata.update({
-                'position': self.microscope.state['stage']['position'],
-                'microscope_id': self.microscope.id,
-                'microscope_name': self.microscope.name
-            })
+            metadata.update(
+                {
+                    "position": self.microscope.state["stage"]["position"],
+                    "microscope_id": self.microscope.id,
+                    "microscope_name": self.microscope.name,
+                }
+            )
 
             output.put_metadata(metadata)
             output.put_tags(tags)
@@ -140,7 +145,6 @@ class ListAPI(MicroscopeView):
 
 
 class CaptureAPI(MicroscopeView):
-
     def get(self, capture_id):
         """
         Get JSON representation of a capture
@@ -200,14 +204,15 @@ class CaptureAPI(MicroscopeView):
 
         # Add API routes to returned state
         uri_dict = {
-            'uri': {'state': '{}'.format(url_for('.capture', capture_id=capture_obj.id))}
+            "uri": {
+                "state": "{}".format(url_for(".capture", capture_id=capture_obj.id))
+            }
         }
 
         # If available, also add download link
-        if capture_metadata['available']:
-            uri_dict['uri']['download'] = '{}download/{}'.format(
-                url_for('.capture', capture_id=capture_obj.id),
-                capture_obj.filename
+        if capture_metadata["available"]:
+            uri_dict["uri"]["download"] = "{}download/{}".format(
+                url_for(".capture", capture_id=capture_obj.id), capture_obj.filename
             )
 
         capture_metadata.update(uri_dict)
@@ -257,7 +262,7 @@ class CaptureAPI(MicroscopeView):
 
         if not capture_obj:
             return abort(404)  # 404 Not Found
-        
+
         data_dict = JsonResponse(request).json
 
         capture_obj.put_metadata(data_dict)
@@ -299,17 +304,20 @@ class DownloadRedirectAPI(MicroscopeView):
         """
         capture_obj = self.microscope.camera.image_from_id(capture_id)
 
-        if not capture_obj or not capture_obj.state['available']:
+        if not capture_obj or not capture_obj.state["available"]:
             return abort(404)  # 404 Not Found
 
-        thumbnail = get_bool(request.args.get('thumbnail'))
+        thumbnail = get_bool(request.args.get("thumbnail"))
 
-        return redirect(url_for(
-            '.capture_download',
-            capture_id=capture_id,
-            filename=capture_obj.filename,
-            thumbnail=thumbnail
-        ), code=307)
+        return redirect(
+            url_for(
+                ".capture_download",
+                capture_id=capture_id,
+                filename=capture_obj.filename,
+                thumbnail=thumbnail,
+            ),
+            code=307,
+        )
 
 
 class DownloadAPI(MicroscopeView):
@@ -317,19 +325,22 @@ class DownloadAPI(MicroscopeView):
 
         capture_obj = self.microscope.camera.image_from_id(capture_id)
 
-        if not capture_obj or not capture_obj.state['available']:
+        if not capture_obj or not capture_obj.state["available"]:
             return abort(404)  # 404 Not Found
 
-        thumbnail = get_bool(request.args.get('thumbnail'))
+        thumbnail = get_bool(request.args.get("thumbnail"))
 
         # If no filename is specified, redirect to the capture's currently set filename
         if not filename:
-            return redirect(url_for(
-                'capture_download',
-                capture_id=capture_id,
-                filename=capture_obj.filename,
-                thumbnail=thumbnail
-            ), code=307)
+            return redirect(
+                url_for(
+                    "capture_download",
+                    capture_id=capture_id,
+                    filename=capture_obj.filename,
+                    thumbnail=thumbnail,
+                ),
+                code=307,
+            )
 
         # Download the image data using the requested filename
         if thumbnail:
@@ -337,9 +348,7 @@ class DownloadAPI(MicroscopeView):
         else:
             img = capture_obj.data
 
-        return send_file(
-            img,
-            mimetype='image/jpeg')
+        return send_file(img, mimetype="image/jpeg")
 
 
 class MetadataRedirectAPI(MicroscopeView):
@@ -374,14 +383,17 @@ class MetadataRedirectAPI(MicroscopeView):
         """
         capture_obj = self.microscope.camera.image_from_id(capture_id)
 
-        if not capture_obj or not capture_obj.state['available']:
+        if not capture_obj or not capture_obj.state["available"]:
             return abort(404)  # 404 Not Found
 
-        return redirect(url_for(
-            '.metadata_download',
-            capture_id=capture_id,
-            filename=capture_obj.metadataname
-        ), code=307)
+        return redirect(
+            url_for(
+                ".metadata_download",
+                capture_id=capture_id,
+                filename=capture_obj.metadataname,
+            ),
+            code=307,
+        )
 
 
 class MetadataAPI(MicroscopeView):
@@ -389,23 +401,24 @@ class MetadataAPI(MicroscopeView):
 
         capture_obj = self.microscope.camera.image_from_id(capture_id)
 
-        if not capture_obj or not capture_obj.state['available']:
+        if not capture_obj or not capture_obj.state["available"]:
             return abort(404)  # 404 Not Found
 
         # If no filename is specified, redirect to the capture's currently set filename
         if not filename:
-            return redirect(url_for(
-                'capture_download',
-                capture_id=capture_id,
-                filename=capture_obj.metadataname
-            ), code=307)
+            return redirect(
+                url_for(
+                    "capture_download",
+                    capture_id=capture_id,
+                    filename=capture_obj.metadataname,
+                ),
+                code=307,
+            )
 
         # Download the metadata using the requested filename
         data = capture_obj.yaml
 
-        return Response(
-            data,
-            mimetype="text/yaml")
+        return Response(data, mimetype="text/yaml")
 
 
 class TagsAPI(MicroscopeView):
@@ -430,13 +443,13 @@ class TagsAPI(MicroscopeView):
         """
         capture_obj = self.microscope.camera.image_from_id(capture_id)
 
-        if not capture_obj or not capture_obj.state['available']:
+        if not capture_obj or not capture_obj.state["available"]:
             return abort(404)  # 404 Not Found
 
-        metadata_tags = filter_dict(capture_obj.state, ['metadata', 'tags'])
+        metadata_tags = filter_dict(capture_obj.state, ["metadata", "tags"])
 
         return jsonify(metadata_tags)
-    
+
     def put(self, capture_id):
         """
         Add tags to the capture
@@ -460,9 +473,9 @@ class TagsAPI(MicroscopeView):
 
         capture_obj = self.microscope.camera.image_from_id(capture_id)
 
-        if not capture_obj or not capture_obj.state['available']:
+        if not capture_obj or not capture_obj.state["available"]:
             return abort(404)  # 404 Not Found
-        
+
         data_dict = JsonResponse(request).json
 
         if type(data_dict) != list:
@@ -470,7 +483,7 @@ class TagsAPI(MicroscopeView):
 
         capture_obj.put_tags(data_dict)
 
-        metadata_tags = filter_dict(capture_obj.state, ['metadata', 'tags'])
+        metadata_tags = filter_dict(capture_obj.state, ["metadata", "tags"])
 
         return jsonify(metadata_tags)
 
@@ -507,6 +520,6 @@ class TagsAPI(MicroscopeView):
         for tag in data_dict:
             capture_obj.delete_tag(str(tag))
 
-        metadata_tags = filter_dict(capture_obj.state, ['metadata', 'tags'])
+        metadata_tags = filter_dict(capture_obj.state, ["metadata", "tags"])
 
         return jsonify(metadata_tags)

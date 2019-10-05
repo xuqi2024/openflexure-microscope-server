@@ -249,7 +249,6 @@ version = "1.13.1b0"
 reference = "b39c2b6e42f5f7f57bb46eafcb5c9e2bbdb5d0cb"
 type = "git"
 url = "https://github.com/rwb27/picamera.git"
-
 [[package]]
 category = "main"
 description = "Python Imaging Library (Fork)"
@@ -498,8 +497,8 @@ python-versions = "*"
 version = "1.11.2"
 
 [metadata]
-content-hash = "9c0dc80a1676c91381a79f07dc862af63a85314acd3cd850a6ca35fe01dfe33d"
-python-versions = "^3.7"
+content-hash = "2f6112291b3180745f71b9663a8c320291acfc8fa97a0b9ca84b1dbd566d2109"
+python-versions = "^3.6"
 
 [metadata.hashes]
 alabaster = ["446438bdcca0e05bd45ea2de1668c1d9b032e1a9154c2c259092d77031ddd359", "a661d72d58e6ea8a57f7a86e37d86716863ee5e92788398526d58b26a4e4dc02"]

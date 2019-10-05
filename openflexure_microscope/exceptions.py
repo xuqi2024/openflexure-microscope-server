@@ -7,8 +7,8 @@ class TaskDeniedException(Exception):
 
 class LockError(ThreadError):
     ERROR_CODES = {
-        'ACQUIRE_ERROR': "Unable to acquire. Lock in use by another thread.",
-        'IN_USE_ERROR': "Lock in use by another thread."
+        "ACQUIRE_ERROR": "Unable to acquire. Lock in use by another thread.",
+        "IN_USE_ERROR": "Lock in use by another thread.",
     }
 
     def __init__(self, code, lock):

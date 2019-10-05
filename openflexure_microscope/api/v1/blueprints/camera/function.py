@@ -5,7 +5,6 @@ from flask import jsonify, request
 
 
 class ZoomAPI(MicroscopeView):
-
     def get(self):
         """
         Get the current zoom value
@@ -17,9 +16,9 @@ class ZoomAPI(MicroscopeView):
         :<header Content-Type: application/json
         :status 200: preview started/stopped
         """
-        zoom_value = self.microscope.camera.state['zoom_value']
+        zoom_value = self.microscope.camera.state["zoom_value"]
 
-        return jsonify({'zoom_value': zoom_value})
+        return jsonify({"zoom_value": zoom_value})
 
     def post(self):
         """
@@ -44,7 +43,7 @@ class ZoomAPI(MicroscopeView):
         :status 200: preview started/stopped
         """
         payload = JsonResponse(request)
-        zoom_value = payload.param('zoom_value', default=1.0, convert=float)
+        zoom_value = payload.param("zoom_value", default=1.0, convert=float)
 
         self.microscope.camera.set_zoom(zoom_value)
 
@@ -52,7 +51,6 @@ class ZoomAPI(MicroscopeView):
 
 
 class OverlayAPI(MicroscopeView):
-
     def get(self):
         """
         Get overlay text
@@ -67,7 +65,7 @@ class OverlayAPI(MicroscopeView):
         text = self.microscope.camera.camera.annotate_text
         size = self.microscope.camera.camera.annotate_text_size
 
-        return jsonify({'text': text, 'size': size})
+        return jsonify({"text": text, "size": size})
 
     def post(self):
         """
@@ -94,10 +92,10 @@ class OverlayAPI(MicroscopeView):
         """
 
         payload = JsonResponse(request)
-        text = payload.param('text', default="", convert=str)
-        size = payload.param('size', default=50, convert=int)
+        text = payload.param("text", default="", convert=str)
+        size = payload.param("size", default=50, convert=int)
 
         self.microscope.camera.camera.annotate_text = text
         self.microscope.camera.camera.annotate_text_size = size
 
-        return jsonify({'text': text, 'size': size})
+        return jsonify({"text": text, "size": size})

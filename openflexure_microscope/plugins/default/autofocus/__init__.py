@@ -1,2 +1,2 @@
-__all__ = ['AutofocusPlugin']
+__all__ = ["AutofocusPlugin"]
 from .plugin import AutofocusPlugin

@@ -12,19 +12,20 @@ def split_into_segments(data):
     head = 2
     segments = [b"\xff\xd8"]
     while 1:
-        if data[head: head + 2] == b"\xff\xda":
+        if data[head : head + 2] == b"\xff\xda":
             segments.append(data[head:])
             break
         else:
-            length = struct.unpack(">H", data[head + 2: head + 4])[0]
+            length = struct.unpack(">H", data[head + 2 : head + 4])[0]
             endPoint = head + length + 2
-            seg = data[head: endPoint]
+            seg = data[head:endPoint]
             segments.append(seg)
             head = endPoint
 
-        if (head >= len(data)):
+        if head >= len(data):
             raise InvalidImageDataError("Wrong JPEG data.")
     return segments
+
 
 def read_exif_from_file(filename):
     """Slices JPEG meta data into a list from JPEG binary data.
@@ -39,11 +40,11 @@ def read_exif_from_file(filename):
     HEAD_LENGTH = 4
     exif = None
     while 1:
-        length = struct.unpack(">H", head[2: 4])[0]
+        length = struct.unpack(">H", head[2:4])[0]
 
         if head[:2] == b"\xff\xe1":
             segment_data = f.read(length - 2)
-            if segment_data[:4] != b'Exif':
+            if segment_data[:4] != b"Exif":
                 head = f.read(HEAD_LENGTH)
                 continue
             exif = head + segment_data
@@ -57,6 +58,7 @@ def read_exif_from_file(filename):
     f.close()
     return exif
 
+
 def get_exif_seg(segments):
     """Returns Exif from JPEG meta data list
     """
@@ -69,9 +71,11 @@ def get_exif_seg(segments):
 def merge_segments(segments, exif=b""):
     """Merges Exif with APP0 and APP1 manipulations.
     """
-    if segments[1][0:2] == b"\xff\xe0" and \
-       segments[2][0:2] == b"\xff\xe1" and \
-       segments[2][4:10] == b"Exif\x00\x00":
+    if (
+        segments[1][0:2] == b"\xff\xe0"
+        and segments[2][0:2] == b"\xff\xe1"
+        and segments[2][4:10] == b"Exif\x00\x00"
+    ):
         if exif:
             segments[2] = exif
             segments.pop(1)
@@ -82,8 +86,7 @@ def merge_segments(segments, exif=b""):
     elif segments[1][0:2] == b"\xff\xe0":
         if exif:
             segments[1] = exif
-    elif segments[1][0:2] == b"\xff\xe1" and \
-         segments[1][4:10] == b"Exif\x00\x00":
+    elif segments[1][0:2] == b"\xff\xe1" and segments[1][4:10] == b"Exif\x00\x00":
         if exif:
             segments[1] = exif
         elif exif is None:

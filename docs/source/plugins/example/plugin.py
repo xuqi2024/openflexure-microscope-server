@@ -13,6 +13,7 @@ FORM_PATH = os.path.join(HERE, "forms.json")
 
 ### MICROSCOPE PLUGIN ###
 
+
 class MyPluginClass(MicroscopePlugin):
     """
     A set of default plugins
@@ -20,13 +21,13 @@ class MyPluginClass(MicroscopePlugin):
 
     global FORM_PATH
 
-    with open(FORM_PATH, 'r') as sc:
+    with open(FORM_PATH, "r") as sc:
         api_form = json.load(sc)
 
     api_views = {
-        '/identify': IdentifyAPI,
-        '/hello': HelloWorldAPI,
-        '/timelapse': TimelapseAPI,
+        "/identify": IdentifyAPI,
+        "/hello": HelloWorldAPI,
+        "/timelapse": TimelapseAPI,
     }
 
     def identify(self):
@@ -34,8 +35,9 @@ class MyPluginClass(MicroscopePlugin):
         Demonstrate access to Microscope.camera, and Microscope.stage
         """
 
-        response = "My parent camera is {}, and my parent stage is {}.".format(self.microscope.camera, 
-                                                                                self.microscope.stage)
+        response = "My parent camera is {}, and my parent stage is {}.".format(
+            self.microscope.camera, self.microscope.stage
+        )
         return response
 
     def hello_world(self):
@@ -57,34 +59,34 @@ class MyPluginClass(MicroscopePlugin):
             for _ in range(n_images):
 
                 # Create a data stream to capture to
-                capture_data = self.microscope.camera.new_image(
-                    write_to_file=True,
-                    temporary=False)
+                output = self.microscope.camera.new_image(
+                    temporary=False
+                )
 
                 # Capture a still image from the Pi camera, into the data stream
-                self.microscope.camera.capture(
-                    capture_data,
-                    use_video_port=True)
-                
+                self.microscope.camera.capture(output.file, use_video_port=True)
+
                 # Append the capture data to our list
-                capture_array.append(capture_data)
+                capture_array.append(output)
 
                 # Wait for 1 minute
-                time.sleep(60)  
+                time.sleep(60)
 
 
 ### API VIEWS ###
+
 
 class IdentifyAPI(MicroscopeViewPlugin):
     """
     A simple example API plugin, attached through the main microscope plugin.
     """
+
     def get(self):
         """
         Method to call when an HTTP GET request is made.
         """
         # Call a method from our plugin, using the MicroscopeViewPlugin.plugin shortcut
-        data = self.plugin.identify()  
+        data = self.plugin.identify()
         return Response(escape(data))
 
 
@@ -99,13 +101,11 @@ class HelloWorldAPI(MicroscopeViewPlugin):
         """
 
         # If the microscope does not already contain our plugin_string attribute
-        if not hasattr(self.microscope, 'plugin_string'):
+        if not hasattr(self.microscope, "plugin_string"):
             # Make a string, using the MicroscopeViewPlugin.plugin shortcut
             self.microscope.plugin_string = self.plugin.hello_world()
 
-        json_response = jsonify({
-            'plugin_string': self.microscope.plugin_string
-        })
+        json_response = jsonify({"plugin_string": self.microscope.plugin_string})
 
         return Response(json_response)
 
@@ -118,17 +118,16 @@ class HelloWorldAPI(MicroscopeViewPlugin):
         payload = JsonResponse(request)
 
         # Extract a value from the JSON key 'plugin_string', and convert to a string. If no value is given, default to empty.
-        new_plugin_string = payload.param('plugin_string', default='', convert=str)
+        new_plugin_string = payload.param("plugin_string", default="", convert=str)
 
         if new_plugin_string:  # If not None or empty
             # Set microscope attribute to the specified string
-            self.microscope.plugin_string = new_plugin_string  
+            self.microscope.plugin_string = new_plugin_string
 
-        json_response = jsonify({
-            'plugin_string': self.microscope.plugin_string
-        })
+        json_response = jsonify({"plugin_string": self.microscope.plugin_string})
 
         return Response(json_response)
+
 
 class TimelapseAPI(MicroscopeViewPlugin):
     def post(self):
@@ -137,10 +136,12 @@ class TimelapseAPI(MicroscopeViewPlugin):
         payload = JsonResponse(request)
 
         # Extract the "n_images" parameter if it was passed. Otherwise, default to 10.
-        n_images = payload.param('n_images', default=10, convert=int)
+        n_images = payload.param("n_images", default=10, convert=int)
 
         # Attach the long-running method as a microscope task
-        self.timelapse_task = self.microscope.task.start(self.plugin.timelapse, n_images)
+        self.timelapse_task = self.microscope.task.start(
+            self.plugin.timelapse, n_images
+        )
 
         # Return the state of the task (will show ID, start time, and status before the task has finished)
         return jsonify(self.timelapse_task.state), 202

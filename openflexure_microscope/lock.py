@@ -14,6 +14,7 @@ class StrictLock(object):
         _lock (:py:class:`threading.RLock`): Parent RLock object
         timeout (int): Time, in seconds, lock acquisition will wait before raising an exception
     """
+
     def __init__(self, timeout=1):
         self._lock = RLock()
         self.timeout = timeout
@@ -29,7 +30,7 @@ class StrictLock(object):
         if result:
             return result
         else:
-            raise LockError('ACQUIRE_ERROR', self)
+            raise LockError("ACQUIRE_ERROR", self)
 
     def __exit__(self, *args):
         self._lock.release()
@@ -51,6 +52,7 @@ class CompositeLock(object):
         locks (list): List of parent RLock objects
         timeout (int): Time, in seconds, lock acquisition will wait before raising an exception
     """
+
     def __init__(self, locks, timeout=1):
         self.locks = locks
         self.timeout = timeout
@@ -63,7 +65,7 @@ class CompositeLock(object):
         if all(result):
             return result
         else:
-            raise LockError('ACQUIRE_ERROR', self)
+            raise LockError("ACQUIRE_ERROR", self)
 
     def __exit__(self, *args):
         for lock in self.locks:

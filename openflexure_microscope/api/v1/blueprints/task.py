@@ -3,7 +3,6 @@ from flask import jsonify, abort, Blueprint
 
 
 class TaskListAPI(MicroscopeView):
-
     def get(self):
         """
         Get list of long-running tasks.
@@ -66,7 +65,6 @@ class TaskListAPI(MicroscopeView):
 
 
 class TaskAPI(MicroscopeView):
-
     def get(self, task_id):
         """
         Get JSON representation of a task
@@ -123,14 +121,11 @@ class TaskAPI(MicroscopeView):
         success = self.microscope.task.delete(task_id)
 
         if success:
-            data = {
-                'status': 'success',
-                'message': 'task successfully deleted'
-            }
+            data = {"status": "success", "message": "task successfully deleted"}
         else:
             data = {
-                'status': 'fail',
-                'message': 'task could not be deleted, as it is currently running or does not exist'
+                "status": "fail",
+                "message": "task could not be deleted, as it is currently running or does not exist",
             }
 
         return jsonify(data)
@@ -138,16 +133,14 @@ class TaskAPI(MicroscopeView):
 
 def construct_blueprint(microscope_obj):
 
-    blueprint = Blueprint('task_blueprint', __name__)
+    blueprint = Blueprint("task_blueprint", __name__)
 
     blueprint.add_url_rule(
-        '/',
-        view_func=TaskListAPI.as_view('task_list', microscope=microscope_obj)
+        "/", view_func=TaskListAPI.as_view("task_list", microscope=microscope_obj)
     )
 
     blueprint.add_url_rule(
-        '/<task_id>/',
-        view_func=TaskAPI.as_view('task', microscope=microscope_obj)
+        "/<task_id>/", view_func=TaskAPI.as_view("task", microscope=microscope_obj)
     )
 
     return blueprint

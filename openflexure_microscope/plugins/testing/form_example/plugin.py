@@ -9,19 +9,18 @@ from .api import DoAPI, TaskAPI
 HERE = os.path.dirname(os.path.realpath(__file__))
 FORM_PATH = os.path.join(HERE, "forms.json")
 
+
 class ExamplePlugin(MicroscopePlugin):
     """
     An example plugin using a comprehensive form
     """
+
     global FORM_PATH
 
-    with open(FORM_PATH, 'r') as sc:
+    with open(FORM_PATH, "r") as sc:
         api_form = json.load(sc)
 
-    api_views = {
-        '/do': DoAPI,
-        '/task': TaskAPI
-    }
+    api_views = {"/do": DoAPI, "/task": TaskAPI}
 
     def __init__(self):
         self.val_int = 10
@@ -33,7 +32,9 @@ class ExamplePlugin(MicroscopePlugin):
 
         self.run_time = 5
 
-    def set_values(self, val_int, val_str, val_radio, val_check, val_select, val_disposable):
+    def set_values(
+        self, val_int, val_str, val_radio, val_check, val_select, val_disposable
+    ):
         """
         Demonstrate a plugin with form
         """
@@ -54,12 +55,12 @@ class ExamplePlugin(MicroscopePlugin):
 
     def get_values_dict(self):
         return {
-            'val_int': self.val_int,
-            'val_str': self.val_str,
-            'val_radio': self.val_radio,
-            'val_check': self.val_check,
-            'val_select': self.val_select,
-            'val_unused': self.val_unused
+            "val_int": self.val_int,
+            "val_str": self.val_str,
+            "val_radio": self.val_radio,
+            "val_check": self.val_check,
+            "val_select": self.val_select,
+            "val_unused": self.val_unused,
         }
 
     def generate_random_numbers_for_a_while(self, run_time: int):
@@ -68,5 +69,5 @@ class ExamplePlugin(MicroscopePlugin):
         for _ in range(run_time):
             vals.append(random.random())
             time.sleep(1)
-        
+
         return vals

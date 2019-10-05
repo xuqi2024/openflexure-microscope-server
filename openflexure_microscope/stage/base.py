@@ -8,6 +8,7 @@ class BaseStage(metaclass=ABCMeta):
         lock (:py:class:`openflexure_microscope.lock.StrictLock`): Strict lock controlling thread
             access to camera hardware
     """
+
     def __init__(self):
         self.lock = StrictLock(timeout=5)
 

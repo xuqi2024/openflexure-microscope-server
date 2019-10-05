@@ -6,7 +6,6 @@ import logging
 
 
 class GPUPreviewAPI(MicroscopeView):
-
     def post(self, operation):
         """
         Start or stop the onboard GPU preview. 
@@ -39,7 +38,7 @@ class GPUPreviewAPI(MicroscopeView):
         if operation == "start":
             payload = JsonResponse(request)
 
-            window = payload.param('window', default=[])
+            window = payload.param("window", default=[])
             logging.debug(window)
 
             if len(window) != 4:

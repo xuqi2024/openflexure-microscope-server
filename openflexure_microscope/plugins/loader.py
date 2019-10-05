@@ -5,14 +5,14 @@ import logging
 
 
 class ConColors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
 
 
 def module_from_file(plugin_path):
@@ -23,7 +23,11 @@ def module_from_file(plugin_path):
 
     # Check if the path is to a file
     if not os.path.isfile(plugin_path):
-        logging.warning(ConColors.FAIL + "No valid plugin found at {}.".format(plugin_path) + ConColors.ENDC)
+        logging.warning(
+            ConColors.FAIL
+            + "No valid plugin found at {}.".format(plugin_path)
+            + ConColors.ENDC
+        )
         return None, None, None
 
     else:
@@ -34,6 +38,7 @@ def module_from_file(plugin_path):
         plugin_module = importlib.util.module_from_spec(plugin_spec)
 
         return plugin_spec, plugin_module, plugin_name
+
 
 def check_module(module_path):
     """
@@ -65,13 +70,13 @@ def check_module(module_path):
 
 
 def name_from_module(plugin_path):
-    path_array = plugin_path.split('.')
+    path_array = plugin_path.split(".")
 
     # Truncate namespace of default plugins
-    if path_array[0:2] == ['openflexure_microscope', 'plugins']:
+    if path_array[0:2] == ["openflexure_microscope", "plugins"]:
         path_array = path_array[2:]
-    
-    return '/'.join(path_array)
+
+    return "/".join(path_array)
 
 
 def load_plugin_module(plugin_path):
@@ -104,7 +109,13 @@ def load_plugin_class(plugin_path, plugin_class_name):
         try:
             plugin_class = getattr(plugin_module, plugin_class_name)
         except AttributeError:
-            logging.warning(ConColors.FAIL + "Class {} does not exist in plugin {}. Skipping.".format(plugin_class_name, plugin_path) + ConColors.ENDC)
+            logging.warning(
+                ConColors.FAIL
+                + "Class {} does not exist in plugin {}. Skipping.".format(
+                    plugin_class_name, plugin_path
+                )
+                + ConColors.ENDC
+            )
             return None, None
         else:
             return plugin_class, plugin_name
@@ -113,10 +124,14 @@ def load_plugin_class(plugin_path, plugin_class_name):
 
 
 def class_from_map(plugin_map):
-    plugin_arr = plugin_map.split(':')
+    plugin_arr = plugin_map.split(":")
 
     if not len(plugin_arr) == 2:
-        logging.warning(ConColors.WARNING + "Malformed plugin map {}. Skipping.".format(plugin_map) + ConColors.ENDC)
+        logging.warning(
+            ConColors.WARNING
+            + "Malformed plugin map {}. Skipping.".format(plugin_map)
+            + ConColors.ENDC
+        )
         return None, None
     else:
         return load_plugin_class(*plugin_arr)
@@ -129,6 +144,7 @@ class PluginMount(object):
     Args:
         parent (:py:class:`openflexure_microscope.microscope.Microscope`): The parent Microscope object to attach to.
     """
+
     def __init__(self, parent):
         self.parent = parent
         self.plugins = []  # List of plugin objects
@@ -141,13 +157,17 @@ class PluginMount(object):
 
     @property
     def members(self):
-        ignores = ['state', 'members', 'attach']
+        ignores = ["state", "members", "attach"]
         plugin_array = []
         for obj_name in dir(self):
-            if not obj_name in ignores and not obj_name[:2] == '__':
+            if not obj_name in ignores and not obj_name[:2] == "__":
                 obj = getattr(self, obj_name)
                 if isinstance(obj, MicroscopePlugin):
-                    plugin_members = [member for member in inspect.getmembers(obj) if not member[0][:2] == '__']
+                    plugin_members = [
+                        member
+                        for member in inspect.getmembers(obj)
+                        if not member[0][:2] == "__"
+                    ]
                     plugin_info = (obj_name, plugin_members)
                     plugin_array.append(plugin_info)
         return plugin_array
@@ -168,10 +188,20 @@ class PluginMount(object):
             if plugin_class and plugin_name:
                 plugin_object = plugin_class()
 
-                if hasattr(self, plugin_name):  # If a plugin with the same name is already attached.
-                    logging.warning(ConColors.WARNING + "A plugin named {} has already been loaded. Skipping {}.".format(plugin_name, plugin_map) + ConColors.ENDC)
+                if hasattr(
+                    self, plugin_name
+                ):  # If a plugin with the same name is already attached.
+                    logging.warning(
+                        ConColors.WARNING
+                        + "A plugin named {} has already been loaded. Skipping {}.".format(
+                            plugin_name, plugin_map
+                        )
+                        + ConColors.ENDC
+                    )
 
-                elif isinstance(plugin_object, MicroscopePlugin):  # If plugin_object is an instance of MicroscopePlugin
+                elif isinstance(
+                    plugin_object, MicroscopePlugin
+                ):  # If plugin_object is an instance of MicroscopePlugin
                     # Attach plugin_object to the plugin mount
                     setattr(self, pythonsafe_plugin_name, plugin_object)
                     self.plugins.append((plugin_name, plugin_object))
@@ -179,10 +209,15 @@ class PluginMount(object):
                     # Grant plugin access to the hardware
                     plugin_object.microscope = self.parent
 
-                    logging.info(ConColors.OKGREEN + "Plugin {} loaded as {}.".format(plugin_map, plugin_name) + ConColors.ENDC)
+                    logging.info(
+                        ConColors.OKGREEN
+                        + "Plugin {} loaded as {}.".format(plugin_map, plugin_name)
+                        + ConColors.ENDC
+                    )
 
         else:
             logging.error(f"Error loading plugin {plugin_map}. Moving on.")
+
 
 class MicroscopePlugin:
     """
@@ -195,4 +230,6 @@ class MicroscopePlugin:
     api_views = {}  # Initially empty dictionary of API views associated with the plugin
 
     def __init__(self):
-        self.microscope = None  #: :py:class:`openflexure_microscope.microscope.Microscope`: Microscope object
+        self.microscope = (
+            None
+        )  #: :py:class:`openflexure_microscope.microscope.Microscope`: Microscope object

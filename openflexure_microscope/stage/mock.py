@@ -4,6 +4,7 @@ from openflexure_microscope.utilities import axes_to_array
 from collections.abc import Iterable
 import numpy as np
 
+
 class MockStage(BaseStage):
     def __init__(self, port=None, **kwargs):
         BaseStage.__init__(self)
@@ -15,13 +16,13 @@ class MockStage(BaseStage):
     def state(self):
         """The general state dictionary of the board."""
         state = {
-            'position': {
-                'x': self.position[0],
-                'y': self.position[1],
-                'z': self.position[2],
+            "position": {
+                "x": self.position[0],
+                "y": self.position[1],
+                "z": self.position[2],
             },
-            'board': None,
-            'version': '0'
+            "board": None,
+            "version": "0",
         }
         return state
 
@@ -29,21 +30,15 @@ class MockStage(BaseStage):
         """Update settings from a config dictionary"""
 
         # Set backlash. Expects a dictionary with axis labels
-        if 'backlash' in config:
+        if "backlash" in config:
             # Construct backlash array
-            backlash = axes_to_array(config['backlash'], ['x', 'y', 'z'], [0, 0, 0])
+            backlash = axes_to_array(config["backlash"], ["x", "y", "z"], [0, 0, 0])
             self.backlash = backlash
 
     def read_config(self) -> dict:
         """Return the current settings as a dictionary"""
         blsh = self.backlash.tolist()
-        config = {
-                'backlash': {
-                    'x': blsh[0],
-                    'y': blsh[1],
-                    'z': blsh[2],
-                }
-            }
+        config = {"backlash": {"x": blsh[0], "y": blsh[1], "z": blsh[2]}}
         return config
 
     @property
@@ -69,7 +64,7 @@ class MockStage(BaseStage):
             assert len(blsh) == self.n_axes
             self._backlash = np.array(blsh)
         else:
-            self._backlash = np.array([int(blsh)]*self.n_axes, dtype=np.int)
+            self._backlash = np.array([int(blsh)] * self.n_axes, dtype=np.int)
 
     def move_rel(self, displacement, axis=None, backlash=True):
         pass

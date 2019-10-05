@@ -25,7 +25,11 @@ class MockStreamer(BaseCamera):
         BaseCamera.__init__(self)
 
         # Store state of PiCameraStreamer
-        self.state.update({"stream_active": False, "record_active": False})
+        self.state.update({
+            "stream_active": False, 
+            "record_active": False,
+            "board": None
+        })
 
         # Update config properties
         self.image_resolution = (1312, 976)
@@ -71,12 +75,16 @@ class MockStreamer(BaseCamera):
         Return config dictionary of the PiCameraStreamer.
         """
 
-        conf_dict = {
+        # Get config items from the base class
+        conf_dict = BaseCamera.read_config(self)
+
+        # Include device-specific config items
+        conf_dict.update({
             "stream_resolution": self.stream_resolution,
             "image_resolution": self.image_resolution,
             "numpy_resolution": self.numpy_resolution,
             "jpeg_quality": self.jpeg_quality,
-        }
+        })
 
         return conf_dict
 
@@ -90,23 +98,17 @@ class MockStreamer(BaseCamera):
         Args:
             config (dict): Dictionary of config parameters.
         """
-        paused_stream = False
-        logging.debug("PiCameraStreamer: Applying config:")
+        logging.debug("MockStreamer: Applying config:")
         logging.debug(config)
 
         with self.lock:
 
-            # Apply valid config params to Picamera object
+            # Apply valid config params to camera object
             if not self.state["record_active"]:  # If not recording a video
 
-                # PiCameraStreamer parameters
                 for key, value in config.items():  # For each provided setting
                     if hasattr(self, key):
                         setattr(self, key, value)
-
-                # If stream was paused to update config, unpause
-                if paused_stream:
-                    logging.info("Resuming stream.")
 
             else:
                 raise Exception(
@@ -135,7 +137,7 @@ class MockStreamer(BaseCamera):
         Start a new video recording, writing to a output object.
 
         Args:
-            output (CaptureObject/str): Output object to write data bytes to.
+            output: String or file-like object to write capture data to
             fmt (str): Format of the capture.
             quality (int): Video recording quality.
 
@@ -167,7 +169,7 @@ class MockStreamer(BaseCamera):
         Target object can be overridden for development purposes.
 
         Args:
-            output (CaptureObject/str): Output object to write data bytes to.
+            output: String or file-like object to write capture data to
             use_video_port (bool): Capture from the video port used for streaming. Lower resolution, faster.
             fmt (str): Format of the capture.
             resize ((int, int)): Resize the captured image.
@@ -175,7 +177,12 @@ class MockStreamer(BaseCamera):
         """
 
         with self.lock:
-            logging.warning("Capture not implemented in mock camera")
+            if isinstance(output, str):
+                output = open(output, 'wb')
+
+            output.write(self.stream.getvalue())
+
+            output.close()
 
     # HANDLE STREAM FRAMES
 

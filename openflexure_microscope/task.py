@@ -17,6 +17,7 @@ class TaskOrchestrator:
         tasks (list): List of `Task` objects
 
     """
+
     def __init__(self):
         self.tasks = []
 
@@ -106,6 +107,7 @@ class Task:
             `status` will be one of 'idle'', 'running', 'error', or 'success'.
             `return` eventually holds the return value of the task function.
     """
+
     def __init__(self, function, *args, **kwargs):
         # The task long-running method
         self.task = function
@@ -117,39 +119,41 @@ class Task:
         self.id = uuid.uuid4().hex
 
         self.state = {
-            'id': self.id,
-            'status': 'idle',
-            'return': None,
-            'start_time': None,
-            'end_time': None,
+            "id": self.id,
+            "status": "idle",
+            "return": None,
+            "start_time": None,
+            "end_time": None,
         }
 
     def process(self, f):
         """
         Wraps the target function to handle recording `status` and `return` to `state`.
         """
+
         def wrapped(*args, **kwargs):
-            self.state['status'] = 'running'
+            self.state["status"] = "running"
             try:
                 r = f(*args, **kwargs)
-                s = 'success'
+                s = "success"
             except Exception as e:
                 logging.error(e)
                 logging.error(traceback.format_exc())
                 r = str(e)
-                s = 'error'
-            self.state['return'] = r
-            self.state['status'] = s
+                s = "error"
+            self.state["return"] = r
+            self.state["status"] = s
+
         return wrapped
 
     def run(self):
         """
         Records the task start and end times to `state`, and runs the task wrapped in `process`.
         """
-        self.state['start_time'] = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+        self.state["start_time"] = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
         self.process(self.task)(*self.args, **self.kwargs)
         self._running = False
-        self.state['end_time'] = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+        self.state["end_time"] = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
 
     def start(self):  # Start and draw
         """

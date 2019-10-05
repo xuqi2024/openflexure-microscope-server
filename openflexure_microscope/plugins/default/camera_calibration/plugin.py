@@ -1,4 +1,10 @@
-from openflexure_microscope.devel import MicroscopePlugin, MicroscopeViewPlugin, JsonResponse, request, jsonify
+from openflexure_microscope.devel import (
+    MicroscopePlugin,
+    MicroscopeViewPlugin,
+    JsonResponse,
+    request,
+    jsonify,
+)
 
 import logging
 
@@ -19,9 +25,7 @@ class Plugin(MicroscopePlugin):
     A set of default plugins
     """
 
-    api_views = {
-        '/recalibrate': RecalibrateAPIView,
-    }
+    api_views = {"/recalibrate": RecalibrateAPIView}
 
     def recalibrate(self):
         """Reset the camera's settings.
@@ -32,8 +36,10 @@ class Plugin(MicroscopePlugin):
         """
         scamera = self.microscope.camera
         with scamera.lock:
-            assert not scamera.state['record_active'], "Can't recalibrate while recording!"
-            streaming = scamera.state['stream_active']
+            assert not scamera.state[
+                "record_active"
+            ], "Can't recalibrate while recording!"
+            streaming = scamera.state["stream_active"]
             if streaming:
                 logging.info("Stopping stream before recalibration")
                 scamera.stop_stream_recording(resolution=(640, 480))

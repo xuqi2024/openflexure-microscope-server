@@ -1,4 +1,4 @@
-__all__ = ['Microscope', 'config', 'task', 'lock', 'utilities']
+__all__ = ["Microscope", "config", "task", "lock", "utilities"]
 __version__ = "0.1.0"
 
 from .microscope import Microscope

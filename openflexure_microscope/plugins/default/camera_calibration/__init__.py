@@ -1,2 +1,2 @@
-__all__ = ['Plugin']
+__all__ = ["Plugin"]
 from .plugin import Plugin

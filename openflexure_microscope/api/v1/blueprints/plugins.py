@@ -6,6 +6,7 @@ from openflexure_microscope.api.v1.views import MicroscopeView
 import logging
 import warnings
 
+
 class PluginFormAPI(MicroscopeView):
     def get(self):
         """
@@ -26,12 +27,12 @@ class PluginFormAPI(MicroscopeView):
 
 def construct_blueprint(microscope_obj):
 
-    blueprint = Blueprint('plugin_blueprint', __name__)
+    blueprint = Blueprint("plugin_blueprint", __name__)
 
     # Create a base route to return plugin API forms, if any exist
     blueprint.add_url_rule(
-        '/',
-        view_func=PluginFormAPI.as_view('plugin_api_form', microscope=microscope_obj)
+        "/",
+        view_func=PluginFormAPI.as_view("plugin_api_form", microscope=microscope_obj),
     )
 
     all_routes = []
@@ -40,7 +41,7 @@ def construct_blueprint(microscope_obj):
     for plugin_name, plugin_obj in microscope_obj.plugin.plugins:
 
         # If plugin contains valid endpoints
-        if hasattr(plugin_obj, 'api_views') and isinstance(plugin_obj.api_views, dict):
+        if hasattr(plugin_obj, "api_views") and isinstance(plugin_obj.api_views, dict):
 
             # We'll keep a record of how each route was expanded
             expanded_routes = {}
@@ -50,7 +51,7 @@ def construct_blueprint(microscope_obj):
 
                 # Remove all leading slashes from view route
                 cleaned_route = view_route
-                while cleaned_route[0] == '/':
+                while cleaned_route[0] == "/":
                     cleaned_route = cleaned_route[1:]
 
                 # Construct a full view route from the plugin name
@@ -61,12 +62,16 @@ def construct_blueprint(microscope_obj):
                 expanded_routes[view_route] = full_view_route
 
                 # Check if endpoint name clashes
-                if full_view_route not in all_routes and issubclass(view_class, MicroscopeViewPlugin):
+                if full_view_route not in all_routes and issubclass(
+                    view_class, MicroscopeViewPlugin
+                ):
                     # Add route to main route dictionary
                     all_routes.append(full_view_route)
 
                     # Create a Python-safe name for the route
-                    plugin_route_id = 'plugin{}'.format(full_view_route).replace('/', '_')
+                    plugin_route_id = "plugin{}".format(full_view_route).replace(
+                        "/", "_"
+                    )
 
                     # Add route to the plugins blueprint
                     blueprint.add_url_rule(
@@ -74,30 +79,36 @@ def construct_blueprint(microscope_obj):
                         view_func=view_class.as_view(
                             plugin_route_id,
                             microscope=microscope_obj,
-                            plugin=plugin_obj
-                        )
+                            plugin=plugin_obj,
+                        ),
                     )
 
                 else:
                     warnings.warn(
                         "An endpoint /{} has already been loaded. Skipping {}.".format(
-                            full_view_route,
-                            view_class
+                            full_view_route, view_class
                         )
                     )
 
             # If plugin includes an API form
-            if hasattr(plugin_obj, 'api_form') and isinstance(plugin_obj.api_form, dict):
+            if hasattr(plugin_obj, "api_form") and isinstance(
+                plugin_obj.api_form, dict
+            ):
                 api_form_info = plugin_obj.api_form
-                # TODO: Validate form? We need to make sure no single plugin can break all plugins.
-                api_form_info['id'] = plugin_name
-                if 'forms' in api_form_info and isinstance(api_form_info['forms'], list):
-                    for form in api_form_info['forms']:
-                        if 'route' in form and form['route'] in expanded_routes.keys():
-                            form['route'] = expanded_routes[form['route']]
+                api_form_info["id"] = plugin_name
+                if "forms" in api_form_info and isinstance(
+                    api_form_info["forms"], list
+                ):
+                    for form in api_form_info["forms"]:
+                        if "route" in form and form["route"] in expanded_routes.keys():
+                            form["route"] = expanded_routes[form["route"]]
                         else:
-                            logging.warn("No valid expandable route found for {}".format(form['route']))
-                
+                            logging.warn(
+                                "No valid expandable route found for {}".format(
+                                    form["route"]
+                                )
+                            )
+
                 # Store the complete form in Microscope().plugin.form
                 microscope_obj.plugin.forms.append(api_form_info)
                 print(microscope_obj.plugin.forms)

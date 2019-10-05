@@ -10,7 +10,9 @@ class JsonResponse:
         """
         # Try to load as json
         try:
-            self.json = request.get_json()  #: dict: Dictionary representation of request JSON
+            self.json = (
+                request.get_json()
+            )  #: dict: Dictionary representation of request JSON
         # If malformed JSON is passed, make an empty dictionary
         except BadRequest as e:
             logging.error(e)
@@ -55,15 +57,12 @@ def gen(camera):
         # the obtained frame is a jpeg
         frame = camera.get_frame()
 
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+        yield (b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
 
 
 def get_bool(get_arg):
     """Convert GET request argument string to a Python bool"""
-    if (get_arg == 'true' or
-            get_arg == 'True' or
-            get_arg == '1'):
+    if get_arg == "true" or get_arg == "True" or get_arg == "1":
         return True
     else:
         return False
@@ -80,10 +79,7 @@ def list_routes(app):
         endpoint = rule.endpoint
         methods = list(rule.methods)
         url = url_for(rule.endpoint, **options)
-        line = {
-            'endpoint': endpoint,
-            'methods': methods
-        }
+        line = {"endpoint": endpoint, "methods": methods}
         output[url] = line
-    
+
     return output

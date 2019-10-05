@@ -10,15 +10,16 @@ from .api import MeasureSharpnessAPI, AutofocusAPI, FastAutofocusAPI
 
 from openflexure_microscope.devel import MicroscopePlugin
 
+
 class AutofocusPlugin(MicroscopePlugin):
     """
     Basic autofocus plugin
     """
 
     api_views = {
-        '/measure_sharpness': MeasureSharpnessAPI,
-        '/autofocus': AutofocusAPI,
-        '/fast_autofocus': FastAutofocusAPI,
+        "/measure_sharpness": MeasureSharpnessAPI,
+        "/autofocus": AutofocusAPI,
+        "/fast_autofocus": FastAutofocusAPI,
     }
 
     ### SLOW AUTOFOCUS
@@ -70,21 +71,24 @@ class AutofocusPlugin(MicroscopePlugin):
             m.focus_rel(dz)
             return m.sharpest_z_on_move(0)
 
-
     def fast_autofocus(self, dz=2000, backlash=None):
         """Perform a down-up-down-up autofocus"""
         with self.monitor_sharpness() as m:
-            i, z = m.focus_rel(-dz/2)
+            i, z = m.focus_rel(-dz / 2)
             i, z = m.focus_rel(dz)
             fz = m.sharpest_z_on_move(i)
             if backlash is None:
-                i, z = m.focus_rel(-dz) # move all the way to the start so it's consistent
+                i, z = m.focus_rel(
+                    -dz
+                )  # move all the way to the start so it's consistent
             else:
                 i, z = m.focus_rel(fz - z - backlash)
             m.focus_rel(fz - z)
             return m.data_dict()
 
-    def fast_up_down_up_autofocus(self, dz=2000, target_z=0, initial_move_up=True, mini_backlash=150):
+    def fast_up_down_up_autofocus(
+        self, dz=2000, target_z=0, initial_move_up=True, mini_backlash=150
+    ):
         """Autofocus by measuring on the way down, and moving back up with feedback.
 
         This autofocus method is very efficient, as it only passes the peak once.
@@ -124,32 +128,41 @@ class AutofocusPlugin(MicroscopePlugin):
             # Ensure the MJPEG stream has started
             self.microscope.camera.start_stream_recording()
 
-            df = dz #TODO: refactor so I actually use dz in the code below!
+            df = dz  # TODO: refactor so I actually use dz in the code below!
             if initial_move_up:
-                m.focus_rel(df/2)
+                m.focus_rel(df / 2)
             # move down
             i, z = m.focus_rel(-df)
             # now inspect where the sharpest point is, and estimate the sharpness
             # (JPEG size) that we should find at the start of the Z stack
             jt, jz, js = m.move_data(i)
             best_z = jz[np.argmax(js)]
-            target_s = np.interp([best_z+target_z], jz[::-1], js[::-1]) #NB jz is decreasing
+            target_s = np.interp(
+                [best_z + target_z], jz[::-1], js[::-1]
+            )  # NB jz is decreasing
 
             # now move to the start of the z stack
-            i, z = m.focus_rel(best_z + target_z - z + mini_backlash) # takes us to the start of the stack
+            i, z = m.focus_rel(
+                best_z + target_z - z + mini_backlash
+            )  # takes us to the start of the stack
 
             # We've deliberately undershot - figure out how much further we should move based on the curve
             current_js = m.jpeg_size()
-            imax = np.argmax(js) # we want to crop out just the bit below the peak
-            js = js[imax:] # NB z is in DECREASING order
+            imax = np.argmax(js)  # we want to crop out just the bit below the peak
+            js = js[imax:]  # NB z is in DECREASING order
             jz = jz[imax:]
-            inow = np.argmax(js < current_js) # use the curve we recorded to estimate our position
+            inow = np.argmax(
+                js < current_js
+            )  # use the curve we recorded to estimate our position
             # TODO: fancy interpolation stuff
 
             # So, the Z position corresponding to our current sharpness value is zs[inow]
             # That means we should move forwards, by best_z - zs[inow]
             correction_move = best_z + target_z - jz[inow]
-            logging.debug("Fast autofocus scan: correcting backlash by moving {} steps".format(correction_move))
+            logging.debug(
+                "Fast autofocus scan: correcting backlash by moving {} steps".format(
+                    correction_move
+                )
+            )
             m.focus_rel(correction_move)
             return m.data_dict()
-

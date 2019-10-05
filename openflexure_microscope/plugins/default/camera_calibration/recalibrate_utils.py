@@ -4,10 +4,11 @@ import time
 from picamera import PiCamera
 from picamera.array import PiRGBArray, PiBayerArray
 
+
 def rgb_image(camera, resize=None, **kwargs):
     """Capture an image and return an RGB numpy array"""
     with PiRGBArray(camera, size=resize) as output:
-        camera.capture(output, format='rgb', resize=resize, **kwargs)
+        camera.capture(output, format="rgb", resize=resize, **kwargs)
         return output.array
 
 
@@ -19,7 +20,9 @@ def flat_lens_shading_table(camera):
     library (with lens shading table support) it will raise an error.
     """
     if not hasattr(PiCamera, "lens_shading_table"):
-        raise ImportError("This program requires the forked picamera library with lens shading support")
+        raise ImportError(
+            "This program requires the forked picamera library with lens shading support"
+        )
     return np.zeros(camera._lens_shading_table_shape(), dtype=np.uint8) + 32
 
 
@@ -28,7 +31,9 @@ def adjust_exposure_to_setpoint(camera, setpoint):
     print("Adjusting shutter speed to hit setpoint {}".format(setpoint), end="")
     for i in range(3):
         print(".", end="")
-        camera.shutter_speed = int(camera.shutter_speed * setpoint / np.max(rgb_image(camera)))
+        camera.shutter_speed = int(
+            camera.shutter_speed * setpoint / np.max(rgb_image(camera))
+        )
         time.sleep(1)
     print("done")
 
@@ -38,7 +43,9 @@ def auto_expose_and_freeze_settings(camera):
     print("Allowing the camera to auto-expose")
     camera.awb_mode = "auto"
     camera.exposure_mode = "auto"
-    camera.iso = 0 # This is important, if it's on a fixed ISO, gain might not set properly.
+    camera.iso = (
+        0
+    )  # This is important, if it's on a fixed ISO, gain might not set properly.
     for i in range(6):
         print(".", end="")
         time.sleep(0.5)
@@ -53,17 +60,26 @@ def auto_expose_and_freeze_settings(camera):
     camera.awb_mode = "off"
     camera.awb_gains = g
     print("Auto white balance disabled, gains are {}".format(g))
-    print("Analogue gain: {}, Digital gain: {}".format(camera.analog_gain, camera.digital_gain))
+    print(
+        "Analogue gain: {}, Digital gain: {}".format(
+            camera.analog_gain, camera.digital_gain
+        )
+    )
     adjust_exposure_to_setpoint(camera, 215)
 
 
 def channels_from_bayer_array(bayer_array):
     """Given the 'array' from a PiBayerArray, return the 4 channels."""
-    bayer_pattern = [(i//2, i % 2) for i in range(4)]
-    channels = np.zeros((4, bayer_array.shape[0]//2, bayer_array.shape[1]//2), dtype=bayer_array.dtype)
+    bayer_pattern = [(i // 2, i % 2) for i in range(4)]
+    channels = np.zeros(
+        (4, bayer_array.shape[0] // 2, bayer_array.shape[1] // 2),
+        dtype=bayer_array.dtype,
+    )
     for i, offset in enumerate(bayer_pattern):
         # We simplify life by dealing with only one channel at a time.
-        channels[i, :, :] = np.sum(bayer_array[offset[0]::2, offset[1]::2, :], axis=2)
+        channels[i, :, :] = np.sum(
+            bayer_array[offset[0] :: 2, offset[1] :: 2, :], axis=2
+        )
 
     return channels
 
@@ -86,25 +102,27 @@ def lst_from_channels(channels):
         # pad the image by copying edge pixels, so that it is exactly 32 times the
         # size of the lens shading table (NB 32 not 64 because each channel is only
         # half the size of the full image - remember the Bayer pattern...  This
-        # should give results very close to 6by9's solution, albeit considerably 
+        # should give results very close to 6by9's solution, albeit considerably
         # less computationally efficient!
-        padded_image_channel = np.pad(image_channel, 
-                                      [(0, lw*32 - iw), (0, lh*32 - ih)],
-                                      mode="edge")  # Pad image to the right and bottom
-        print("Channel shape: {}x{}, shading table shape: {}x{}, after padding {}".format(iw,
-                                                                                          ih,
-                                                                                          lw*32,
-                                                                                          lh*32,
-                                                                                          padded_image_channel.shape))
+        padded_image_channel = np.pad(
+            image_channel, [(0, lw * 32 - iw), (0, lh * 32 - ih)], mode="edge"
+        )  # Pad image to the right and bottom
+        print(
+            "Channel shape: {}x{}, shading table shape: {}x{}, after padding {}".format(
+                iw, ih, lw * 32, lh * 32, padded_image_channel.shape
+            )
+        )
         # Next, fill the shading table (except edge pixels).  Please excuse the
         # for loop - I know it's not fast but this code needn't be!
         box = 3  # We average together a square of this side length for each pixel.
         # NB this isn't quite what 6by9's program does - it averages 3 pixels
         # horizontally, but not vertically.
-        for dx in np.arange(box) - box//2:
-            for dy in np.arange(box) - box//2:
-                ls_channel[:, :] += padded_image_channel[16+dx::32, 16+dy::32] - 64
-        ls_channel /= box**2
+        for dx in np.arange(box) - box // 2:
+            for dy in np.arange(box) - box // 2:
+                ls_channel[:, :] += (
+                    padded_image_channel[16 + dx :: 32, 16 + dy :: 32] - 64
+                )
+        ls_channel /= box ** 2
         # The original C code written by 6by9 normalises to the central 64 pixels in each channel.
         # ls_channel /= np.mean(image_channel[iw//2-4:iw//2+4, ih//2-4:ih//2+4])
         # I have had better results just normalising to the maximum:
@@ -114,10 +132,10 @@ def lst_from_channels(channels):
         # For most sensible lenses I'd expect that 1.0 is the maximum value.
         # NB ls_channel should be a "view" of the whole lens shading array, so we don't
         # need to update the big array here.
-     
-    # What we actually want to calculate is the gains needed to compensate for the 
+
+    # What we actually want to calculate is the gains needed to compensate for the
     # lens shading - that's 1/lens_shading_table_float as we currently have it.
-    gains = 32.0/lens_shading  # 32 is unity gain
+    gains = 32.0 / lens_shading  # 32 is unity gain
     gains[gains > 255] = 255  # clip at 255, maximum gain is 255/32
     gains[gains < 32] = 32  # clip at 32, minimum gain is 1 (is this necessary?)
     lens_shading_table = gains.astype(np.uint8)
@@ -145,7 +163,7 @@ def recalibrate_camera(camera):
     # raw_image is a 3D array, with full resolution and 3 colour channels.  No
     # de-mosaicing has been done, so 2/3 of the values are zero (3/4 for R and B
     # channels, 1/2 for green because there's twice as many green pixels).
-    channels = channels_from_bayer_array(raw_image) 
+    channels = channels_from_bayer_array(raw_image)
     lens_shading_table = lst_from_channels(channels)
 
     camera.lens_shading_table = lens_shading_table
@@ -154,8 +172,10 @@ def recalibrate_camera(camera):
     # Fix the AWB gains so the image is neutral
     channel_means = np.mean(np.mean(rgb_image(camera), axis=0, dtype=np.float), axis=0)
     old_gains = camera.awb_gains
-    camera.awb_gains = (channel_means[1]/channel_means[0] * old_gains[0],
-                        channel_means[1]/channel_means[2]*old_gains[1])
+    camera.awb_gains = (
+        channel_means[1] / channel_means[0] * old_gains[0],
+        channel_means[1] / channel_means[2] * old_gains[1],
+    )
     time.sleep(1)
     # Ensure the background is bright but not saturated
     adjust_exposure_to_setpoint(camera, 230)

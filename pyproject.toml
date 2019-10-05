@@ -23,7 +23,7 @@ keywords = ['raspberry pi', 'arduino', 'microscope']
 license = "GPL-3.0"
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.6"
 Flask = "^1.0"
 pyyaml = "^3.13"
 numpy = "1.16.4" # Exact version until we can guarantee a wheel

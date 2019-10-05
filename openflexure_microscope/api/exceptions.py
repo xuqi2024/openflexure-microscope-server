@@ -17,17 +17,14 @@ class JSONExceptionHandler(object):
     def std_handler(self, error):
         if isinstance(error, HTTPException):
             message = error.description
-        elif hasattr(error, 'message'):
+        elif hasattr(error, "message"):
             message = error.message
         else:
             message = str(error)
 
         status_code = error.code if isinstance(error, HTTPException) else 500
 
-        response = {
-            'status_code': status_code,
-            'message': escape(message)
-        }
+        response = {"status_code": status_code, "message": escape(message)}
         return jsonify(response), status_code
 
     def init_app(self, app):

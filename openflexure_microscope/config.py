@@ -4,8 +4,10 @@ import errno
 import logging
 import shutil
 import copy
+import numpy as np
 from fractions import Fraction
-from collections import abc
+
+from .utilities import recursively_apply
 
 """
 Attributes:
@@ -18,7 +20,7 @@ Attributes:
 # HANDLE THE DEFAULT CONFIGURATION FILE
 
 HERE = os.path.abspath(os.path.dirname(__file__))
-DEFAULT_CONFIG_PATH = os.path.join(HERE, 'microscope_settings.default.yaml')
+DEFAULT_CONFIG_PATH = os.path.join(HERE, "microscope_settings.default.yaml")
 
 USER_CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".openflexure")
 USER_CONFIG_FILE = os.path.join(USER_CONFIG_DIR, "microscope_settings.yaml")
@@ -26,7 +28,7 @@ USER_CONFIG_FILE = os.path.join(USER_CONFIG_DIR, "microscope_settings.yaml")
 USER_CONFIG_FILE_OLD = os.path.join(USER_CONFIG_DIR, "microscoperc.yaml")
 
 # Load the default config
-with open(DEFAULT_CONFIG_PATH, 'r') as default_rc:
+with open(DEFAULT_CONFIG_PATH, "r") as default_rc:
     DEFAULT_CONFIG = default_rc.read()
 
 # HANDLE CUSTOM YAML PARSING
@@ -36,75 +38,49 @@ def construct_yaml_bool(self, node):
     YAML otherwise caused grief for picamera properties where 'off' is a valid string value.
     """
     override_bool_values = {
-            'yes':      True,
-            'no':       False,
-            'true':     True,
-            'false':    False,
-            'on':       'on',
-            'off':      'off',
+        "yes": True,
+        "no": False,
+        "true": True,
+        "false": False,
+        "on": "on",
+        "off": "off",
     }
     value = self.construct_scalar(node)
     return override_bool_values[value.lower()]
 
 
-yaml.Loader.add_constructor(u'tag:yaml.org,2002:bool', construct_yaml_bool)
+yaml.Loader.add_constructor(u"tag:yaml.org,2002:bool", construct_yaml_bool)
 
 
 # HANDLE CONVERTING ARBITRARY CONFIG TO JSON-SAFE JSON
+
 
 def convert_type_to_json_safe(v):
     """Make an individual attribute JSON-safe"""
     if isinstance(v, Fraction):
         return float(v)
+    elif isinstance(v, np.ndarray):
+        return v.tolist()
     else:
         return v
 
 
-def recursively_apply(data, func):
-    """
-    Recursively apply a function to a dictionary, list, array, or tuple
-
-    Args:
-        data: Input iterable data
-        func: Function to apply to all non-iterable values
-    """
-    # If the object is a dictionary
-    if isinstance(data, abc.Mapping):
-        return {key: recursively_apply(val, func) for key, val in data.items()}
-    # If the object is iterable but NOT a dictionary or a string
-    elif (isinstance(data, abc.Iterable) and
-          not isinstance(data, abc.Mapping) and
-          not isinstance(data, str)):
-        return [recursively_apply(x, func) for x in data]
-    # if the object is neither a map nor iterable
-    else:
-        return func(data)
-
-
-def settings_to_json(data: dict, clean_keys=True):
+def settings_to_json(data: dict):
     """
     Make a copy of an input dictionary that's safe for JSON return
 
     Args:
         data: Input dictionary
-        clean_keys: Modify any keys unsuitable for JSON return
     """
 
     # Do not overwrite original data dictionary
     d = copy.deepcopy(data)
 
-    # If we're cleaning up unsuitable keys
-    if clean_keys:
-        # Convert lens_shading_table to a bool
-        if 'picamera_settings' in d['camera_settings'] and 'lens_shading_table' in d['camera_settings']['picamera_settings']:
-            logging.debug("Bool-ifying lens_shading_table")
-            if d['camera_settings']['picamera_settings']['lens_shading_table'] is not None:
-                d['camera_settings']['picamera_settings']['lens_shading_table'] = True
-
     return recursively_apply(d, convert_type_to_json_safe)
 
 
 # HANDLE BASIC LOADING AND SAVING OF YAML FILES
+
 
 def load_yaml_file(config_path) -> dict:
     """
@@ -138,7 +114,7 @@ def save_yaml_file(config_path: str, config_dict: dict, safe: bool = False):
     logging.info("Saving {}...".format(config_path))
     logging.debug(config_dict)
 
-    with open(config_path, 'w') as outfile:
+    with open(config_path, "w") as outfile:
         if not safe:
             yaml.dump(config_dict, outfile)
         else:
@@ -173,7 +149,7 @@ def initialise_file(config_path, populate: str = ""):
         create_file(config_path)
 
         logging.info("Populating {}...".format(config_path))
-        with open(config_path, 'w') as outfile:
+        with open(config_path, "w") as outfile:
             outfile.write(populate)
 
 
@@ -186,12 +162,13 @@ class OpenflexureSettingsFile:
         config_path (str): Path to the config YAML file (None falls back to default location)
         expand (bool): Expand paths to valid auxillary config files.
     """
+
     def __init__(self, config_path: str = None, expand: bool = True):
         global DEFAULT_CONFIG, USER_CONFIG_FILE
 
         self.expandable_keys = {
-            'camera_settings': None,
-            'stage_settings': None
+            "camera_settings": None,
+            "stage_settings": None,
         }  #: Dictionary of keys that can be passed as a file path string and expanded automatically
 
         # Set arguments
@@ -226,10 +203,10 @@ class OpenflexureSettingsFile:
             save_config = self.contract_config(config)
         else:
             save_config = config
-    
+
         if backup:
             if os.path.isfile(self.config_path):
-                shutil.copyfile(self.config_path, self.config_path+".bk")
+                shutil.copyfile(self.config_path, self.config_path + ".bk")
 
         logging.debug("Saving settings dictionary to disk")
         save_yaml_file(self.config_path, save_config)
@@ -255,8 +232,7 @@ class OpenflexureSettingsFile:
         # For each value in the raw loaded config
         for key, value in config_dict.items():
             # If it's a valid expandable parameter
-            if (key in self.expandable_keys and
-                    type(value) is str):
+            if key in self.expandable_keys and type(value) is str:
 
                 logging.debug("Expanding {}".format(value))
 
@@ -282,9 +258,11 @@ class OpenflexureSettingsFile:
         # For each value in the expanded config
         for key, value in config_dict.items():
             # If it's a valid expandable parameter
-            if (key in self.expandable_keys and
-                    self.expandable_keys[key] is not None and
-                    type(value) is dict):
+            if (
+                key in self.expandable_keys
+                and self.expandable_keys[key] is not None
+                and type(value) is dict
+            ):
 
                 logging.debug("Saving to {}".format(self.expandable_keys[key]))
                 # Create the file if it doesn't exist

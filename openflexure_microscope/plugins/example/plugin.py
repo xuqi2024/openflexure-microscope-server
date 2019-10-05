@@ -11,10 +11,10 @@ class Plugin(MicroscopePlugin):
     """
 
     api_views = {
-        '/identify': IdentifyAPI,
-        '/hello': HelloWorldAPI,
-        '/long_running': LongRunningAPI,
-        '/some_exception': SomeExceptionAPI,
+        "/identify": IdentifyAPI,
+        "/hello": HelloWorldAPI,
+        "/long_running": LongRunningAPI,
+        "/some_exception": SomeExceptionAPI,
     }
 
     def identify(self):
@@ -22,7 +22,9 @@ class Plugin(MicroscopePlugin):
         Demonstrate access to Microscope.camera, and Microscope.stage
         """
 
-        response = "My parent camera is {}, and my parent stage is {}.".format(self.microscope.camera, self.microscope.stage)
+        response = "My parent camera is {}, and my parent stage is {}.".format(
+            self.microscope.camera, self.microscope.stage
+        )
         print(response)
         return response
 
@@ -39,7 +41,7 @@ class Plugin(MicroscopePlugin):
         """
         with self.microscope.lock:
             time.sleep(3)
-            result = 15./0
+            result = 15.0 / 0
 
         return result
 
