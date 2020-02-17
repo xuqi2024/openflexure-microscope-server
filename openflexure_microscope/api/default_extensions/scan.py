@@ -166,10 +166,6 @@ def tile(
     else:
         autofocus_enabled = False
 
-    z_stack_dz = (
-        grid[2] * stride_size[2] if grid[2] > 1 else 0
-    )  # shorthand for Z stack range
-
     # Construct an x-y grid (worry about z later)
     x_y_grid = construct_grid(initial_position, stride_size[:2], grid[:2], style=style)
 
@@ -201,7 +197,6 @@ def tile(
                     autofocus_extension.fast_up_down_up_autofocus(
                         microscope,
                         dz=autofocus_dz,
-                        target_z=-z_stack_dz / 2.0,  # Finish below the focus
                         initial_move_up=False,  # We're already at the top of the scan
                     )
                 else:
