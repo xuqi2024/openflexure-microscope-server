@@ -259,15 +259,17 @@ def stack(
 
     # Store initial position
     initial_position = microscope.stage.position
+    logging.debug(f"Starting z-stack from position {microscope.stage.position}")
 
     with microscope.lock:
         # Move to center scan
-        logging.debug("Moving to starting position")
+        logging.debug("Moving to z-stack starting position")
         microscope.stage.move_rel([0, 0, int((-step_size * steps) / 2)])
+        logging.debug(f"Starting scan from position {microscope.stage.position}")
 
         for i in range(steps):
             time.sleep(0.1)
-            logging.debug("Capturing...")
+            logging.debug(f"Capturing from position {microscope.stage.position}")
             capture(
                 microscope,
                 basename,
