@@ -170,17 +170,15 @@ def tile(
     x_y_grid = construct_grid(initial_position, stride_size[:2], grid[:2], style=style)
 
     # Keep the initial Z position the same as our current position
-    next_z = initial_position[2]
-    if fast_autofocus:  # If fast autofocus is enabled, make
-        next_z += autofocus_dz / 2  # sure we start from the top of the range
-    initial_z = next_z  # Save this value for use in raster scans
+    initial_z = initial_position[2]
+    next_z = initial_z  # Save this value for use in raster scans
 
     # Now step through each point in the x-y coordinate array
     for line in x_y_grid:
         # If rastering, rather than snake (or eventually spiral)
         # Return focus to initial position
         if style == "raster":
-            next_z = initial_z
+            next_z = initial_z  # Reset z position at start of each new row
             logging.debug("Returning to initial z position")
             microscope.stage.move_abs(
                 [line[0][0], line[0][1], next_z]
@@ -195,9 +193,7 @@ def tile(
                 if fast_autofocus:
                     # Run fast autofocus. Client should provide dz ~ 2000
                     autofocus_extension.fast_up_down_up_autofocus(
-                        microscope,
-                        dz=autofocus_dz,
-                        initial_move_up=False,  # We're already at the top of the scan
+                        microscope, dz=autofocus_dz
                     )
                 else:
                     # Run slow autofocus. Client should provide dz ~ 50
@@ -231,7 +227,6 @@ def tile(
                     temporary=temporary,
                     step_size=stride_size[2],
                     steps=grid[2],
-                    return_to_start=not fast_autofocus,
                     use_video_port=use_video_port,
                     resize=resize,
                     bayer=bayer,
@@ -241,14 +236,6 @@ def tile(
                 )
             # Make sure we use our current best estimate of focus (i.e. the current position) next point
             next_z = microscope.stage.position[2]
-            if fast_autofocus:
-                next_z += (
-                    autofocus_dz / 2
-                )  # Fast autofocus requires us to start at the top of the range
-                if grid[2] > 1:
-                    next_z -= int(
-                        grid[2] / 2.0 * stride_size[2]
-                    )  # Z stacking means we're higher up to start with
 
     logging.debug("Returning to {}".format(initial_position))
     microscope.stage.move_abs(initial_position)
