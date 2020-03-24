@@ -1,23 +1,22 @@
 # -*- coding: utf-8 -*-
 import time
 import os
+import shutil
 import threading
 import datetime
 import logging
 
 from abc import ABCMeta, abstractmethod
+from collections import OrderedDict
 
-try:
-    from greenlet import getcurrent as get_ident
-except ImportError:
-    try:
-        from thread import get_ident
-    except ImportError:
-        from _thread import get_ident
+from .capture import CaptureObject, build_captures_from_exif
+from openflexure_microscope.utilities import entry_by_uuid
+from labthings.core.lock import StrictLock
 
-from .capture import CaptureObject, BASE_CAPTURE_PATH, TEMP_CAPTURE_PATH
-from openflexure_microscope.utilities import entry_by_id
-from openflexure_microscope.lock import StrictLock
+from openflexure_microscope.paths import data_file_path
+
+BASE_CAPTURE_PATH = data_file_path("micrographs")
+TEMP_CAPTURE_PATH = os.path.join(BASE_CAPTURE_PATH, "tmp")
 
 
 def last_entry(object_list: list):
@@ -45,23 +44,19 @@ def generate_numbered_basename(obj_list: list) -> str:
     return basename
 
 
-def shunt_captures(target_list: list):
-    for obj in target_list:  # For each older capture
-        obj.shunt()  # Shunt capture from memory to storage
-
-
 class CameraEvent(object):
     """
     A frame-signaller object used by any instances or subclasses of BaseCamera.
 
     An event-like class that signals all active clients when a new frame is available.
     """
+
     def __init__(self):
         self.events = {}
 
     def wait(self, timeout: int = 5):
         """Wait for the next frame (invoked from each client's thread)."""
-        ident = get_ident()
+        ident = threading.get_ident()
         if ident not in self.events:
             # this is a new client
             # add an entry for it in the self.events dict
@@ -91,30 +86,17 @@ class CameraEvent(object):
 
     def clear(self):
         """Clear frame event, once processed."""
-        self.events[get_ident()][0].clear()
+        self.events[threading.get_ident()][0].clear()
 
 
 class BaseCamera(metaclass=ABCMeta):
     """
     Base implementation of StreamingCamera.
-
-    Attributes:
-        thread: Background thread reading frames from camera
-        camera: Camera object
-        lock (:py:class:`openflexure_microscope.lock.StrictLock`): Strict lock controlling thread
-            access to stage hardware
-        frame (bytes): Current frame is stored here by background thread
-        last_access (time): Time of last client access to the camera
-        stream_timeout (int): Number of inactive seconds before timing out the stream
-        stream_timeout_enabled (bool): Enable or disable timing out the stream
-        state (dict): Dictionary for capture state
-        paths (dict): Dictionary of capture paths
-        images (list): List of image capture objects
-        videos (list): List of video capture objects
     """
+
     def __init__(self):
         self.thread = None
-        self.camera = None 
+        self.camera = None
 
         self.lock = StrictLock(timeout=1)
 
@@ -126,27 +108,44 @@ class BaseCamera(metaclass=ABCMeta):
         self.stream_timeout = 20
         self.stream_timeout_enabled = False
 
-        self.state = {}
-        self.paths = {
-            'image': BASE_CAPTURE_PATH,
-            'video': BASE_CAPTURE_PATH,
-            'image_tmp': TEMP_CAPTURE_PATH,
-            'video_tpm': TEMP_CAPTURE_PATH
-        } 
+        self.stream_active = False
+        self.record_active = False
+
+        self.paths = {"default": BASE_CAPTURE_PATH, "temp": TEMP_CAPTURE_PATH}
 
         # Capture data
-        self.images = []
-        self.videos = []
+        self.images = OrderedDict()
+        self.videos = OrderedDict()
+
+    @property
+    @abstractmethod
+    def configuration(self):
+        """The current camera configuration."""
+        pass
+
+    @property
+    @abstractmethod
+    def state(self):
+        """The current read-only camera state."""
+        pass
+
+    @property
+    def settings(self):
+        return self.read_settings()
 
     @abstractmethod
-    def apply_config(self, config: dict):
+    def update_settings(self, config: dict):
         """Update settings from a config dictionary"""
-        pass
+        with self.lock:
+            # Apply valid config params to camera object
+            for key, value in config.items():  # For each provided setting
+                if hasattr(self, key):  # If the instance has a matching property
+                    setattr(self, key, value)  # Set to the target value
 
     @abstractmethod
-    def read_config(self) -> dict:
+    def read_settings(self) -> dict:
         """Return the current settings as a dictionary"""
-        pass
+        return {"paths": self.paths}
 
     def __enter__(self):
         """Create camera on context enter."""
@@ -160,12 +159,27 @@ class BaseCamera(metaclass=ABCMeta):
         """Close the BaseCamera and all attached StreamObjects."""
         logging.info("Closing {}".format(self))
         # Close all StreamObjects
-        for capture_list in [self.images, self.videos]:
+        for capture_list in [self.images.values(), self.videos.values()]:
             for stream_object in capture_list:
                 stream_object.close()
+        # Empty temp directory
+        self.clear_tmp()
         # Stop worker thread
         self.stop_worker()
         logging.info("Closed {}".format(self))
+
+    def clear_tmp(self):
+        """
+        Removes all files in the temporary capture directories
+        """
+
+        if os.path.isdir(self.paths["temp"]):
+            logging.info("Clearing {}...".format(self.paths["temp"]))
+            shutil.rmtree(self.paths["temp"])
+            logging.debug("Cleared {}.".format(self.paths["temp"]))
+
+    def rebuild_captures(self):
+        self.images = build_captures_from_exif(self.paths["default"])
 
     # START AND STOP WORKER THREAD
 
@@ -176,7 +190,7 @@ class BaseCamera(metaclass=ABCMeta):
         self.last_access = time.time()
         self.stop = False
 
-        if not self.state['stream_active']:
+        if not self.stream_active:
             # start background frame thread
             self.thread = threading.Thread(target=self._thread)
             self.thread.daemon = True
@@ -196,12 +210,12 @@ class BaseCamera(metaclass=ABCMeta):
         logging.debug("Stopping worker thread")
         timeout_time = time.time() + timeout
 
-        if self.state['stream_active']:
+        if self.stream_active:
             self.stop = True
             self.thread.join()  # Wait for stream thread to exit
             logging.debug("Waiting for stream thread to exit.")
 
-        while self.state['stream_active']:
+        while self.stream_active:
             if time.time() > timeout_time:
                 logging.debug("Timeout waiting for worker thread close.")
                 raise TimeoutError("Timeout waiting for worker thread close.")
@@ -231,36 +245,37 @@ class BaseCamera(metaclass=ABCMeta):
     @property
     def image(self):
         """Return the latest captured image."""
-        return last_entry(self.images)
+        return last_entry(self.images.values())
 
     @property
     def video(self):
         """Return the latest recorded video."""
-        return last_entry(self.videos)
+        return last_entry(self.videos.values())
 
     def image_from_id(self, image_id):
         """Return an image StreamObject with a matching ID."""
-        return entry_by_id(image_id, self.images)
+        logging.warning("image_from_id is deprecated. Access captures as a dictionary.")
+        return entry_by_uuid(image_id, self.images.values())
 
     def video_from_id(self, video_id):
         """Return a video StreamObject with a matching ID."""
-        return entry_by_id(video_id, self.videos)
+        logging.warning("video_from_id is deprecated. Access captures as a dictionary.")
+        return entry_by_uuid(video_id, self.videos.values())
 
     # CREATING NEW CAPTURES
 
     def new_image(
-            self,
-            write_to_file: bool = True,
-            temporary: bool = True,
-            filename: str = None,
-            folder: str = "",
-            fmt: str = 'jpeg'):
+        self,
+        temporary: bool = True,
+        filename: str = None,
+        folder: str = "",
+        fmt: str = "jpeg",
+    ):
 
         """
-        Create a new image capture object. Adds to the image list, and shunt all others.
+        Create a new image capture object.
 
         Args:
-            write_to_file (bool): Should the StreamObject write to a file, or an in-memory byte stream.
             temporary (bool): Should the data be deleted after session ends. 
                 Creating the capture with a content manager sets this to true.
             filename (str): Name of the stored file. Defaults to timestamp.
@@ -270,71 +285,73 @@ class BaseCamera(metaclass=ABCMeta):
 
         # Generate file name
         if not filename:
-            filename = generate_numbered_basename(self.images)
+            filename = generate_numbered_basename(self.images.values())
             logging.debug(filename)
         filename = "{}.{}".format(filename, fmt)
 
         # Generate folder
-        base_folder = self.paths['image_tmp'] if temporary else self.paths['image']
+        base_folder = self.paths["temp"] if temporary else self.paths["default"]
         folder = os.path.join(base_folder, folder)
 
         # Generate file path
         filepath = os.path.join(folder, filename)
 
         # Create capture object
-        output = CaptureObject(
-            write_to_file=write_to_file,
-            temporary=temporary,
-            filepath=filepath)
+        output = CaptureObject(filepath=filepath)
+        # Insert a temporary tag if temporary
+        if temporary:
+            output.put_tags(["temporary"])
 
         # Update capture list
-        shunt_captures(self.images)
-        self.images.append(output)
+        capture_key = str(output.id)
+        logging.debug(f"Adding image {output} with key {capture_key}")
+        self.images[capture_key] = output
 
         return output
 
     def new_video(
-            self,
-            write_to_file: bool = True,
-            temporary: bool = False,
-            filename: str = None,
-            folder: str = "",
-            fmt: str = 'h264'):
+        self,
+        temporary: bool = False,
+        filename: str = None,
+        folder: str = "",
+        fmt: str = "h264",
+    ):
 
         """
-        Create a new video capture object. Adds to the image list, and shunt all others.
+        Create a new video capture object.
 
         Args:
-            write_to_file (bool): Should the StreamObject write to a file, or an in-memory byte stream.
             temporary (bool): Should the data be deleted after session ends. 
                 Creating the capture with a content manager sets this to true.
             filename (str): Name of the stored file. Defaults to timestamp.
             folder (str): Name of the folder in which to store the capture.
             fmt (str): Format of the capture.
         """
+        # TODO: Remove the redundancy here
 
         # Generate file name
         if not filename:
-            filename = generate_numbered_basename(self.videos)
+            filename = generate_numbered_basename(self.videos.values())
             logging.debug(filename)
         filename = "{}.{}".format(filename, fmt)
 
         # Generate folder
-        base_folder = self.paths['video_tmp'] if temporary else self.paths['video']
+        base_folder = self.paths["temp"] if temporary else self.paths["default"]
         folder = os.path.join(base_folder, folder)
 
         # Generate file path
         filepath = os.path.join(folder, filename)
 
         # Create capture object
-        output = CaptureObject(
-            write_to_file=write_to_file,
-            temporary=temporary,
-            filepath=filepath)
+        output = CaptureObject(filepath=filepath)
+        # Insert a temporary tag if temporary
+        if temporary:
+            output.put_tags(["temporary"])
 
         # Update capture list
-        shunt_captures(self.videos)
-        self.videos.append(output)
+        capture_key = str(output.id)
+        logging.debug(f"Adding video {output} with key {capture_key}")
+        self.videos[capture_key] = output
 
         return output
 
@@ -345,7 +362,7 @@ class BaseCamera(metaclass=ABCMeta):
         self.frames_iterator = self.frames()
         logging.debug("Entering worker thread.")
 
-        self.state['stream_active'] = True
+        self.stream_active = True
 
         for frame in self.frames_iterator:
             self.frame = frame
@@ -354,9 +371,11 @@ class BaseCamera(metaclass=ABCMeta):
 
             # Handle timeout
             if (
-                self.stream_timeout_enabled and  # If using timeout
-                (time.time() - self.last_access > self.stream_timeout) and  # And timeout time
-                not self.state['preview_active']  # And GPU preview is not active
+                self.stream_timeout_enabled
+                and (  # If using timeout
+                    time.time() - self.last_access > self.stream_timeout
+                )
+                and not self.preview_active  # And GPU preview is not active
             ):
                 self.frames_iterator.close()
                 break
@@ -372,4 +391,4 @@ class BaseCamera(metaclass=ABCMeta):
 
         logging.debug("BaseCamera worker thread exiting...")
         # Set stream_activate state
-        self.state['stream_active'] = False
+        self.stream_active = False

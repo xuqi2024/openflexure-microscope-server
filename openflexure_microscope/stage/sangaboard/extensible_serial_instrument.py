@@ -29,6 +29,7 @@ import time
 import logging
 import warnings
 
+
 class ExtensibleSerialInstrument(object):
     """
     An instrument that communicates by sending strings back and forth over serial
@@ -49,8 +50,13 @@ class ExtensibleSerialInstrument(object):
     blocked for a long time.  The lock is reentrant so there's no issue with
     acquiring it twice.
     """
-    termination_character = "\n" #: All messages to or from the instrument end with this character.
-    termination_line = None #: If multi-line responses are recieved, they must end with this string
+
+    termination_character = (
+        "\n"
+    )  #: All messages to or from the instrument end with this character.
+    termination_line = (
+        None
+    )  #: If multi-line responses are recieved, they must end with this string
     ignore_echo = False
     port_settings = {}
 
@@ -59,9 +65,10 @@ class ExtensibleSerialInstrument(object):
         Set up the serial port and so on.
         """
         logging.info("Updating ESI port settings")
+        logging.debug(kwargs)
         self.port_settings.update(kwargs)
         logging.info("Opening ESI connection to port {}".format(port))
-        self.open(port, False) # Eventually this shouldn't rely on init...
+        self.open(port, False)  # Eventually this shouldn't rely on init...
         logging.info("Opened ESI connection to port {}".format(port))
 
     def open(self, port=None, quiet=True):
@@ -71,17 +78,24 @@ class ExtensibleSerialInstrument(object):
         then we don't warn when ports are opened multiple times.
         """
         with self.communications_lock:
-            if hasattr(self,'_ser') and self._ser.isOpen():
-                if not quiet: logging.warning("Attempted to open an already-open port!")
+            if hasattr(self, "_ser") and self._ser.isOpen():
+                if not quiet:
+                    logging.warning("Attempted to open an already-open port!")
                 return
-            if port is None: 
-                port=self.find_port()
-            assert port is not None, "We don't have a serial port to open, meaning you didn't specify a valid port.  Are you sure the instrument is connected?"
-            self._ser = serial.Serial(port,**self.port_settings)
-            #the block above wraps the serial IO layer with a text IO layer
-            #this allows us to read/write in neat lines.  NB the buffer size must
-            #be set to 1 byte for maximum responsiveness.
-            assert self.test_communications(), "The instrument doesn't seem to be responding.  Did you specify the right port?"
+            if port is None:
+                port = self.find_port()
+            assert (
+                port is not None
+            ), "We don't have a serial port to open, meaning you didn't specify a valid port.  Are you sure the instrument is connected?"
+            logging.info("Creating serial.Serial instance...")
+            self._ser = serial.Serial(port, **self.port_settings)
+            logging.info(f"Created {self._ser}")
+            # the block above wraps the serial IO layer with a text IO layer
+            # this allows us to read/write in neat lines.  NB the buffer size must
+            # be set to 1 byte for maximum responsiveness.
+            assert (
+                self.test_communications()
+            ), "The instrument doesn't seem to be responding.  Did you specify the right port?"
 
     def close(self):
         """Cleanly close the device. Includes proper logging statements."""
@@ -95,11 +109,12 @@ class ExtensibleSerialInstrument(object):
 
     def __del__(self):
         """Emergency close the device. Try to avoid having to use this."""
-        if hasattr(self, '_ser') and self._ser.isOpen():
+        if hasattr(self, "_ser") and self._ser.isOpen():
             with self.communications_lock:
                 print(
-                    "Closing an open serial communication has been triggered by garbage collection!\n"\
-                    "Please close this device more sensibly in future.")
+                    "Closing an open serial communication has been triggered by garbage collection!\n"
+                    "Please close this device more sensibly in future."
+                )
                 try:
                     self._ser.close()
                 except Exception as e:
@@ -111,30 +126,34 @@ class ExtensibleSerialInstrument(object):
     def __exit__(self, type, value, traceback):
         """Cleanly close down the instrument at end of a with block."""
         self.close()
-        
-    def write(self,query_string):
+
+    def write(self, query_string):
         """Write a string to the serial port"""
         with self.communications_lock:
-            assert self._ser.isOpen(), "Attempted to write to the serial port before it was opened.  Perhaps you need to call the 'open' method first?"
-            #TODO: Check if this code is needed and if not kill it
-#            try:        
-#                if self._ser.outWaiting()>0: self._ser.flushOutput() #ensure there's nothing waiting
-#            except AttributeError:
-#                if self._ser.out_waiting>0: self._ser.flushOutput() #ensure there's nothing waiting
-            data=query_string+self.termination_character
-            data=data.encode()
+            assert (
+                self._ser.isOpen()
+            ), "Attempted to write to the serial port before it was opened.  Perhaps you need to call the 'open' method first?"
+            data = query_string + self.termination_character
+            data = data.encode()
             self._ser.write(data)
 
     def flush_input_buffer(self):
         """Make sure there's nothing waiting to be read, and clear the buffer if there is."""
         with self.communications_lock:
-            if self._ser.inWaiting()>0: self._ser.flushInput()
+            if self._ser.inWaiting() > 0:
+                self._ser.flushInput()
+
     def readline(self, timeout=None):
         """Read one line from the serial port."""
         with self.communications_lock:
-            return self._ser.readline().decode('utf8').replace(self.termination_character,"\n")
+            return (
+                self._ser.readline()
+                .decode("utf8")
+                .replace(self.termination_character, "\n")
+            )
 
     _communications_lock = None
+
     @property
     def communications_lock(self):
         """A lock object used to protect access to the communications bus"""
@@ -143,7 +162,7 @@ class ExtensibleSerialInstrument(object):
         if self._communications_lock is None:
             self._communications_lock = threading.RLock()
         return self._communications_lock
-            
+
     def read_multiline(self, termination_line=None, timeout=None):
         """Read one line from the underlying bus.  Must be overriden.
 
@@ -152,15 +171,19 @@ class ExtensibleSerialInstrument(object):
         with self.communications_lock:
             if termination_line is None:
                 termination_line = self.termination_line
-            assert isinstance(termination_line, str), "If you perform a multiline query, you must specify a termination line either through the termination_line keyword argument or the termination_line property of the NPSerialInstrument."
+            assert isinstance(
+                termination_line, str
+            ), "If you perform a multiline query, you must specify a termination line either through the termination_line keyword argument or the termination_line property of the NPSerialInstrument."
             response = ""
             last_line = "dummy"
-            while termination_line not in last_line and len(last_line) > 0: #read until we get the termination line.
+            while (
+                termination_line not in last_line and len(last_line) > 0
+            ):  # read until we get the termination line.
                 last_line = self.readline(timeout)
                 response += last_line
             return response
-            
-    def query(self,queryString,multiline=False,termination_line=None,timeout=None):
+
+    def query(self, queryString, multiline=False, termination_line=None, timeout=None):
         """
         Write a string to the stage controller and return its response.
 
@@ -168,24 +191,42 @@ class ExtensibleSerialInstrument(object):
         will keep reading until a termination phrase is reached.
         """
         with self.communications_lock:
+            logging.debug("Flushing input buffer...")
             self.flush_input_buffer()
+            logging.debug(f"Writing query: {queryString}")
             self.write(queryString)
-            if self.ignore_echo == True: # Needs Implementing for a multiline read!
+            logging.debug("Query written")
+            if self.ignore_echo == True:  # Needs Implementing for a multiline read!
+                logging.debug("Reading first line...")
                 first_line = self.readline(timeout).strip()
+                logging.debug(f"Read finished. Got {first_line}")
                 if first_line == queryString:
                     return self.readline(timeout).strip()
                 else:
-                    logging.info('This command did not echo!!!')
+                    logging.info("This command did not echo!!!")
                     return first_line
-    
+
             if termination_line is not None:
                 multiline = True
             if multiline:
+                logging.debug("Reading multiline...")
                 return self.read_multiline(termination_line)
             else:
-                return self.readline(timeout).strip() #question: should we strip the final newline?
-            
-    def parsed_query(self, query_string, response_string=r"%d", re_flags=0, parse_function=None, **kwargs):
+                logging.debug("Reading response...")
+                line = self.readline(
+                    timeout
+                ).strip()  # question: should we strip the final newline?
+                logging.debug(f"Read finished. Got {line}")
+                return line
+
+    def parsed_query(
+        self,
+        query_string,
+        response_string=r"%d",
+        re_flags=0,
+        parse_function=None,
+        **kwargs,
+    ):
         """
         Perform a query, returning a parsed form of the response.
 
@@ -204,46 +245,81 @@ class ExtensibleSerialInstrument(object):
         """
 
         response_regex = response_string
-        noop = lambda x: x #placeholder null parse function
-        placeholders = [ #tuples of (regex matching placeholder, regex to replace it with, parse function)
+        noop = lambda x: x  # placeholder null parse function
+        placeholders = [  # tuples of (regex matching placeholder, regex to replace it with, parse function)
             (r"%c", r".", noop),
-            (r"%(\d+)c", r".{\1}", noop), #TODO support %cn where n is a number of chars
+            (
+                r"%(\d+)c",
+                r".{\1}",
+                noop,
+            ),  # TODO support %cn where n is a number of chars
             (r"%d", r"[-+]?\\d+", int),
             (r"%[eEfg]", r"[-+]?(?:\\d+(?:\.\\d*)?|\.\\d+)(?:[eE][-+]?\\d+)?", float),
-            (r"%i", r"[-+]?(?:0[xX][\\dA-Fa-f]+|0[0-7]*|\\d+)", lambda x: int(x, 0)), #0=autodetect base
-            (r"%o", r"[-+]?[0-7]+", lambda x: int(x, 8)), #8 means octal
+            (
+                r"%i",
+                r"[-+]?(?:0[xX][\\dA-Fa-f]+|0[0-7]*|\\d+)",
+                lambda x: int(x, 0),
+            ),  # 0=autodetect base
+            (r"%o", r"[-+]?[0-7]+", lambda x: int(x, 8)),  # 8 means octal
             (r"%s", r"\\s+", noop),
             (r"%u", r"\\d+", int),
-            (r"%[xX]", r"[-+]?(?:0[xX])?[\\dA-Fa-f]+", lambda x: int(x, 16)), #16 forces hexadecimal
+            (
+                r"%[xX]",
+                r"[-+]?(?:0[xX])?[\\dA-Fa-f]+",
+                lambda x: int(x, 16),
+            ),  # 16 forces hexadecimal
         ]
         matched_placeholders = []
         for placeholder, regex, parse_fun in placeholders:
-            response_regex = re.sub(placeholder, '('+regex+')', response_regex) #substitute regex for placeholder
-            matched_placeholders.extend([(parse_fun, m.start()) for m in re.finditer(placeholder, response_string)]) #save the positions of the placeholders
+            response_regex = re.sub(
+                placeholder, "(" + regex + ")", response_regex
+            )  # substitute regex for placeholder
+            matched_placeholders.extend(
+                [
+                    (parse_fun, m.start())
+                    for m in re.finditer(placeholder, response_string)
+                ]
+            )  # save the positions of the placeholders
         if parse_function is None:
-            parse_function = [f for f, s in sorted(matched_placeholders, key=lambda m: m[1])] #order parse functions by their occurrence in the original string
-        if not hasattr(parse_function,'__iter__'):
-            parse_function = [parse_function] #make sure it's a list.
-            
-        reply = self.query(query_string, **kwargs) #do the query
-        #if match this could be because another response entered the buffer between write and read. Sleep for short while then
-        #check if something is now in the buffer, while the buffer is not empty repeat regex
-        waited=False
-        res=re.search(response_regex, reply, flags=re_flags)
+            parse_function = [
+                f for f, s in sorted(matched_placeholders, key=lambda m: m[1])
+            ]  # order parse functions by their occurrence in the original string
+        if not hasattr(parse_function, "__iter__"):
+            parse_function = [parse_function]  # make sure it's a list.
+
+        reply = self.query(query_string, **kwargs)  # do the query
+        # if match this could be because another response entered the buffer between write and read. Sleep for short while then
+        # check if something is now in the buffer, while the buffer is not empty repeat regex
+        waited = False
+        res = re.search(response_regex, reply, flags=re_flags)
         while res is None:
             if not waited:
-                time.sleep(.1)
-                waited=True
+                time.sleep(0.1)
+                waited = True
                 original_reply = reply
             if self._ser.inWaiting():
                 reply = self.readline().strip()
-                res=re.search(response_regex, reply, flags=re_flags)
+                res = re.search(response_regex, reply, flags=re_flags)
                 if res is not None:
-                    warnings.warn("Query suceeded after initially receieving unmatched response ('%s') to '%s'. Match pattern /%s/ (generated regex /%s/)"%(original_reply, query_string, response_string, response_regex), RuntimeWarning)
+                    warnings.warn(
+                        "Query suceeded after initially receieving unmatched response ('%s') to '%s'. Match pattern /%s/ (generated regex /%s/)"
+                        % (
+                            original_reply,
+                            query_string,
+                            response_string,
+                            response_regex,
+                        ),
+                        RuntimeWarning,
+                    )
             else:
-                raise ValueError("Stage response to '%s' ('%s') wasn't matched by /%s/ (generated regex /%s/)" % (query_string, original_reply, response_string, response_regex))
+                raise ValueError(
+                    "Stage response to '%s' ('%s') wasn't matched by /%s/ (generated regex /%s/)"
+                    % (query_string, original_reply, response_string, response_regex)
+                )
         try:
-            parsed_result= [f(g) for f, g in zip(parse_function, res.groups())] #try to apply each parse function to its argument
+            parsed_result = [
+                f(g) for f, g in zip(parse_function, res.groups())
+            ]  # try to apply each parse function to its argument
             if len(parsed_result) == 1:
                 return parsed_result[0]
             else:
@@ -251,10 +327,15 @@ class ExtensibleSerialInstrument(object):
         except ValueError:
             logging.info("Matched Groups: {}".format(res.groups()))
             logging.info("Parsing Functions {}:".format(parse_function))
-            raise ValueError("Stage response to %s ('%s') couldn't be parsed by the supplied function" % (query_string, reply))
+            raise ValueError(
+                "Stage response to %s ('%s') couldn't be parsed by the supplied function"
+                % (query_string, reply)
+            )
+
     def int_query(self, query_string, **kwargs):
         """Perform a query and return the result(s) as integer(s) (see parsedQuery)"""
         return self.parsed_query(query_string, "%d", **kwargs)
+
     def float_query(self, query_string, **kwargs):
         """Perform a query and return the result(s) as float(s) (see parsedQuery)"""
         return self.parsed_query(query_string, "%f", **kwargs)
@@ -271,9 +352,16 @@ class ExtensibleSerialInstrument(object):
     def find_port(self):
         """Iterate through the available serial ports and query them to see
         if our instrument is there."""
+        print("Auto-scanning ports")
         with self.communications_lock:
             success = False
-            for port_name, _, _ in serial.tools.list_ports.comports(): #loop through serial ports, apparently 256 is the limit?!
+            for (
+                port_name,
+                _,
+                _,
+            ) in (
+                serial.tools.list_ports.comports()
+            ):  # loop through serial ports, apparently 256 is the limit?!
                 try:
                     logging.info("Trying port {}".format(port_name))
                     self.open(port_name)
@@ -285,13 +373,14 @@ class ExtensibleSerialInstrument(object):
                     try:
                         self.close()
                     except:
-                        pass #we don't care if there's an error closing the port...
+                        pass  # we don't care if there's an error closing the port...
                 if success:
-                    break #again, make sure this happens *after* closing the port
+                    break  # again, make sure this happens *after* closing the port
             if success:
                 return port_name
             else:
                 return None
+
 
 class OptionalModule(object):
     """This allows a `ExtensibleSerialInstrument` to have optional features.
@@ -300,32 +389,42 @@ class OptionalModule(object):
     for interfacing with optional modules which may or may not be included with
     the serial instrument, and can be added or removed at run-time.
     """
-    
-    def __init__(self,available,parent=None,module_type="Undefined",model="Generic"):
-        assert type(available) is bool, 'Option module availablity should be a boolean not a {}'.format(type(available))
-        self._available=available
-        self._parent=parent
-        assert type(module_type) is str, 'Option module type should be a string not a {}'.format(type(module_typ))
-        self.module_type=module_type
+
+    def __init__(
+        self, available, parent=None, module_type="Undefined", model="Generic"
+    ):
+        assert (
+            type(available) is bool
+        ), "Option module availablity should be a boolean not a {}".format(
+            type(available)
+        )
+        self._available = available
+        self._parent = parent
+        assert (
+            type(module_type) is str
+        ), "Option module type should be a string not a {}".format(type(module_typ))
+        self.module_type = module_type
         if available:
-            assert type(model) is str, 'Option module type should be a string not a {}'.format(type(model))
-            self.model=model
+            assert (
+                type(model) is str
+            ), "Option module type should be a string not a {}".format(type(model))
+            self.model = model
         else:
-            self.model=None
-    
+            self.model = None
+
     @property
     def available(self):
         return self._available
-    
+
     def confirm_available(self):
         """Check if module is available, no return, will raise exception if not available!"""
-        assert self._available, "No \"{}\" supported on firmware".format(self.module_type)
-    
+        assert self._available, 'No "{}" supported on firmware'.format(self.module_type)
+
     def describe(self):
         """Consistently spaced desciption for listing modules"""
-        return self.module_type+" "*(25-len(self.module_type))+"- "+self.model
-        
-        
+        return self.module_type + " " * (25 - len(self.module_type)) + "- " + self.model
+
+
 class QueriedProperty(object):
     """A Property interface that reads and writes from the instrument on the bus.
     
@@ -359,8 +458,18 @@ class QueriedProperty(object):
     :ack_writes:
         set to "readline" to discard a line of input after writing.
     """
-    def __init__(self, get_cmd=None, set_cmd=None, validate=None, valrange=None,
-                 fdel=None, doc=None, response_string=None, ack_writes="no"):
+
+    def __init__(
+        self,
+        get_cmd=None,
+        set_cmd=None,
+        validate=None,
+        valrange=None,
+        fdel=None,
+        doc=None,
+        response_string=None,
+        ack_writes="no",
+    ):
         self.response_string = response_string
         self.get_cmd = get_cmd
         self.set_cmd = set_cmd
@@ -369,48 +478,54 @@ class QueriedProperty(object):
         self.fdel = fdel
         self.ack_writes = ack_writes
         self.__doc__ = doc
-        
 
     # TODO: standardise the return (single value only vs parsed result), consider bool
     def __get__(self, obj, objtype=None):
-        if issubclass(type(obj),OptionalModule):
+        if issubclass(type(obj), OptionalModule):
             obj.confirm_available()
-            obj=obj._parent
+            obj = obj._parent
         if obj is None:
             return self
-        assert issubclass(type(obj),ExtensibleSerialInstrument)
+        assert issubclass(type(obj), ExtensibleSerialInstrument)
         if self.get_cmd is None:
             raise AttributeError("unreadable attribute")
         # Allow certain "magic" values to set the response string
-        for key, val in [('float',r"%f"),
-                         ('int',r"%d"),]:
+        for key, val in [("float", r"%f"), ("int", r"%d")]:
             if self.response_string == key:
                 self.response_string = val
-        if self.response_string in ['bool', 'raw', None]:
+        if self.response_string in ["bool", "raw", None]:
             value = obj.query(self.get_cmd)
-            if self.response_string == 'bool':
+            if self.response_string == "bool":
                 value = bool(value)
         else:
             value = obj.parsed_query(self.get_cmd, self.response_string)
         return value
 
     def __set__(self, obj, value):
-        if issubclass(type(obj),OptionalModule):
+        if issubclass(type(obj), OptionalModule):
             obj.confirm_available()
-            obj=obj._parent
-        assert issubclass(type(obj),ExtensibleSerialInstrument)
+            obj = obj._parent
+        assert issubclass(type(obj), ExtensibleSerialInstrument)
         if self.set_cmd is None:
             raise AttributeError("can't set attribute")
         if self.validate is not None:
             if value not in self.validate:
-                raise ValueError('invalid value supplied - value must be one of {}'.format(self.validate))
+                raise ValueError(
+                    "invalid value supplied - value must be one of {}".format(
+                        self.validate
+                    )
+                )
         if self.valrange is not None:
             if value < min(self.valrange) or value > max(self.valrange):
-                raise ValueError('invalid value supplied - value must be in the range {}-{}'.format(*self.valrange))
+                raise ValueError(
+                    "invalid value supplied - value must be in the range {}-{}".format(
+                        *self.valrange
+                    )
+                )
         message = self.set_cmd
-        if '{0' in message:
+        if "{0" in message:
             message = message.format(value)
-        elif '%' in message:
+        elif "%" in message:
             message = message % value
         obj.write(message)
         if self.ack_writes == "readline":

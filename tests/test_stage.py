@@ -12,7 +12,6 @@ logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 
 
 class TestMicroscope(unittest.TestCase):
-
     def test_movement(self):
         move_distance = 500
         for axis in range(3):
@@ -20,9 +19,11 @@ class TestMicroscope(unittest.TestCase):
                 pos_i = stage.position
                 logging.debug(pos_i)
 
-                logging.info("Moving axis {} by {}".format(axis, move_distance*direction))
+                logging.info(
+                    "Moving axis {} by {}".format(axis, move_distance * direction)
+                )
                 move = [0, 0, 0]
-                move[axis] = move_distance*direction
+                move[axis] = move_distance * direction
 
                 stage.move_rel(move)
 
@@ -33,12 +34,10 @@ class TestMicroscope(unittest.TestCase):
                 self.assertTrue(np.array_equal(diff, move))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     with OpenFlexureStage("/dev/ttyUSB0") as stage:
 
-        suites = [
-            unittest.TestLoader().loadTestsFromTestCase(TestMicroscope),
-        ]
+        suites = [unittest.TestLoader().loadTestsFromTestCase(TestMicroscope)]
 
         alltests = unittest.TestSuite(suites)
 

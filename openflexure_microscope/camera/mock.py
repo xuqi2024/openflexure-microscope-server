@@ -8,28 +8,30 @@ from __future__ import division
 import io
 import time
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFont, ImageDraw
+from datetime import datetime
 
 import logging
 
 # Type hinting
 from typing import Tuple
 
-from .base import BaseCamera, CaptureObject
+from openflexure_microscope.camera.base import BaseCamera, CaptureObject
+
+
+"""
+PIL spams the logger with debug-level information. This is a pain when debugging api.app.
+We override the logging settings in api.app by setting a level for PIL here.
+"""
+pil_logger = logging.getLogger("PIL")
+pil_logger.setLevel(logging.INFO)
 
 
 # MAIN CLASS
-class MockStreamer(BaseCamera):
-
+class MissingCamera(BaseCamera):
     def __init__(self):
         # Run BaseCamera init
         BaseCamera.__init__(self)
-
-        # Store state of PiCameraStreamer
-        self.state.update({
-            'stream_active': False,
-            'record_active': False
-        })
 
         # Update config properties
         self.image_resolution = (1312, 976)
@@ -41,8 +43,39 @@ class MockStreamer(BaseCamera):
         # Create an empty stream
         self.stream = io.BytesIO()
 
+        # Generate an initial dummy image
+        self.generate_new_dummy_image()
+
         # Start streaming
         self.start_worker()
+
+    def generate_new_dummy_image(self):
+        # Create a dummy image to serve in the stream
+        image = Image.new(
+            "RGB",
+            (self.stream_resolution[0], self.stream_resolution[1]),
+            color=(0, 0, 0),
+        )
+
+        draw = ImageDraw.Draw(image)
+        draw.text(
+            (20, 70),
+            "Camera disconnected: {}".format(
+                datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+            ),
+        )
+
+        image.save(self.stream, format="JPEG")
+
+    @property
+    def configuration(self):
+        """The current camera configuration."""
+        return {}
+
+    @property
+    def state(self):
+        """The current read-only camera state."""
+        return {}
 
     def initialisation(self):
         """Run any initialisation code when the frame iterator starts."""
@@ -54,21 +87,27 @@ class MockStreamer(BaseCamera):
         BaseCamera.close(self)
 
     # HANDLE SETTINGS
-    def read_config(self) -> dict:
+    def read_settings(self) -> dict:
         """
         Return config dictionary of the PiCameraStreamer.
         """
 
-        conf_dict = {
-            'stream_resolution': self.stream_resolution,
-            'image_resolution': self.image_resolution,
-            'numpy_resolution': self.numpy_resolution,
-            'jpeg_quality': self.jpeg_quality
-        }
+        # Get config items from the base class
+        conf_dict = BaseCamera.read_settings(self)
+
+        # Include device-specific config items
+        conf_dict.update(
+            {
+                "stream_resolution": self.stream_resolution,
+                "image_resolution": self.image_resolution,
+                "numpy_resolution": self.numpy_resolution,
+                "jpeg_quality": self.jpeg_quality,
+            }
+        )
 
         return conf_dict
 
-    def apply_config(self, config: dict):
+    def update_settings(self, config: dict):
         """
         Write a config dictionary to the PiCameraStreamer config.
 
@@ -78,32 +117,24 @@ class MockStreamer(BaseCamera):
         Args:
             config (dict): Dictionary of config parameters.
         """
-        # TODO: Include timing and batching logic when applying PiCamera settings
-
-        paused_stream = False
-        logging.debug("PiCameraStreamer: Applying config:")
+        logging.debug("MockStreamer: Applying config:")
         logging.debug(config)
 
         with self.lock:
 
-            # Apply valid config params to Picamera object
-            if not self.state['record_active']:  # If not recording a video
+            # Apply valid config params to camera object
+            if not self.record_active:  # If not recording a video
 
-                # PiCameraStreamer parameters
                 for key, value in config.items():  # For each provided setting
                     if hasattr(self, key):
                         setattr(self, key, value)
 
-                # If stream was paused to update config, unpause
-                if paused_stream:
-                    logging.info("Resuming stream.")
-                    self.start_stream_recording()
-
             else:
                 raise Exception(
-                    "Cannot update camera config while recording is active.")
+                    "Cannot update camera config while recording is active."
+                )
 
-    def set_zoom(self, zoom_value: float = 1.) -> None:
+    def set_zoom(self, zoom_value: float = 1.0) -> None:
         """
         Change the camera zoom, handling re-centering and scaling.
         """
@@ -119,18 +150,13 @@ class MockStreamer(BaseCamera):
         """Stop the on board GPU camera preview."""
         logging.warning("GPU preview not implemented in mock camera")
 
-
-    def start_recording(
-            self,
-            output,
-            fmt: str = 'h264',
-            quality: int = 15):
+    def start_recording(self, output, fmt: str = "h264", quality: int = 15):
         """Start recording.
 
         Start a new video recording, writing to a output object.
 
         Args:
-            output (CaptureObject/str): Output object to write data bytes to.
+            output: String or file-like object to write capture data to
             fmt (str): Format of the capture.
             quality (int): Video recording quality.
 
@@ -142,19 +168,19 @@ class MockStreamer(BaseCamera):
             # Start recording method only if a current recording is not running
             logging.warning("Recording not implemented in mock camera")
 
-
     def stop_recording(self):
         """Stop the last started video recording on splitter port 2."""
         with self.lock:
             logging.warning("Recording not implemented in mock camera")
 
     def capture(
-            self,
-            output,
-            fmt: str = 'jpeg',
-            use_video_port: bool = False,
-            resize: Tuple[int, int] = None,
-            bayer: bool = True):
+        self,
+        output,
+        fmt: str = "jpeg",
+        use_video_port: bool = False,
+        resize: Tuple[int, int] = None,
+        bayer: bool = True,
+    ):
         """
         Capture a still image to a StreamObject.
 
@@ -162,30 +188,32 @@ class MockStreamer(BaseCamera):
         Target object can be overridden for development purposes.
 
         Args:
-            output (CaptureObject/str): Output object to write data bytes to.
+            output: String or file-like object to write capture data to
             use_video_port (bool): Capture from the video port used for streaming. Lower resolution, faster.
             fmt (str): Format of the capture.
             resize ((int, int)): Resize the captured image.
             bayer (bool): Store raw bayer data in capture
         """
 
+        if isinstance(output, CaptureObject):
+            target = output.file
+        else:
+            target = output
+
         with self.lock:
-            logging.warning("Capture not implemented in mock camera")
+            if isinstance(target, str):
+                target = open(target, "wb")
 
+            target.write(self.stream.getvalue())
 
-    def gen_img(self):
-        imarray = np.random.rand(self.stream_resolution[1], self.stream_resolution[0], 3) * 255
-        im = Image.fromarray(imarray.astype('uint8')).convert('L')
-        im.save(self.stream, format="JPEG")
+            if isinstance(target, str):
+                target.close()
 
     # HANDLE STREAM FRAMES
 
     def frames(self):
         """
         Create generator that returns frames from the camera.
-
-        Records video from port 1 to a byte stream,
-        and iterates sequential frames.
         """
         # Run this initialisation method
         self.initialisation()
@@ -196,14 +224,14 @@ class MockStreamer(BaseCamera):
         # While the iterator is not closed
         try:
             while True:
-                # reset stream for next frame
+                time.sleep(1)  # Only serve frames at 1fps
+                # Reset stream
                 self.stream.seek(0)
                 self.stream.truncate()
-                # to stream, read the new frame
-                time.sleep(1 / self.framerate * 0.1)
 
-                # yield the result to be read
-                self.gen_img()
+                # Generate new dumm image
+                self.generate_new_dummy_image()
+                # Get frame data
                 frame = self.stream.getvalue()
 
                 # ensure the size of package is right

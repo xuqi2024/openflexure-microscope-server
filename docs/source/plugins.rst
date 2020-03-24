@@ -1,13 +1,15 @@
-Developing Plugins
-=======================================================
+Developing API Extensions
+=========================
 
 .. toctree::
    :maxdepth: 2
 
-   ./plugins/introduction.rst
-   ./plugins/structure.rst
-   ./plugins/routes.rst
-   ./plugins/hardware.rst
-   ./plugins/schema.rst
-   ./plugins/example.rst
-   ./plugins/class.rst
+   ./extensions/introduction.rst
+   ./extensions/structure.rst
+   ./extensions/views.rst
+   ./extensions/marshaling.rst
+   ./extensions/properties.rst
+   ./extensions/actions.rst
+   ./extensions/tasks_locks.rst
+   ./extensions/ev_gui.rst
+   ./extensions/lifecycle_hooks.rst

@@ -18,28 +18,31 @@ class SangaStage(BaseStage):
         board (:py:class:`openflexure_microscope.stage.sangaboard.Sangaboard`): Parent Sangaboard object.
         _backlash (list): 3-element (element-per-axis) list of backlash compensation in steps.
     """
+
     def __init__(self, port=None, **kwargs):
         """Class managing serial communications with the motors for an Openflexure stage"""
         BaseStage.__init__(self)
 
+        self.port = port
         self.board = Sangaboard(port, **kwargs)
 
-        self._backlash = None  # Initialise backlash storage, used by property setter/getter
-        self.axis_names = ['x', 'y', 'z']  # Assume all sangaboards are 3 axis
+        self._backlash = (
+            None
+        )  # Initialise backlash storage, used by property setter/getter
+        self.axis_names = ["x", "y", "z"]  # Assume all sangaboards are 3 axis
 
     @property
     def state(self):
         """The general state dictionary of the board."""
-        state = {
-            'position': {
-                'x': self.position[0],
-                'y': self.position[1],
-                'z': self.position[2],
-            },
-            'board': self.board.board,
-            'firmware': self.board.firmware
+        return {"position": self.position_map}
+
+    @property
+    def configuration(self):
+        return {
+            "port": self.port,
+            "board": self.board.board,
+            "firmware": self.board.firmware,
         }
-        return state
 
     @property
     def n_axes(self):
@@ -80,31 +83,25 @@ class SangaStage(BaseStage):
             assert len(blsh) == self.n_axes
             self._backlash = np.array(blsh)
         else:
-            self._backlash = np.array([int(blsh)]*self.n_axes, dtype=np.int)
+            self._backlash = np.array([int(blsh)] * self.n_axes, dtype=np.int)
 
-    def apply_config(self, config: dict):
+    def update_settings(self, config: dict):
         """Update settings from a config dictionary"""
 
         # Set backlash. Expects a dictionary with axis labels
-        if 'backlash' in config:
+        if "backlash" in config:
             # Construct backlash array
-            backlash = axes_to_array(config['backlash'], ['x', 'y', 'z'], [0, 0, 0])
+            backlash = axes_to_array(config["backlash"], ["x", "y", "z"], [0, 0, 0])
             self.backlash = backlash
 
-    def read_config(self) -> dict:
+    def read_settings(self) -> dict:
         """Return the current settings as a dictionary"""
         blsh = self.backlash.tolist()
-        config = {
-                'backlash': {
-                    'x': blsh[0],
-                    'y': blsh[1],
-                    'z': blsh[2],
-                }
-            }
+        config = {"backlash": {"x": blsh[0], "y": blsh[1], "z": blsh[2]}}
 
         return config
 
-    def move_rel(self, displacement, axis=None, backlash=True):
+    def move_rel(self, displacement: list, axis=None, backlash=True):
         """Make a relative move, optionally correcting for backlash.
         displacement: integer or array/list of 3 integers
         axis: None (for 3-axis moves) or one of 'x','y','z'
@@ -117,7 +114,9 @@ class SangaStage(BaseStage):
             if axis is not None:
                 # backlash correction is easier if we're always in 3D
                 # so this code just converts single-axis moves into all-axis moves.
-                assert axis in self.axis_names, "axis must be one of {}".format(self.axis_names)
+                assert axis in self.axis_names, "axis must be one of {}".format(
+                    self.axis_names
+                )
                 move = np.zeros(self.n_axes, dtype=np.int)
                 move[np.argmax(np.array(self.axis_names) == axis)] = int(displacement)
                 displacement = move
@@ -134,7 +133,7 @@ class SangaStage(BaseStage):
             initial_move -= np.where(
                 self.backlash * displacement < 0,
                 self.backlash,
-                np.zeros(self.n_axes, dtype=self.backlash.dtype)
+                np.zeros(self.n_axes, dtype=self.backlash.dtype),
             )
             self.board.move_rel(initial_move)
             if np.any(displacement - initial_move != 0):
@@ -148,45 +147,14 @@ class SangaStage(BaseStage):
         with self.lock:
             self.board.move_abs(final, **kwargs)
 
-    def scan_linear(self, rel_positions, backlash=True, return_to_start=True):
-        """
-        Scan through a list of (relative) positions (generator fn)
-        rel_positions should be an nx3-element array (or list of 3 element arrays).
-        Positions should be relative to the starting position - not a list of relative moves.
-        backlash argument is passed to move_rel
-        if return_to_start is True (default) we return to the starting position after a
-        successful scan.  NB we always attempt to return to the starting position if an
-        exception occurs during the scan..
-        """
-        starting_position = self.position
-        rel_positions = np.array(rel_positions)
-        assert rel_positions.shape[1] == 3, ValueError("Positions should be 3 elements long.")
-        try:
-            self.move_rel(rel_positions[0], backlash=backlash)
-            yield 0
-
-            for i, step in enumerate(np.diff(rel_positions, axis=0)):
-                self.move_rel(step, backlash=backlash)
-                yield i + 1
-        except Exception as e:
-            return_to_start = True  # always return to start if it went wrong.
-            raise e
-        finally:
-            if return_to_start:
-                self.move_abs(starting_position, backlash=backlash)
-
-    def scan_z(self, dz, **kwargs):
-        """Scan through a list of (relative) z positions (generator fn)
-        This function takes a 1D numpy array of Z positions, relative to
-        the position at the start of the scan, and converts it into an
-        array of 3D positions with x=y=0.  This, along with all the
-        keyword arguments, is then passed to ``scan_linear``.
-        """
-        return self.scan_linear([[0, 0, z] for z in dz], **kwargs)
+    def zero_position(self):
+        """Set the current position to zero"""
+        with self.lock:
+            self.board.zero_position()
 
     def close(self):
         """Cleanly close communication with the stage"""
-        if hasattr(self, 'board'):
+        if hasattr(self, "board"):
             self.board.close()
 
     # Methods specific to Sangaboard
@@ -205,12 +173,16 @@ class SangaStage(BaseStage):
         need to worry about that here.
         """
         if type is not None:
-            print("An exception occurred inside a with block, resetting position \
-                to its value at the start of the with block")
+            print(
+                "An exception occurred inside a with block, resetting position \
+                to its value at the start of the with block"
+            )
             try:
                 time.sleep(0.5)
                 self.move_abs(self._position_on_enter)
             except Exception as e:
-                print("A further exception occurred when resetting position: {}".format(e))
+                print(
+                    "A further exception occurred when resetting position: {}".format(e)
+                )
             print("Move completed, raising exception...")
             raise value  # Propagate the exception
