@@ -91,6 +91,27 @@ d = ["aiohttp (>=3.3.2)"]
 
 [[package]]
 category = "main"
+description = ""
+name = "camera-stage-mapping"
+optional = false
+python-versions = "^3.6"
+version = "0.1.0"
+
+[package.dependencies]
+numpy = "^1.17"
+
+[package.extras]
+all = ["opencv-python-headless (^4.1)", "scipy (^1.4)"]
+correlation = ["opencv-python-headless (^4.1)", "scipy (^1.4)"]
+ipython = []
+ofmclient = []
+
+[package.source]
+reference = "297262362ae208f56847c823838c1d90675ef431"
+type = "git"
+url = "https://gitlab.com/openflexure/microscope-extensions/camera-stage-mapping.git"
+[[package]]
+category = "main"
 description = "Pure Python CBOR (de)serializer with extensive tag support"
 name = "cbor2"
 optional = false
@@ -760,7 +781,7 @@ ifaddr = "*"
 rpi = ["RPi.GPIO"]
 
 [metadata]
-content-hash = "1c923fc71ff343293798e1bd187df98791716e15e4d970fef1a8d77bf25de1e2"
+content-hash = "38a57e780d968651d6bac204d860866ded059b4169814bc4fe00810d84a79c7f"
 python-versions = "^3.6"
 
 [metadata.files]
@@ -792,6 +813,7 @@ black = [
     {file = "black-18.9b0-py36-none-any.whl", hash = "sha256:817243426042db1d36617910df579a54f1afd659adb96fc5032fcf4b36209739"},
     {file = "black-18.9b0.tar.gz", hash = "sha256:e030a9a28f542debc08acceb273f228ac422798e5215ba2a791a6ddeaaca22a5"},
 ]
+camera-stage-mapping = []
 cbor2 = [
     {file = "cbor2-5.1.0.tar.gz", hash = "sha256:43ce11e8c2fe4971d386d1a60cf83bfa0a4a667b97668ba76acbf5e6398821aa"},
 ]

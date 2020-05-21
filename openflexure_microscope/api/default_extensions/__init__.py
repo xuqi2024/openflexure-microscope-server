@@ -23,6 +23,6 @@ with handle_extension_error("zip builder"):
 with handle_extension_error("autostorage"):
     from .autostorage import autostorage_extension_v2
 with handle_extension_error("camera stage mapping"):
-    from .camera_stage_mapping import csm_extension
+    from camera_stage_mapping.ofm_extension import csm_extension
 with handle_extension_error("lens shading calibration"):
     from .picamera_autocalibrate import lst_extension_v2

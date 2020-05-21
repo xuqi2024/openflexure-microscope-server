@@ -48,6 +48,7 @@ opencv-python-headless = [
 ]
 labthings = "0.6.3"
 pynpm = "^0.1.2"
+camera-stage-mapping = {git = "https://gitlab.com/openflexure/microscope-extensions/camera-stage-mapping.git"}
 
 [tool.poetry.extras]
 rpi = ["RPi.GPIO"]
