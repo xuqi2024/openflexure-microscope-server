@@ -15,12 +15,7 @@ build:
   stage: build
   image: nikolaik/python-nodejs:python3.7-nodejs14
 
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-
   before_script:
-    - git submodule sync --recursive
-    - git submodule update --init --recursive
     - curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
 
   script:
