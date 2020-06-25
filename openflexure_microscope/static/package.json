@@ -1,0 +1,49 @@
+{
+  "name": "openflexure-microscope-jsclient",
+  "version": "2.1.3",
+  "private": true,
+  "description": "User client for the OpenFlexure Microscope Server",
+  "author": "OpenFlexure <contact@openflexure.org> (https://www.openflexure.org)",
+  "homepage": "https://gitlab.com/openflexure/openflexure-microscope-jsclient",
+  "publisher": "Bath Open Instrumentation Group",
+  "displayName": "OpenFlexure Microscope",
+  "license": "GNU General Public License v3.0 ",
+  "scripts": {
+    "build": "vue-cli-service build --mode production",
+    "serve": "vue-cli-service serve  --mode development"
+  },
+  "dependencies": {
+    "material-design-icons": "^3.0.1"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "^3.12.1",
+    "@vue/cli-service": "^4.4.1",
+    "axios": "^0.19.2",
+    "babel-eslint": "^10.1.0",
+    "css-loader": "^3.5.3",
+    "eslint": "^6.8.0",
+    "eslint-config-prettier": "^6.11.0",
+    "eslint-plugin-prettier": "^3.1.3",
+    "eslint-plugin-vue": "^6.2.2",
+    "less": "^3.11.2",
+    "less-loader": "^5.0.0",
+    "mdns-js": "^1.0.3",
+    "uikit": "^3.5.3",
+    "vue": "^2.6.11",
+    "vue-friendly-iframe": "^0.17.0",
+    "vue-plugin-load-script": "^1.2.0",
+    "vue-template-compiler": "^2.6.11",
+    "vue-tour": "^1.4.0",
+    "vuex": "^3.4.0"
+  },
+  "postcss": {
+    "plugins": {
+      "autoprefixer": {}
+    }
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not ie <= 8"
+  ]
+}
