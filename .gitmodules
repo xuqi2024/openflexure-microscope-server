@@ -1,4 +1,0 @@
-[submodule "openflexure_microscope/api/static"]
-	path = openflexure_microscope/api/static
-	url = https://gitlab.com/openflexure/openflexure-microscope-jsclient.git
-	branch = master
