@@ -12,6 +12,7 @@
       :hidden="!streamEnabled"
       :src="streamImgUri"
       alt="Stream"
+      @click.middle="clickMonitor"
       @dblclick="clickMonitor"
     />
 
@@ -153,12 +154,20 @@ export default {
       let xRelative = (0.5 * event.target.offsetWidth - xCoordinate) * scale;
       let yRelative = (0.5 * event.target.offsetHeight - yCoordinate) * scale;
 
-      // Emit a signal to move, acted on by panelNavigate.vue
-      this.$root.$emit(
-        "globalMoveInImageCoordinatesEvent",
-        -xRelative,
-        -yRelative
-      );
+      if (event.button == 0) {
+        // Emit a signal to move, acted on by panelNavigate.vue
+        this.$root.$emit(
+          "globalMoveInImageCoordinatesEvent",
+          -xRelative,
+          -yRelative
+        );
+      } else if (event.button == 1) {
+	this.$root.$emit(
+          "globalFocusInImageCoordinatesEvent",
+          xCoordinate * scale,
+          yCoordinate * scale
+        );
+      }
     },
 
     handleResize: function() {

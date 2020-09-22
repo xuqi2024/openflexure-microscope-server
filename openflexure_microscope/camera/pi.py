@@ -586,6 +586,45 @@ class PiCameraStreamer(BaseCamera):
 
                 return output.array
 
+    def array_continuous(
+        self, use_video_port: bool = True, resize: Tuple[int, int] = None
+    ) -> np.ndarray:
+        """Capture an uncompressed still RGB image to a Numpy array.
+
+        Args:
+            use_video_port (bool): Capture from the video port used for streaming. Lower resolution, faster.
+            resize ((int, int)): Resize the captured image.
+
+        Returns:
+            output_array (np.ndarray): Output array of capture
+        """
+        with self.lock:
+            if use_video_port:
+                resolution = self.stream_resolution
+            else:
+                resolution = self.numpy_resolution
+
+            if resize:
+                size = resize
+            else:
+                size = resolution
+
+            # Always pause stream, to prevent resizer memory issues
+            self.stop_stream_recording(resolution=resolution)
+
+            output = picamerax.array.PiRGBArray(self.camera, size=size)
+
+            try:
+                for _ in self.camera.capture_continuous(
+                    output, resize=size, format="rgb", use_video_port=use_video_port
+                 ):
+                     yield output.array
+                     output.seek(0)
+                     output.truncate()
+            except GeneratorExit:
+                pass
+            self.start_stream_recording()
+
     def array(
         self, use_video_port: bool = True, resize: Tuple[int, int] = None
     ) -> np.ndarray:

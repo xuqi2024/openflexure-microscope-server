@@ -214,6 +214,9 @@ export default {
         false
       );
     });
+    this.$root.$on("globalFocusInImageCoordinatesEvent", (x, y) => {
+      this.focusInImageCoordinatesRequest(x, y);
+    });
     // Update the current position in text boxes
     this.updatePosition();
     // Look for autofocus plugin
@@ -293,6 +296,25 @@ export default {
           .then(() => {
             this.moveLock = false; // Release the move lock
           });
+      }
+    },
+
+    focusInImageCoordinatesRequest: function(x, y) {
+      if (!this.moveLock) {
+        // Lock move requests
+        this.moveLock = true;
+
+        console.log(`Sending focus request in image coordinates: ${x}, ${y}`);
+        axios.post(this.normalAutofocusUri, {
+          x: y,
+          y: x
+        })
+        .then(() => {
+          this.updatePosition();
+        })
+        .then(() => {
+          this.moveLock = false;
+        });
       }
     },
 

@@ -170,8 +170,19 @@ def measure_sharpness(microscope, metric_fn=sharpness_sum_lap2):
     if hasattr(microscope.camera, "array"):
         return metric_fn(microscope.camera.array(use_video_port=True))
 
+def measure_sharpness_from_array(array, x=None, y=None, metric_fn=sharpness_sum_lap2):
+    start_time = time.time()
+    if x is not None and y is not None:
+        logging.info("shape {} x {} y {}".format(array.shape, x, y))
+        x_offset = array.shape[0]//20
+        y_offset = array.shape[1]//20
+        array = array[x-x_offset:x+x_offset, y-y_offset:y+y_offset, :]
+    sharpness = metric_fn(array)
+    logging.info("shapeness {} time {}".format(sharpness, time.time() - start_time))
+    return metric_fn(array)
 
-def autofocus(microscope, dz, settle=0.5, metric_fn=sharpness_sum_lap2):
+
+def autofocus(microscope, dz, x, y, settle=0.5, metric_fn=sharpness_sum_lap2):
     """Perform a simple autofocus routine.
     The stage is moved to z positions (relative to current position) in dz,
     and at each position an image is captured and the sharpness function 
@@ -187,12 +198,17 @@ def autofocus(microscope, dz, settle=0.5, metric_fn=sharpness_sum_lap2):
         positions = []
         camera.annotate_text = ""
 
+        capture_gen = microscope.camera.array_continuous(use_video_port=True)
+
+
         for _ in stage.scan_z(dz, return_to_start=False):
             if current_action() and current_action().stopped:
                 return
             positions.append(stage.position[2])
             time.sleep(settle)
-            sharpnesses.append(measure_sharpness(microscope, metric_fn))
+            start_time = time.time()
+            sharpnesses.append(measure_sharpness_from_array(next(capture_gen), x, y, metric_fn))
+            logging.info(time.time() - start_time)
 
         newposition = positions[np.argmax(sharpnesses)]
         stage.move_rel([0, 0, newposition - stage.position[2]])
@@ -337,7 +353,11 @@ class AutofocusAPI(ActionView):
     """
     Run a standard autofocus
     """
-    args = {"dz": fields.List(fields.Int())}
+    args = {
+      "dz": fields.List(fields.Int()),
+      "x": fields.Int(),
+      "y": fields.Int()
+    }
 
     def post(self, args):
         payload = JsonResponse(request)
@@ -347,13 +367,15 @@ class AutofocusAPI(ActionView):
             abort(503, "No microscope connected. Unable to autofocus.")
 
         # Figure out the range of z values to use
-        dz = np.array(args.get("dz", np.linspace(-300, 300, 7)))
+        dz = np.array(args.get("dz", np.linspace(-1000, 1000, 10)))
+        x = args.get("x")
+        y = args.get("y")
 
         if microscope.has_real_stage():
             logging.debug("Running autofocus...")
 
             # return a handle on the autofocus task
-            return autofocus(microscope, dz)
+            return autofocus(microscope, dz, x, y)
 
         else:
             abort(503, "No stage connected. Unable to autofocus.")
