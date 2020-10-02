@@ -176,7 +176,9 @@ def measure_sharpness_from_array(array, x=None, y=None, metric_fn=sharpness_sum_
         logging.info("shape {} x {} y {}".format(array.shape, x, y))
         x_offset = array.shape[0]//20
         y_offset = array.shape[1]//20
-        array = array[x-x_offset:x+x_offset, y-y_offset:y+y_offset, :]
+        x_start = max(0, x-x_offset)
+        y_start = max(0, y-y_offset)
+        array = array[x_start:x+x_offset, y_start:y+y_offset, :]
     sharpness = metric_fn(array)
     logging.info("shapeness {} time {}".format(sharpness, time.time() - start_time))
     return metric_fn(array)
