@@ -227,6 +227,17 @@
                 <option>Snake</option>
               </select>
             </div>
+
+            <div class="uk-margin-small uk-margin-remove-bottom">
+              <label class="uk-form-label" for="form-stacked-text"
+                >Naming style</label
+              >
+              <select v-model="namingStyle" class="uk-select">
+                <option>Coordinates</option>
+                <option>Number</option>
+              </select>
+            </div>
+
           </div>
         </div>
       </li>
@@ -284,6 +295,7 @@ export default {
       scanCapture: false,
       scanDeltaZ: "Fast",
       scanStyle: "Raster",
+      namingStyle: "Coordinates",
       scanStepSize: {
         x: 0,
         y: 0,
@@ -364,6 +376,7 @@ export default {
         this.scanStepSize.z
       ];
       payload.style = this.scanStyle.toLowerCase();
+      payload.namemode = this.namingStyle.toLowerCase();
 
       // Convert AF selector to dz
       var afDeltas = {

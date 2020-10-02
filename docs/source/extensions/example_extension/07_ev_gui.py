@@ -1,5 +1,5 @@
 from labthings.extensions import BaseExtension
-from labthings import find_component, Schema, fields, update_action_progress
+from labthings import find_component, Schema, fields, update_action_progress, current_action
 from labthings.views import View, ActionView, PropertyView
 
 from flask import send_file  # Used to send images from our server
@@ -30,6 +30,9 @@ def timelapse(microscope, n_images, t_between):
     # Take exclusive control over both the camera and stage
     with microscope.camera.lock, microscope.stage.lock:
         for n in range(n_images):
+            # Elegantly handle action cancellation
+            if current_action() and current_action().stopped:
+                return
             # Generate a filename
             filename = f"{base_file_name}_image{n}"
             # Create a file to save the image to

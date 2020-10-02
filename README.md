@@ -8,10 +8,9 @@ This includes basic installation instructions suitable for most users.
 Full developer documentation can be found on [**ReadTheDocs**](https://openflexure-microscope-software.readthedocs.io/). 
 This includes installing the server in a mode better suited for active development.
 
-## Installation
+## Developer installation
 
 * `git clone https://gitlab.com/openflexure/openflexure-microscope-server.git`
-* (If running on a microscope Pi) `ofm activate`
 * `poetry install`
 * `poetry run build_static`
 

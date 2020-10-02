@@ -21,7 +21,7 @@ Internally, the :class:`labthings.LabThing` object stores a list of all requeste
 
 By using threads, a function can be started in the background, and it's return value fetched at a later time once it has reported success. If a long-running action is started by some client, it should note the ID returned in the action state JSON, and use this to periodically check on the status of that particular action. 
 
-API routes have been created to allow checking the state of all actions (GET ``/actions``), a particular action by ID (GET ``/actions/<action_id>``), and terminating or removing individual actions (DELETE ``/actions/<action_id>``).
+API routes have been created to allow checking the state of all actions (GET ``/actions``), a particular action by ID (GET ``/actions/<action_id>``), and stopping or removing individual actions (DELETE ``/actions/<action_id>``).
 
 All actions will return a serialized representation of the action state when your POST request returns. If the action completes within a default timeout period (usually 1 second) then the completed action representation will be returned. If the action is still running after this timeout period, the "in-progress" action representation will be returned. The final output value can then be retrieved at a later time.
 
@@ -51,6 +51,28 @@ After some time, once the task has completed, it could be retreived using:
         return matching_action.state
 
 or by making GET requests to the ``http://microscope.local/api/v2/tasks/<task_id>`` view.
+
+
+Accessing the current action instance
++++++++++++++++++++++++++++++++++++++
+
+Every time a user requests your action, a new :class:`labthings.actions.ActionThread` instance is created to hold the state of your action. This object holds return values, errors, action progress and status, and handles action cancellation.
+
+In some cases, your action function will need to access the currently running :class:`labthings.actions.ActionThread` instance. The :func:`labthings.current_action` function will return the currently running :class:`labthings.actions.ActionThread` instance if it's called from within an ``ActonThread``, and will return ``None`` if running outside of an `ActionThread`.
+
+
+Handling action cancellation
+++++++++++++++++++++++++++++
+
+Users always have the option to stop an action while it's running. Your action function has the option to support an elegant cancellation by watching for cancellation requests on the running :class:`labthings.actions.ActionThread` instance.
+
+The ``labthings.current_action().stopped`` attribute will return ``True`` if the Action has been requested to stop, and ``False`` otherwise. If your action runs a loop, this can be checked at each iteration, and used to return early if the action has been stopped.
+
+If a stop request is sent and your action does not return within a timeout (by default 5 seconds), then the thread will be forcefully terminated. This is to ensure that actions can be stopped even if they have become stuck, or would otherwise take an unexpected amount of time. However, every effort should be made to handle action cancellation elegantly from within the action.
+
+An example of elegant action cancellation is included in the example later on this page.
+
+The ``ActionView.default_stop_timeout`` class attribute can be used to increase or descrease the forced cancellation timeout. Developers should carefully consider how long their action should take to elegantly stop, and avoid abusing this timeout override to simply prevent forceful cancelltion.
 
 
 Updating action progress

@@ -233,6 +233,13 @@ def move_and_find_focus(microscope, dz):
         return m.sharpest_z_on_move(0)
 
 
+def move_and_measure(microscope, dz):
+    """Make a relative Z move and return the sharpness data"""
+    with monitor_sharpness(microscope) as m:
+        m.focus_rel(dz)
+        return m.data_dict()
+
+
 def fast_autofocus(microscope, dz=2000, backlash=None):
     """Perform a down-up-down-up autofocus"""
     with monitor_sharpness(
@@ -349,6 +356,29 @@ class MeasureSharpnessAPI(View):
         return {"sharpness": measure_sharpness(microscope)}
 
 
+class MoveAndMeasureAPI(ActionView):
+    """
+    Move the stage and measure dynamic sharpness
+    """
+
+    args = {"dz": fields.Int(required=True)}
+
+    def post(self, args):
+        microscope = find_component("org.openflexure.microscope")
+
+        if not microscope:
+            abort(503, "No microscope connected. Unable to autofocus.")
+
+        if microscope.has_real_stage():
+            # Acquire microscope lock with 1s timeout
+            with microscope.lock(timeout=1):
+                # Run fast_up_down_up_autofocus
+                return move_and_measure(microscope, dz=args.get("dz"))
+
+        else:
+            abort(503, "No stage connected. Unable to autofocus.")
+
+
 class AutofocusAPI(ActionView):
     """
     Run a standard autofocus
@@ -360,7 +390,6 @@ class AutofocusAPI(ActionView):
     }
 
     def post(self, args):
-        payload = JsonResponse(request)
         microscope = find_component("org.openflexure.microscope")
 
         if not microscope:
@@ -385,9 +414,10 @@ class FastAutofocusAPI(ActionView):
     """
     Run a fast autofocus
     """
+
     args = {
         "dz": fields.Int(missing=2000),
-        "backlash": fields.Int(missing=25, minimum=0)
+        "backlash": fields.Int(missing=25, minimum=0),
     }
 
     def post(self, args):
@@ -425,7 +455,17 @@ autofocus_extension_v2.add_method(
     fast_up_down_up_autofocus, "fast_up_down_up_autofocus"
 )
 autofocus_extension_v2.add_method(autofocus, "autofocus")
+autofocus_extension_v2.add_method(move_and_measure, "move_and_measure")
 
-autofocus_extension_v2.add_view(MeasureSharpnessAPI, "/measure_sharpness", endpoint="measure_sharpness")
+autofocus_extension_v2.add_view(
+    MeasureSharpnessAPI, "/measure_sharpness", endpoint="measure_sharpness"
+)
 autofocus_extension_v2.add_view(AutofocusAPI, "/autofocus", endpoint="autofocus")
-autofocus_extension_v2.add_view(FastAutofocusAPI, "/fast_autofocus", endpoint="fast_autofocus")
+autofocus_extension_v2.add_view(
+    FastAutofocusAPI, "/fast_autofocus", endpoint="fast_autofocus"
+)
+
+autofocus_extension_v2.add_view(
+    MoveAndMeasureAPI, "/move_and_measure", endpoint="move_and_measure"
+)
+

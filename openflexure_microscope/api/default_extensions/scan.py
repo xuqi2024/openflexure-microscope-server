@@ -56,35 +56,7 @@ def flatten_grid(grid):
 ### Capturing
 
 
-def capture(
-    microscope,
-    basename,
-    temporary: bool = False,
-    use_video_port: bool = False,
-    resize: Tuple[int, int] = None,
-    bayer: bool = False,
-    metadata: dict = {},
-    annotations: dict = {},
-    tags: list = [],
-):
 
-    # Construct a tile filename
-    filename = "{}_{}_{}_{}".format(basename, *microscope.stage.position)
-    folder = "SCAN_{}".format(basename)
-
-    # Do capture
-    return microscope.capture(
-        filename=filename,
-        folder=folder,
-        temporary=temporary,
-        use_video_port=use_video_port,
-        resize=resize,
-        bayer=bayer,
-        annotations=annotations,
-        tags=tags,
-        metadata=metadata,
-        cache_key=folder
-    )
 
 
 class ScanExtension(BaseExtension):
@@ -92,6 +64,41 @@ class ScanExtension(BaseExtension):
         self._images_to_be_captured: int = 1
         self._images_captured_so_far: int = 0
         BaseExtension.__init__(self, "org.openflexure.scan", version="2.0.0")
+
+    def capture(
+        self,
+        microscope,
+        basename,
+        namemode: str = "coordinates",
+        temporary: bool = False,
+        use_video_port: bool = False,
+        resize: Tuple[int, int] = None,
+        bayer: bool = False,
+        metadata: dict = {},
+        annotations: dict = {},
+        tags: list = [],
+    ):
+
+        # Construct a tile filename
+        if namemode == "coordinates":
+            filename = "{}_{}_{}_{}".format(basename, *microscope.stage.position)
+        else:
+            filename = "{}_{}".format(basename, str(self._images_captured_so_far).zfill(len(str(self._images_to_be_captured))))
+        folder = "SCAN_{}".format(basename)
+
+        # Do capture
+        return microscope.capture(
+            filename=filename,
+            folder=folder,
+            temporary=temporary,
+            use_video_port=use_video_port,
+            resize=resize,
+            bayer=bayer,
+            annotations=annotations,
+            tags=tags,
+            metadata=metadata,
+            cache_key=folder
+        )
 
     def progress(self):
         progress = (self._images_captured_so_far / self._images_to_be_captured) * 100
@@ -103,6 +110,7 @@ class ScanExtension(BaseExtension):
         self,
         microscope,
         basename: str = None,
+        namemode: str = "coordinates",
         temporary: bool = False,
         stride_size: int = [2000, 1500, 100],
         grid: list = [3, 3, 5],
@@ -198,6 +206,7 @@ class ScanExtension(BaseExtension):
                     capture(
                         microscope,
                         basename,
+                        namemode=namemode,
                         temporary=temporary,
                         use_video_port=use_video_port,
                         resize=resize,
@@ -214,6 +223,7 @@ class ScanExtension(BaseExtension):
                     self.stack(
                         microscope=microscope,
                         basename=basename,
+                        namemode=namemode,
                         temporary=temporary,
                         step_size=stride_size[2],
                         steps=grid[2],
@@ -240,6 +250,7 @@ class ScanExtension(BaseExtension):
         self,
         microscope,
         basename: str = None,
+        namemode: str = "coordinates",
         temporary: bool = False,
         step_size: int = 100,
         steps: int = 5,
@@ -265,9 +276,10 @@ class ScanExtension(BaseExtension):
             for i in range(steps):
                 time.sleep(0.1)
                 logging.debug(f"Capturing from position {microscope.stage.position}")
-                capture(
+                self.capture(
                     microscope,
                     basename,
+                    namemode=namemode,
                     temporary=temporary,
                     use_video_port=use_video_port,
                     resize=resize,
@@ -295,6 +307,7 @@ scan_extension_v2 = ScanExtension()
 class TileScanAPI(ActionView):
     args = {
         "filename": fields.String(missing=None, example=None),
+        "namemode": fields.String(missing="coordinates", example="coordinates"),
         "temporary": fields.Boolean(missing=False),
         "stride_size": fields.List(
             fields.Integer, missing=[2000, 1500, 100], example=[2000, 1500, 100]
@@ -338,6 +351,7 @@ class TileScanAPI(ActionView):
             return scan_extension_v2.tile(
                 microscope,
                 basename=args.get("filename"),
+                namemode=args.get("namemode"),
                 temporary=args.get("temporary"),
                 stride_size=args.get("stride_size"),
                 grid=args.get("grid"),

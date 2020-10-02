@@ -4,7 +4,7 @@ build-backend = "poetry.masonry.api"
 
 [tool.poetry]
 name = "openflexure-microscope-server"
-version = "2.5.0"
+version = "2.6.0-alpha.2"
 description = "Python module, and Flask-based web API, to run the OpenFlexure Microscope."
 
 authors = [
