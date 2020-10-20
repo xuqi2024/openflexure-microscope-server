@@ -2,7 +2,7 @@ stages:
   - analysis
   - build
   - deploy
-
+  - pi-gen
 
 # Cache modules in between jobs
 cache:
@@ -105,6 +105,16 @@ deploy:
     # Run update-latest.py on the build server
     - ssh -t ci-user@openflexure.bath.ac.uk "/var/www/build/update-latest.py"
     
+  only:
+    - tags
+    - web
+
+# Trigger a pi-gen build
+deploy:
+  stage: pi-gen
+  dependencies:
+    - deploy
+  trigger: openflexure/pi-gen
   only:
     - tags
     - web
