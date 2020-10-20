@@ -2,7 +2,7 @@ stages:
   - analysis
   - build
   - deploy
-  - pi-gen
+  - downstream
 
 # Cache modules in between jobs
 cache:
@@ -110,8 +110,8 @@ deploy:
     - web
 
 # Trigger a pi-gen build
-deploy:
-  stage: pi-gen
+pi-gen:
+  stage: downstream
   trigger: openflexure/pi-gen
   only:
     - tags
