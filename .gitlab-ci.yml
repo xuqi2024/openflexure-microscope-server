@@ -112,8 +112,6 @@ deploy:
 # Trigger a pi-gen build
 deploy:
   stage: pi-gen
-  dependencies:
-    - deploy
   trigger: openflexure/pi-gen
   only:
     - tags
