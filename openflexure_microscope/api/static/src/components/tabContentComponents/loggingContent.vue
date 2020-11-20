@@ -96,7 +96,7 @@ export default {
       return `${this.$store.getters.baseUri}/api/v2/log`;
     },
     pagedItems: function() {
-      let startIndex = (this.page - 1) * this.maxitems;
+      const startIndex = (this.page - 1) * this.maxitems;
       return this.logs.slice(startIndex, startIndex + this.maxitems);
     },
     numberOfPages: function() {
@@ -130,7 +130,7 @@ export default {
         });
     },
     formatDateTime: function(isoDateTimeString) {
-      let date = new Date(isoDateTimeString);
+      const date = new Date(isoDateTimeString);
       return date.toLocaleDateString() + " " + date.toLocaleTimeString();
     }
   }

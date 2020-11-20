@@ -248,7 +248,6 @@
         :submit-data="scanPayload"
         :submit-label="'Start Scan'"
         :button-primary="true"
-        @submit="onScanSubmit"
         @response="onScanResponse"
         @error="onScanError"
       >
@@ -330,33 +329,33 @@ export default {
       return `${this.$store.getters.baseUri}/api/v2/instrument/settings/fov`;
     },
     basePayload: function() {
-      var payload = {};
+      const payload = {};
 
       // Filename
       if (this.filename) {
-        payload.filename = this.filename;
+        payload["filename"] = this.filename;
       }
 
       // Basic boolean params
-      payload.temporary = this.temporary;
-      payload.use_video_port = !this.fullResolution;
-      payload.bayer = this.storeBayer;
+      payload["temporary"] = this.temporary;
+      payload["use_video_port"] = !this.fullResolution;
+      payload["bayer"] = this.storeBayer;
 
       // Resizing
       if (this.resizeCapture) {
-        payload.resize = {
+        payload["resize"] = {
           width: this.resizeDims[0],
           height: this.resizeDims[1]
         };
       }
 
       // Additional annotations
-      payload.annotations = this.annotations;
-      payload.tags = this.tags;
+      payload["annotations"] = this.annotations;
+      payload["tags"] = this.tags;
 
       // Attach notes
       if (this.captureNotes) {
-        payload.annotations["Notes"] = this.captureNotes;
+        payload["annotations"]["Notes"] = this.captureNotes;
       }
 
       console.log(payload);
@@ -365,20 +364,20 @@ export default {
     },
 
     scanPayload: function() {
-      var payload = this.basePayload;
+      const payload = this.basePayload;
 
       // Scan params
-      payload.grid = [this.scanSteps.x, this.scanSteps.y, this.scanSteps.z];
-      payload.stride_size = [
+      payload["grid"] = [this.scanSteps.x, this.scanSteps.y, this.scanSteps.z];
+      payload["stride_size"] = [
         this.scanStepSize.x,
         this.scanStepSize.y,
         this.scanStepSize.z
       ];
-      payload.style = this.scanStyle.toLowerCase();
-      payload.namemode = this.namingStyle.toLowerCase();
+      payload["style"] = this.scanStyle.toLowerCase();
+      payload["namemode"] = this.namingStyle.toLowerCase();
 
       // Convert AF selector to dz
-      var afDeltas = {
+      const afDeltas = {
         Off: 0,
         Coarse: 100,
         Medium: 30,
@@ -386,8 +385,8 @@ export default {
         Fast: 2000
       };
 
-      payload.autofocus_dz = afDeltas[this.scanDeltaZ];
-      payload.fast_autofocus = this.scanDeltaZ == "Fast";
+      payload["autofocus_dz"] = afDeltas[this.scanDeltaZ];
+      payload["fast_autofocus"] = this.scanDeltaZ == "Fast";
 
       return payload;
     }
@@ -404,7 +403,7 @@ export default {
 
   methods: {
     handleCapture: function() {
-      var payload = this.basePayload;
+      const payload = this.basePayload;
 
       // Do capture
       axios
@@ -424,8 +423,8 @@ export default {
       axios
         .get(this.pluginsUri) // Get a list of plugins
         .then(response => {
-          var plugins = response.data;
-          var foundExtension = plugins.find(
+          const plugins = response.data;
+          const foundExtension = plugins.find(
             e => e.title === "org.openflexure.scan"
           );
           // if ScanPlugin is enabled
@@ -453,8 +452,6 @@ export default {
           this.modalError(error); // Let mixin handle error
         });
     },
-
-    onScanSubmit: function() {},
 
     onScanResponse: function(responseData) {
       console.log("Scan finished with response data: ", responseData);

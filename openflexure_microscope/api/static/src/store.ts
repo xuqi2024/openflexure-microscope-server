@@ -3,6 +3,10 @@ import Vuex from "vuex";
 
 Vue.use(Vuex);
 
+interface ActiveStream {
+  [streamID: string]: boolean;
+}
+
 export default new Vuex.Store({
   state: {
     origin: window.location.origin,
@@ -16,7 +20,7 @@ export default new Vuex.Store({
       IHIEnabled: false,
       appTheme: "system"
     },
-    activeStreams: {}
+    activeStreams: <ActiveStream> {}
   },
 
   mutations: {
@@ -26,13 +30,25 @@ export default new Vuex.Store({
     changeWaiting(state, waiting) {
       state.waiting = waiting;
     },
-    changeSetting(state, [key, value]) {
-      state.globalSettings[key] = value;
+    changeDisableStream(state, disabled: boolean) {
+      state.globalSettings.disableStream = disabled;
+    },
+    changeAutoGpuPreview(state, enabled: boolean) {
+      state.globalSettings.autoGpuPreview = enabled;
+    },
+    changeTrackWindow(state, enabled: boolean) {
+      state.globalSettings.trackWindow = enabled;
+    },
+    changeAppTheme(state, theme: string) {
+      state.globalSettings.appTheme = theme;
+    },
+    changeIHIEnabled(state, enabled: boolean) {
+      state.globalSettings.IHIEnabled = enabled;
     },
     resetState(state) {
       state.waiting = false;
       state.available = false;
-      state.error = null;
+      state.error = "";
     },
     setConnected(state) {
       state.waiting = false;

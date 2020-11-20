@@ -32,7 +32,7 @@ export default {
         return this.$store.state.globalSettings.IHIEnabled;
       },
       set(value) {
-        this.$store.commit("changeSetting", ["IHIEnabled", value]);
+        this.$store.commit("changeIHIEnabled", value);
         this.$root.$emit("globalSafeTogglePreview", value);
       }
     }

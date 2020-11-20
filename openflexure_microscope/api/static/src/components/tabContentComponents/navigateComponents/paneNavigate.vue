@@ -206,11 +206,11 @@ export default {
       this.moveInImageCoordinatesRequest(x, y, absolute);
     });
     // A global signal listener to perform a move in multiples of a step size
-    this.$root.$on("globalMoveStepEvent", (x_steps, y_steps, z_steps) => {
+    this.$root.$on("globalMoveStepEvent", (xSteps, ySteps, zSteps) => {
       this.moveRequest(
-        x_steps * this.stepXy,
-        y_steps * this.stepXy,
-        z_steps * this.stepZz,
+        xSteps * this.stepXy,
+        ySteps * this.stepXy,
+        zSteps * this.stepZz,
         false
       );
     });
@@ -323,8 +323,8 @@ export default {
       axios
         .get(this.pluginsUri) // Get a list of plugins
         .then(response => {
-          var plugins = response.data;
-          var foundExtension = plugins.find(
+          const plugins = response.data;
+          const foundExtension = plugins.find(
             e => e.title === "org.openflexure.autofocus"
           );
           // if ScanPlugin is enabled
@@ -343,8 +343,8 @@ export default {
       axios
         .get(this.pluginsUri) // Get a list of plugins
         .then(response => {
-          var plugins = response.data;
-          var foundExtension = plugins.find(
+          const plugins = response.data;
+          const foundExtension = plugins.find(
             e => e.title === "org.openflexure.camera_stage_mapping"
           );
           if (foundExtension) {

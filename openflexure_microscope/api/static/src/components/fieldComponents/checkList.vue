@@ -48,7 +48,7 @@ export default {
 
   methods: {
     updateValue(target) {
-      var newSelected = this.value != null ? [...this.value] : []; // Clone value array
+      let newSelected = this.value != null ? [...this.value] : []; // Clone value array
 
       if (target.checked) {
         if (!newSelected.includes(target.value)) {

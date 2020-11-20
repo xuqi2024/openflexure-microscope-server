@@ -29,7 +29,7 @@ export default {
         return this.$store.state.globalSettings.appTheme;
       },
       set(value) {
-        this.$store.commit("changeSetting", ["appTheme", value]);
+        this.$store.commit("changeAppTheme", value);
       }
     }
   },

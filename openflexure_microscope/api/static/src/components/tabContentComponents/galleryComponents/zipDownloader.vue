@@ -88,8 +88,8 @@ export default {
         axios
           .get(this.pluginsUri) // Get a list of plugins
           .then(response => {
-            var plugins = response.data;
-            var foundExtension = plugins.find(
+            const plugins = response.data;
+            const foundExtension = plugins.find(
               e => e.title === "org.openflexure.zipbuilder"
             );
             // if ZipBuilderPlugin is enabled
@@ -126,7 +126,7 @@ export default {
 
     downloadWithAxios() {
       // Configure progress indicator and response type
-      let config = {
+      const config = {
         responseType: "blob",
         onDownloadProgress: progressEvent => {
           this.downloadProgress = Math.floor(

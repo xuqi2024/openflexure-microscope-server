@@ -102,13 +102,11 @@ export default {
 
   computed: {
     barWidthFromProgress: function() {
-      var progress = this.progress <= 100 ? this.progress : 100;
-      var styleString = `width: ${progress}%`;
+      const progress = this.progress <= 100 ? this.progress : 100;
+      const styleString = `width: ${progress}%`;
       return styleString;
     }
   },
-
-  created() {},
 
   mounted() {
     // Check for already running tasks
@@ -152,12 +150,9 @@ export default {
     bootstrapTask: function() {
       // Starts the process of creating a new Actiont ask
       if (this.requiresConfirmation) {
-        this.modalConfirm(this.confirmationMessage).then(
-          () => {
-            this.startTask();
-          },
-          () => {}
-        );
+        this.modalConfirm(this.confirmationMessage).then(() => {
+          this.startTask();
+        });
       } else {
         this.startTask();
       }
@@ -220,11 +215,11 @@ export default {
     pollTask: function(taskId, interval) {
       interval = interval * 1000 || 500;
 
-      var checkCondition = (resolve, reject) => {
+      const checkCondition = (resolve, reject) => {
         // If the condition is met, we're done!
         axios.get(this.taskUrl).then(response => {
           console.log(response.data.status);
-          var result = response.data.status;
+          const result = response.data.status;
           // If the task ends with success
           if (result == "completed") {
             resolve(response.data);

@@ -14,7 +14,7 @@ export default {
 
   computed: {
     tooltipOptions: function() {
-      var title = this.id.charAt(0).toUpperCase() + this.id.slice(1);
+      const title = this.id.charAt(0).toUpperCase() + this.id.slice(1);
       return `pos: right; title: ${title}; delay: 500`;
     },
 

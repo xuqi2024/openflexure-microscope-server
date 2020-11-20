@@ -53,7 +53,7 @@ export default {
 
   methods: {
     handleTagSubmit: function() {
-      var newSelected = this.value != null ? [...this.value] : []; // Clone value array
+      const newSelected = this.value != null ? [...this.value] : []; // Clone value array
 
       newSelected.push(this.newTag);
       this.newTag = "";
@@ -62,7 +62,7 @@ export default {
     },
 
     delTag: function(tag) {
-      var newSelected = this.value != null ? [...this.value] : []; // Clone value array
+      let newSelected = this.value != null ? [...this.value] : []; // Clone value array
 
       if (newSelected.includes(tag)) {
         newSelected = newSelected.filter(function(value) {

@@ -64,7 +64,7 @@ export default {
         return this.$store.state.globalSettings.disableStream;
       },
       set(value) {
-        this.$store.commit("changeSetting", ["disableStream", value]);
+        this.$store.commit("changeDisableStream", value);
       }
     },
 
@@ -73,7 +73,7 @@ export default {
         return this.$store.state.globalSettings.autoGpuPreview;
       },
       set(value) {
-        this.$store.commit("changeSetting", ["autoGpuPreview", value]);
+        this.$store.commit("changeAutoGpuPreview", value);
         this.$root.$emit("globalSafeTogglePreview", value);
       }
     },
@@ -83,7 +83,7 @@ export default {
         return this.$store.state.globalSettings.trackWindow;
       },
       set(value) {
-        this.$store.commit("changeSetting", ["trackWindow", value]);
+        this.$store.commit("changeTrackWindow", value);
       }
     }
   }

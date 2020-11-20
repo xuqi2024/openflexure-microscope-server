@@ -85,7 +85,7 @@ export default {
 
   methods: {
     handleMetadataSubmit: function() {
-      var newSelected = {};
+      const newSelected = {};
 
       if (this.value != null) {
         Object.assign(newSelected, this.value);
@@ -102,7 +102,7 @@ export default {
     },
 
     delMetadataKey: function(key) {
-      var newSelected = {};
+      const newSelected = {};
 
       if (this.value != null) {
         Object.assign(newSelected, this.value);

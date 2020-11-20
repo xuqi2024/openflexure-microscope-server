@@ -39,7 +39,6 @@
           :submit-url="submitApiUri"
           :submit-data="formData"
           :submit-label="submitLabel"
-          @submit="onTaskSubmit"
           @response="onTaskResponse"
           @error="onTaskError"
         >
@@ -156,8 +155,8 @@ export default {
       Here, we step through the form schema, and properly create reactive properties for each component.
       */
       for (const field of this.schema) {
+        let defaultValue; // Initial value of the form component
         if (Array.isArray(field)) {
-          var defaultValue; // Initial value of the form component
           for (const subfield of field) {
             // If a default value is given in the schema, use this
             if (subfield.value) {
@@ -229,8 +228,6 @@ export default {
           this.modalError(error); // Let mixin handle error
         });
     },
-
-    onTaskSubmit: function() {},
 
     onTaskResponse: function(responseData) {
       console.log("Task finished with response data: ", responseData);

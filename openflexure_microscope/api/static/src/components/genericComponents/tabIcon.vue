@@ -55,7 +55,7 @@ export default {
         return this.title;
       } else {
         // Get the last section of a fully qualified name
-        var topName = this.tabID.split(".").pop();
+        const topName = this.tabID.split(".").pop();
         // Make first character uppercase, then add the rest of the string
         return topName.charAt(0).toUpperCase() + topName.slice(1);
       }

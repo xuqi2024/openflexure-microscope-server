@@ -161,30 +161,24 @@ export default {
         });
     },
     shutdownRequest: function() {
-      this.modalConfirm("Shut down microscope?").then(
-        () => {
-          if ("shutdown" in this.systemActionLinks) {
-            this.$store.commit("resetState");
-            axios.post(this.systemActionLinks.shutdown).catch(error => {
-              console.log(error); // Be quiet when empty response is recieved
-            });
-          }
-        },
-        () => {}
-      );
+      this.modalConfirm("Shut down microscope?").then(() => {
+        if ("shutdown" in this.systemActionLinks) {
+          this.$store.commit("resetState");
+          axios.post(this.systemActionLinks.shutdown).catch(error => {
+            console.log(error); // Be quiet when empty response is recieved
+          });
+        }
+      });
     },
     rebootRequest: function() {
-      this.modalConfirm("Restart microscope?").then(
-        () => {
-          if ("reboot" in this.systemActionLinks) {
-            this.$store.commit("resetState");
-            axios.post(this.systemActionLinks.reboot).catch(error => {
-              console.log(error); // Be quiet when empty response is recieved
-            });
-          }
-        },
-        () => {}
-      );
+      this.modalConfirm("Restart microscope?").then(() => {
+        if ("reboot" in this.systemActionLinks) {
+          this.$store.commit("resetState");
+          axios.post(this.systemActionLinks.reboot).catch(error => {
+            console.log(error); // Be quiet when empty response is recieved
+          });
+        }
+      });
     }
   }
 };

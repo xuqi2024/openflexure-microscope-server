@@ -206,27 +206,27 @@ export default {
     },
     canCSMCalibrated: function() {
       // Assert CSM extension is enabled
-      var extensionEnabled = this.availablePluginTitles.includes(
+      const extensionEnabled = this.availablePluginTitles.includes(
         "org.openflexure.camera_stage_mapping"
       );
       // Assert real stage is connected
-      var stageConnected = this.config.stage.type !== "MissingStage";
+      const stageConnected = this.config.stage.type !== "MissingStage";
       // Combine
       return stageConnected && extensionEnabled;
     },
     canLSTCalibrated: function() {
       // Assert LST extension is enabled
-      var extensionEnabled = this.availablePluginTitles.includes(
+      const extensionEnabled = this.availablePluginTitles.includes(
         "org.openflexure.calibration.picamera"
       );
       // Assert real camera is connected
-      var cameraConnected = this.config.camera.type !== "MissingCamera";
+      const cameraConnected = this.config.camera.type !== "MissingCamera";
       // Combine
       return cameraConnected && extensionEnabled;
     },
     isUseful: function() {
-      var CSMUseful = this.canCSMCalibrated && !this.isCSMCalibrated;
-      var LSTUseful = this.canLSTCalibrated && !this.isLSTCalibrated;
+      const CSMUseful = this.canCSMCalibrated && !this.isCSMCalibrated;
+      const LSTUseful = this.canLSTCalibrated && !this.isLSTCalibrated;
       return CSMUseful || LSTUseful;
     }
   },
@@ -248,7 +248,7 @@ export default {
             this.ready = true;
             this.stepValue = 0;
             // Show the modal
-            var el = this.$refs["calibrationModalEl"];
+            const el = this.$refs["calibrationModalEl"];
             this.showModalElement(el); // Calls the mixin
           } else {
             // If not useful, we just return the onClose event immediately
@@ -259,7 +259,7 @@ export default {
 
     hide: function() {
       // Show the modal
-      var el = this.$refs["calibrationModalEl"];
+      const el = this.$refs["calibrationModalEl"];
       this.hideModalElement(el); // Calls the mixin
       this.ready = false;
     },

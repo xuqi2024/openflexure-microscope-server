@@ -43,7 +43,7 @@ import appContent from "./components/appContent.vue";
 import loadingContent from "./components/loadingContent.vue";
 
 import axios from "axios";
-var Mousetrap = require("mousetrap");
+import Mousetrap from "mousetrap";
 
 Mousetrap.prototype.stopCallback = function(e, element) {
   // if the element has the class "mousetrap" then no need to stop
@@ -101,7 +101,7 @@ export default {
       }
     },
     handleTheme: function() {
-      var isDark = false;
+      let isDark = false;
       if (this.$store.state.globalSettings.appTheme == "dark") {
         isDark = true;
       } else if (this.$store.state.globalSettings.appTheme == "system") {
@@ -167,7 +167,7 @@ export default {
 
   mounted() {
     // Query CSS dark theme preference
-    var mql = window.matchMedia("(prefers-color-scheme: dark)");
+    const mql = window.matchMedia("(prefers-color-scheme: dark)");
     // Check for system dark theme when mounted
     if (mql.matches) {
       this.systemDark = true;
@@ -184,7 +184,7 @@ export default {
     this.checkConnection();
     // Handle guided tour
     // If the user has already completed or skipped the guided tour
-    var completedTour = this.getLocalStorageObj("completedTour") || false;
+    const completedTour = this.getLocalStorageObj("completedTour") || false;
     if (!completedTour) {
       this.$tours["guidedTour"].start();
     }
@@ -208,7 +208,7 @@ export default {
     // Keyboard shortcuts
     Mousetrap.bind("?", () => {
       console.log(this.keyboardManual);
-      this.toggleModalElement(this.$refs["keyboardManualModal"]); // Calls the mixin
+      this.showModalElement(this.$refs["keyboardManualModal"]); // Calls the mixin
     });
 
     // Arrow keys
@@ -296,7 +296,7 @@ export default {
 
   methods: {
     checkConnection: function() {
-      var uriV2 = this.$store.getters.uriV2;
+      const uriV2 = this.$store.getters.uriV2;
       this.$store.commit("changeWaiting", true);
       axios
         .get(uriV2)
@@ -324,32 +324,32 @@ export default {
         event.target.parentNode.classList.contains("scrollTarget") ||
         event.target.classList.contains("scrollTarget")
       ) {
-        var z_rel = event.deltaY / 100;
+        const zRel = event.deltaY / 100;
         // Emit a signal to move, acted on by panelNavigate.vue
-        this.$root.$emit("globalMoveStepEvent", 0, 0, z_rel, false);
+        this.$root.$emit("globalMoveStepEvent", 0, 0, zRel, false);
       }
     },
 
     navigateKeyHandler: function() {
       // Calculate movement array
-      var x_rel = 0;
-      var y_rel = 0;
-      var z_rel = 0;
+      let xRel = 0;
+      let yRel = 0;
+      const zRel = 0;
       if (37 in this.arrowKeysDown) {
-        x_rel = x_rel + 1;
+        xRel = xRel + 1;
       }
       if (39 in this.arrowKeysDown) {
-        x_rel = x_rel - 1;
+        xRel = xRel - 1;
       }
       if (38 in this.arrowKeysDown) {
-        y_rel = y_rel + 1;
+        yRel = yRel + 1;
       }
       if (40 in this.arrowKeysDown) {
-        y_rel = y_rel - 1;
+        yRel = yRel - 1;
       }
       // Make a position request
       // Emit a signal to move, acted on by panelNavigate.vue
-      this.$root.$emit("globalMoveStepEvent", x_rel, y_rel, z_rel);
+      this.$root.$emit("globalMoveStepEvent", xRel, yRel, zRel);
     }
   }
 };

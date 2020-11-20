@@ -157,10 +157,10 @@ export default {
       // Scan settings
       bayer: false,
       grid: [10, 10, 9],
-      stride_size: [800, 600, 10],
-      fast_autofocus: true,
-      autofocus_dz: 2000,
-      use_video_port: false
+      strideSize: [800, 600, 10],
+      fastAutofocus: true,
+      autofocusDz: 2000,
+      useVideoPort: false
     };
   },
 
@@ -176,11 +176,11 @@ export default {
       set(val) {
         console.log(val);
         // Get timezone
-        var dt = new Date();
-        var tzo = -dt.getTimezoneOffset(),
+        const dt = new Date();
+        const tzo = -dt.getTimezoneOffset(),
           dif = tzo >= 0 ? "+" : "-",
           pad = function(num) {
-            var norm = Math.floor(Math.abs(num));
+            const norm = Math.floor(Math.abs(num));
             return (norm < 10 ? "0" : "") + norm;
           };
         // Stick to the end of the new timestring from the form
@@ -190,22 +190,24 @@ export default {
 
     payload: {
       get() {
-        return {
-          filename: `${this.patientID}_${this.sampleType}`,
-          temporary: false,
-          bayer: this.bayer,
-          grid: this.grid,
-          stride_size: this.stride_size,
-          fast_autofocus: this.fast_autofocus,
-          autofocus_dz: this.autofocus_dz,
-          use_video_port: this.use_video_port,
-          annotations: {
-            patientID: this.patientID,
-            username: this.username,
-            clientDatetime: this.currentTime
-          },
-          tags: ["slidescan"]
+        const payload = {};
+
+        payload["filename"] = `${this.patientID}_${this.sampleType}`;
+        payload["temporary"] = false;
+        payload["bayer"] = this.bayer;
+        payload["grid"] = this.grid;
+        payload["stride_size"] = this.strideSize;
+        payload["fast_autofocus"] = this.fastAutofocus;
+        payload["autofocus_dz"] = this.autofocusDz;
+        payload["use_video_port"] = this.useVideoPort;
+        payload["annotations"] = {
+          patientID: this.patientID,
+          username: this.username,
+          clientDatetime: this.currentTime
         };
+        payload["tags"] = ["slidescan"];
+
+        return payload;
       }
     }
   },
@@ -219,8 +221,8 @@ export default {
       axios
         .get(this.pluginsUri) // Get a list of plugins
         .then(response => {
-          var plugins = response.data;
-          var foundExtension = plugins.find(
+          const plugins = response.data;
+          const foundExtension = plugins.find(
             e => e.title === "org.openflexure.scan"
           );
           // if ScanPlugin is enabled
@@ -269,11 +271,11 @@ export default {
     },
 
     getLocalDatetimeString: function() {
-      var dt = new Date();
-      var tzo = -dt.getTimezoneOffset(),
+      const dt = new Date();
+      const tzo = -dt.getTimezoneOffset(),
         dif = tzo >= 0 ? "+" : "-",
         pad = function(num) {
-          var norm = Math.floor(Math.abs(num));
+          const norm = Math.floor(Math.abs(num));
           return (norm < 10 ? "0" : "") + norm;
         };
       return (

@@ -126,7 +126,7 @@ export default {
     },
     flashStream: function() {
       // Run an animation that flashes the stream (for capture feedback)
-      let element = this.$refs.streamDisplay;
+      const element = this.$refs.streamDisplay;
       element.classList.remove("uk-animation-fade");
       element.offsetHeight; /* trigger reflow */
       element.classList.add("uk-animation-fade");
@@ -137,21 +137,21 @@ export default {
 
     clickMonitor: function(event) {
       // Calculate steps from event coordinates and store config FOV
-      let xCoordinate = event.offsetX;
-      let yCoordinate = event.offsetY;
+      const xCoordinate = event.offsetX;
+      const yCoordinate = event.offsetY;
 
       // Simply scaling by naturalHeight/offsetHeight may give the wrong answer!
       // because we use content-fit: contain in the stylesheet, the img element
       // may be larger than the picture.  So, we must determine whether the
       // width or height is setting the scaling factor, and use a uniform scale
       // factor.
-      let scale = Math.max(
+      const scale = Math.max(
         event.target.naturalWidth / event.target.offsetWidth,
         event.target.naturalHeight / event.target.offsetHeight
       );
 
-      let xRelative = (0.5 * event.target.offsetWidth - xCoordinate) * scale;
-      let yRelative = (0.5 * event.target.offsetHeight - yCoordinate) * scale;
+      const xRelative = (0.5 * event.target.offsetWidth - xCoordinate) * scale;
+      const yRelative = (0.5 * event.target.offsetHeight - yCoordinate) * scale;
 
       // Emit a signal to move, acted on by panelNavigate.vue
       this.$root.$emit(
@@ -180,8 +180,8 @@ export default {
           console.log(`STREAM ${this._uid} CLOSED`);
           this.$store.commit("removeStream", this._uid);
           // If all streams are closed, request the GPU preview close
-          var a = Object.values(this.$store.state.activeStreams);
-          let allClosed = a.every(v => v === false);
+          const a = Object.values(this.$store.state.activeStreams);
+          const allClosed = a.every(v => v === false);
           if (allClosed) {
             this.safePreviewRequest(false);
           }
@@ -219,15 +219,15 @@ export default {
 
     recalculateSize: function() {
       // Calculate stream size
-      let element = this.$refs.streamDisplay.parentNode;
-      let bound = element.getBoundingClientRect();
+      const element = this.$refs.streamDisplay.parentNode;
+      const bound = element.getBoundingClientRect();
 
-      let elementSize = [bound.width, bound.height];
+      const elementSize = [bound.width, bound.height];
 
-      let elementPositionOnWindow = [bound.left, bound.top];
-      let windowPositionOnDisplay = [window.screenX, window.screenY];
-      let windowChromeHeight = window.outerHeight - window.innerHeight;
-      let elementPositionOnDisplay = [
+      const elementPositionOnWindow = [bound.left, bound.top];
+      const windowPositionOnDisplay = [window.screenX, window.screenY];
+      const windowChromeHeight = window.outerHeight - window.innerHeight;
+      const elementPositionOnDisplay = [
         Math.max(0, windowPositionOnDisplay[0] + elementPositionOnWindow[0]),
         Math.max(
           0,
@@ -244,8 +244,8 @@ export default {
     safePreviewRequest: function(state) {
       // previewRequest, but only stopping preview if all streams are invisible
       // and only starting preview if any stream is visible
-      var a = Object.values(this.$store.state.activeStreams);
-      let allClosed = a.every(v => v === false);
+      const a = Object.values(this.$store.state.activeStreams);
+      const allClosed = a.every(v => v === false);
       // If all streams are closed, don't start GPU preview
       if (state === true && allClosed) {
         return false;
@@ -263,7 +263,7 @@ export default {
         this.$store.getters.ready == true &&
         this.$store.state.globalSettings.autoGpuPreview == true
       ) {
-        var requestUri = null;
+        let requestUri = null;
         // Create URI
         if (state == true) {
           requestUri = this.startPreviewUri;
@@ -272,7 +272,7 @@ export default {
         }
 
         // Generate payload if tracking window position
-        var payload = {};
+        let payload = {};
         if (
           this.$store.state.globalSettings.trackWindow == true &&
           state == true
@@ -292,12 +292,9 @@ export default {
 
         // Send preview request
         console.log(`${this._uid} toggled preview to ${state}`);
-        axios
-          .post(requestUri, payload)
-          .then(() => {})
-          .catch(error => {
-            this.modalError(error); // Let mixin handle error
-          });
+        axios.post(requestUri, payload).catch(error => {
+          this.modalError(error); // Let mixin handle error
+        });
       }
     },
 

@@ -23,6 +23,12 @@ export default {
     };
   },
 
+  mounted() {
+    if (!this.$store.getters.ready) {
+      this.currentOrigin = "http://microscope.local:5000";
+    }
+  },
+
   methods: {
     overrideAPIHost: function() {
       this.$store.commit("changeOrigin", this.currentOrigin);

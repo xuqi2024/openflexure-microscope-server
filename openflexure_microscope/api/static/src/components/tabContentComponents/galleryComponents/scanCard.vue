@@ -91,8 +91,8 @@ export default {
 
   computed: {
     allURLs: function() {
-      var urls = [];
-      for (var capture of this.scanState.captures) {
+      const urls = [];
+      for (const capture of this.scanState.captures) {
         urls.push(capture.links.self.href);
       }
       return urls;
@@ -105,11 +105,10 @@ export default {
     },
 
     delAllConfirm: function() {
-      var context = this;
       this.modalConfirm(
         "Permanantly delete all captures in this dataset?"
-      ).then(function() {
-        context.deleteAll();
+      ).then(() => {
+        this.deleteAll();
       });
     },
 

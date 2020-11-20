@@ -101,7 +101,7 @@ export default {
     },
 
     applyConfigRequest: function() {
-      var payload = {
+      const payload = {
         name: this.settings.name,
         stage: {
           backlash: this.settings.stage.backlash

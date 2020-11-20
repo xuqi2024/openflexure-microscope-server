@@ -92,8 +92,8 @@ export default {
       axios
         .get(this.pluginsUri) // Get a list of plugins
         .then(response => {
-          var plugins = response.data;
-          var foundExtension = plugins.find(
+          const plugins = response.data;
+          const foundExtension = plugins.find(
             e => e.title === "org.openflexure.calibration.picamera"
           );
           // if AutocalibrationPlugin is enabled

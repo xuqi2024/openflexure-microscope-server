@@ -238,8 +238,6 @@ export default {
     }
   },
 
-  created: function() {},
-
   methods: {
     getMetadata: function() {
       // Send metadata request
@@ -271,9 +269,8 @@ export default {
     },
 
     delCaptureConfirm: function() {
-      var context = this;
-      this.modalConfirm("Permanantly delete capture?").then(function() {
-        context.delCaptureRequest();
+      this.modalConfirm("Permanantly delete capture?").then(() => {
+        this.delCaptureRequest();
       });
     },
 
@@ -317,9 +314,8 @@ export default {
     },
 
     delTagConfirm: function(tagString) {
-      var context = this;
-      this.modalConfirm(`Remove tag '${tagString}'?`).then(function() {
-        context.delTagRequest(tagString);
+      this.modalConfirm(`Remove tag '${tagString}'?`).then(() => {
+        this.delTagRequest(tagString);
       });
     },
 

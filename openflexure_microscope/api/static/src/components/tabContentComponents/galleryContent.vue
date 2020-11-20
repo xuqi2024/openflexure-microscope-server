@@ -181,9 +181,9 @@ export default {
     },
     allTags: function() {
       // Return an array of unique tags across all captures
-      var tags = [];
-      for (var capture of this.captures) {
-        for (var tag of capture.tags) {
+      const tags = [];
+      for (const capture of this.captures) {
+        for (const tag of capture.tags) {
           if (!tags.includes(tag)) {
             tags.push(tag);
           }
@@ -194,8 +194,8 @@ export default {
 
     noScanCaptures: function() {
       // List of captures that are not part of a scan
-      var captures = [];
-      for (var capture of this.captures) {
+      const captures = [];
+      for (const capture of this.captures) {
         // Add to capture list if matched
         if (!capture.dataset) {
           captures.push(capture);
@@ -207,13 +207,13 @@ export default {
 
     allScans: function() {
       // List of scans as capture-like objects
-      var scans = {};
+      const scans = {};
 
-      for (var capture of this.captures) {
-        var dataset = capture.dataset;
+      for (const capture of this.captures) {
+        const dataset = capture.dataset;
 
         if (dataset) {
-          var id = dataset["id"];
+          const id = dataset["id"];
 
           // If this scan ID hasn't been seen before
           if (!(id in scans)) {
@@ -231,7 +231,7 @@ export default {
           scans[id].captures.push(capture);
 
           // Append missing tags
-          for (var tag of capture.tags) {
+          for (const tag of capture.tags) {
             if (!scans[id].tags.includes(tag)) {
               scans[id].tags.push(tag);
             }
@@ -270,12 +270,12 @@ export default {
     },
 
     filteredCaptures: function() {
-      var captures = {};
+      const captures = {};
 
-      for (var item of this.filteredItems) {
+      for (const item of this.filteredItems) {
         // If it's a dataset
         if ("captures" in item) {
-          for (var capture of item.captures) {
+          for (const capture of item.captures) {
             // Get the ID of each capture in the set
             captures[capture.id] = capture;
           }
@@ -294,7 +294,7 @@ export default {
     },
 
     pagedItems: function() {
-      let startIndex = (this.page - 1) * this.maxitems;
+      const startIndex = (this.page - 1) * this.maxitems;
       return this.sortedItems.slice(startIndex, startIndex + this.maxitems);
     },
 
@@ -363,14 +363,14 @@ export default {
 
     filterCaptures: function(list, filterTags) {
       // Filter a list of captures by an array of tags
-      var result = [];
-      for (var capture of list) {
+      const result = [];
+      for (const capture of list) {
         // Assume exclusion
-        var includeCapture = false;
+        let includeCapture = false;
 
         // Filter by selected tags
-        var tags = capture.tags;
-        let checker = (arr, target) => target.every(v => arr.includes(v));
+        const tags = capture.tags;
+        const checker = (arr, target) => target.every(v => arr.includes(v));
         // True if all tags match
         includeCapture = checker(tags, filterTags);
 

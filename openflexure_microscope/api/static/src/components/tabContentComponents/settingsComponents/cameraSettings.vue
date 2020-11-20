@@ -111,15 +111,21 @@ export default {
 
     applyConfigRequest: function() {
       console.log("Applying config to the microscope");
-      var payload = {
+      const payload = {
         camera: {
-          picamera: {
-            shutter_speed: this.settings.picamera.shutter_speed,
-            analog_gain: this.settings.picamera.analog_gain,
-            digital_gain: this.settings.picamera.digital_gain
-          }
+          picamera: {}
         }
       };
+
+      payload["camera"]["picamera"][
+        "shutter_speed"
+      ] = this.settings.picamera.shutter_speed;
+      payload["camera"]["picamera"][
+        "analog_gain"
+      ] = this.settings.picamera.analog_gain;
+      payload["camera"]["picamera"][
+        "digital_gain"
+      ] = this.settings.picamera.digital_gain;
 
       // Send request
       axios
