@@ -2,9 +2,10 @@ import Vue from "vue";
 import App from "./App.vue";
 import store from "./store";
 import GlobalMixin from "./mixin";
-import UIkit from "uikit";
+
+//import UIkit from "uikit";
+
 import VueTour from "vue-tour";
-import LoadScript from "vue-plugin-load-script";
 import VueFriendlyIframe from "vue-friendly-iframe";
 import VueObserveVisibility from "vue-observe-visibility";
 
@@ -14,17 +15,14 @@ require("vue-tour/dist/vue-tour.css");
 import "material-design-icons/iconfont/material-icons.css";
 
 // UIKit overrides
-UIkit.mixin(
-  {
-    data: {
-      animation: false
-    }
-  },
-  "accordion"
-);
-
-// Use load-script module
-Vue.use(LoadScript);
+//UIkit.mixin(
+//  {
+//    data: {
+//      animation: false
+//    }
+//  },
+//  "accordion"
+//);
 
 // Use vue-tour module
 Vue.use(VueTour);

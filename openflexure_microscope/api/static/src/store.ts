@@ -3,25 +3,25 @@ import Vuex from "vuex";
 
 Vue.use(Vuex);
 
-interface ActiveStream {
-  [streamID: string]: boolean;
+interface ActiveStreamMap {
+  [key: string]: boolean;
+}
+
+class State {
+  origin: String = window.location.origin;
+  available: Boolean = false;
+  waiting: Boolean = false;
+  error: String = "";
+  disableStream: Boolean = false;
+  autoGpuPreview: Boolean = false;
+  trackWindow: Boolean = true;
+  IHIEnabled: Boolean = false;
+  appTheme: String = "system";
+  activeStreams: ActiveStreamMap = {};
 }
 
 export default new Vuex.Store({
-  state: {
-    origin: window.location.origin,
-    available: false,
-    waiting: false,
-    error: "",
-    globalSettings: {
-      disableStream: false,
-      autoGpuPreview: false,
-      trackWindow: true,
-      IHIEnabled: false,
-      appTheme: "system"
-    },
-    activeStreams: <ActiveStream> {}
-  },
+  state: new State(),
 
   mutations: {
     changeOrigin(state, origin) {
@@ -31,19 +31,19 @@ export default new Vuex.Store({
       state.waiting = waiting;
     },
     changeDisableStream(state, disabled: boolean) {
-      state.globalSettings.disableStream = disabled;
+      state.disableStream = disabled;
     },
     changeAutoGpuPreview(state, enabled: boolean) {
-      state.globalSettings.autoGpuPreview = enabled;
+      state.autoGpuPreview = enabled;
     },
     changeTrackWindow(state, enabled: boolean) {
-      state.globalSettings.trackWindow = enabled;
+      state.trackWindow = enabled;
     },
     changeAppTheme(state, theme: string) {
-      state.globalSettings.appTheme = theme;
+      state.appTheme = theme;
     },
     changeIHIEnabled(state, enabled: boolean) {
-      state.globalSettings.IHIEnabled = enabled;
+      state.IHIEnabled = enabled;
     },
     resetState(state) {
       state.waiting = false;

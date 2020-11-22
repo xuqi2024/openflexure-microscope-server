@@ -102,9 +102,9 @@ export default {
     },
     handleTheme: function() {
       let isDark = false;
-      if (this.$store.state.globalSettings.appTheme == "dark") {
+      if (this.$store.state.appTheme == "dark") {
         isDark = true;
-      } else if (this.$store.state.globalSettings.appTheme == "system") {
+      } else if (this.$store.state.appTheme == "system") {
         if (this.systemDark) {
           isDark = true;
         }

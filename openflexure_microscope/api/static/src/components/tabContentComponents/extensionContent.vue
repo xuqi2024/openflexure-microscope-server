@@ -3,12 +3,6 @@
   <div uk-grid class="uk-height-1-1 uk-margin-remove uk-padding-remove">
     <div class="control-component">
       <vue-friendly-iframe v-if="frame" :src="frame.href"></vue-friendly-iframe>
-      <div v-else-if="webComponent">
-        <WebComponentLoader
-          :component-u-r-l="webComponent.href"
-          :component-name="webComponent.name"
-        />
-      </div>
       <!-- Handle OpenFlexure Forms -->
       <div
         v-for="form in forms"
@@ -37,7 +31,6 @@
 
 <script>
 import JsonForm from "../pluginComponents/JsonForm";
-import WebComponentLoader from "../pluginComponents/WebComponentLoader";
 import streamDisplay from "./streamContent.vue";
 import galleryContent from "../tabContentComponents/galleryContent.vue";
 import settingsContent from "../tabContentComponents/settingsContent.vue";
@@ -47,7 +40,6 @@ export default {
 
   components: {
     JsonForm,
-    WebComponentLoader,
     streamDisplay,
     galleryContent,
     settingsContent
@@ -58,11 +50,6 @@ export default {
       type: Array,
       required: false,
       default: () => []
-    },
-    webComponent: {
-      type: Object,
-      required: false,
-      default: null
     },
     frame: {
       type: Object,

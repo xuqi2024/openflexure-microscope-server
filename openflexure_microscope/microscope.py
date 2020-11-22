@@ -37,8 +37,6 @@ class Microscope:
 
         self.captures = CaptureManager()
 
-        self.fov = [0, 0]  #: Microscope field-of-view in stage motor steps
-
         # Store settings and configuration files
         self.settings_file = settings
         self.configuration_file = configuration
@@ -217,8 +215,6 @@ class Microscope:
                 self.id = settings.pop("id")
             if "name" in settings:
                 self.name = settings.pop("name")
-            if "fov" in settings:
-                self.fov = settings.pop("fov")
 
             # Extension settings
             if "extensions" in settings:
@@ -241,7 +237,6 @@ class Microscope:
         settings_current = {
             "id": self.id,
             "name": self.name,
-            "fov": self.fov,
             "extensions": self.extension_settings,
         }
 

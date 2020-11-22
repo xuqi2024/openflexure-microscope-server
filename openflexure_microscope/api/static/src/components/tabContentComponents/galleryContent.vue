@@ -24,8 +24,7 @@
             <a href="#">Filter</a>
             <div
               :class="{
-                'uk-light uk-background-secondary':
-                  $store.state.globalSettings.darkMode
+                'uk-light uk-background-secondary': $store.state.darkMode
               }"
               class="uk-navbar-dropdown"
             >

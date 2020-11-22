@@ -1,7 +1,7 @@
 <template>
   <div
     class="capture-card uk-card uk-card-default uk-padding-remove uk-width-medium"
-    :class="{ 'uk-card-secondary': $store.state.globalSettings.darkMode }"
+    :class="{ 'uk-card-secondary': $store.state.darkMode }"
   >
     <div class="uk-card-media-top">
       <a class="lightbox-link" :href="imgURL" :data-caption="name">
@@ -70,8 +70,7 @@
       <div
         class="uk-modal-dialog uk-modal-body"
         :class="{
-          'uk-light uk-background-secondary':
-            $store.state.globalSettings.darkMode
+          'uk-light uk-background-secondary': $store.state.darkMode
         }"
       >
         <button class="uk-modal-close-default" type="button" uk-close></button>
@@ -112,8 +111,7 @@
       <form
         class="uk-modal-dialog uk-modal-body uk-margin-auto-vertical"
         :class="{
-          'uk-light uk-background-secondary':
-            $store.state.globalSettings.darkMode
+          'uk-light uk-background-secondary': $store.state.darkMode
         }"
         @submit.prevent="handleTagSubmit"
       >

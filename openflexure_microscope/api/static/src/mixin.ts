@@ -1,13 +1,10 @@
-import Vue from 'vue'
-import Component from 'vue-class-component'
+import Vue from "vue";
+import Component from "vue-class-component";
 import UIkit from "uikit";
-import {
-  AxiosError,
-} from "axios";
-
+import { AxiosError } from "axios";
 
 @Component
-export default class GlobalMixin extends Vue {
+class GlobalMixin extends Vue {
   modalConfirm(modalText: string) {
     // Stop GPU preview to show modal
     this.$root.$emit("globalTogglePreview", false);
@@ -26,7 +23,7 @@ export default class GlobalMixin extends Vue {
         .finally(() => {
           // Reenable the GPU preview, if it was active before the modal
           console.log("Re-enabling GPU preview");
-          if (this.$store.state.globalSettings.autoGpuPreview) {
+          if (this.$store.state.autoGpuPreview) {
             console.log("Re-enabling preview");
             this.$root.$emit("globalTogglePreview", true);
           }
@@ -101,7 +98,7 @@ export default class GlobalMixin extends Vue {
   getLocalStorageObj(keyName: string) {
     if (localStorage.getItem(keyName)) {
       try {
-        return JSON.parse(localStorage.getItem(keyName) || '{}');
+        return JSON.parse(localStorage.getItem(keyName) || "{}");
       } catch (e) {
         console.log("Malformed entry. Removing from localStorage");
         localStorage.removeItem(keyName);
@@ -114,5 +111,6 @@ export default class GlobalMixin extends Vue {
     const parsed = JSON.stringify(object);
     localStorage.setItem(keyName, parsed);
   }
-
 }
+
+export default GlobalMixin;

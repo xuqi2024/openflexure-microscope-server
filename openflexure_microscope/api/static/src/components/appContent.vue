@@ -100,7 +100,6 @@
         <extensionContent
           :forms="plugin.forms"
           :frame="plugin.frame"
-          :web-component="plugin.wc"
           :view-panel="plugin.viewPanel"
           @reloadForms="updatePlugins()"
         />
@@ -214,7 +213,7 @@ export default {
   computed: {
     enabledTopTabs: function() {
       const enabledTabs = this.topTabs;
-      if (this.$store.state.globalSettings.IHIEnabled) {
+      if (this.$store.state.IHIEnabled) {
         enabledTabs.push({
           id: "slidescan",
           icon: "settings_overscan",

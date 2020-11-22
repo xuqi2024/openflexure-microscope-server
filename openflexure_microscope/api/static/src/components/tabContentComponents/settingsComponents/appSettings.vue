@@ -26,7 +26,7 @@ export default {
   computed: {
     appTheme: {
       get() {
-        return this.$store.state.globalSettings.appTheme;
+        return this.$store.state.appTheme;
       },
       set(value) {
         this.$store.commit("changeAppTheme", value);
