@@ -22,23 +22,23 @@ export default {
     placeholder: {
       type: String,
       required: false,
-      default: null
+      default: null,
     },
     label: {
       type: String,
       required: false,
-      default: null
+      default: null,
     },
     name: {
       type: String,
-      required: true
+      required: true,
     },
     value: {
       type: String,
       required: false,
-      default: ""
-    }
-  }
+      default: "",
+    },
+  },
 };
 </script>
 

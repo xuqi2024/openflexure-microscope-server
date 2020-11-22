@@ -39,16 +39,11 @@
             <li>Ensure your illumination is on and properly fixed in place</li>
           </ul>
 
-          <miniStreamDisplay
-            v-if="stepValue == 1"
-            class="mini-preview"
-          ></miniStreamDisplay>
+          <miniStreamDisplay v-if="stepValue == 1" class="mini-preview" />
 
           <p>Once you're ready, click auto-calibrate.</p>
 
-          <cameraCalibrationSettings
-            :show-extra-settings="false"
-          ></cameraCalibrationSettings>
+          <cameraCalibrationSettings :show-extra-settings="false" />
         </div>
       </div>
 
@@ -85,16 +80,11 @@
             </li>
           </ul>
 
-          <miniStreamDisplay
-            v-if="stepValue == 2"
-            class="mini-preview"
-          ></miniStreamDisplay>
+          <miniStreamDisplay v-if="stepValue == 2" class="mini-preview" />
 
           <p>Once you're ready, click auto-calibrate.</p>
 
-          <CSMCalibrationSettings
-            :show-extra-settings="false"
-          ></CSMCalibrationSettings>
+          <CSMCalibrationSettings :show-extra-settings="false" />
         </div>
       </div>
 
@@ -158,43 +148,43 @@ export default {
   components: {
     cameraCalibrationSettings,
     CSMCalibrationSettings,
-    miniStreamDisplay
+    miniStreamDisplay,
   },
 
   props: {
     availablePlugins: {
       type: Array,
-      required: true
-    }
+      required: true,
+    },
   },
 
-  data: function() {
+  data: function () {
     return {
       ready: false,
       stepValue: 0,
       settings: {},
-      config: {}
+      config: {},
     };
   },
 
   computed: {
-    settingsUri: function() {
+    settingsUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/instrument/settings`;
     },
-    configUri: function() {
+    configUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/instrument/configuration`;
     },
-    availablePluginTitles: function() {
-      return this.availablePlugins.map(a => a.title);
+    availablePluginTitles: function () {
+      return this.availablePlugins.map((a) => a.title);
     },
-    isCSMCalibrated: function() {
+    isCSMCalibrated: function () {
       if (this.settings.extensions["org.openflexure.camera_stage_mapping"]) {
         return true;
       } else {
         return false;
       }
     },
-    isLSTCalibrated: function() {
+    isLSTCalibrated: function () {
       if (
         this.settings.camera.picamera &&
         this.settings.camera.picamera.lens_shading_table
@@ -204,7 +194,7 @@ export default {
         return false;
       }
     },
-    canCSMCalibrated: function() {
+    canCSMCalibrated: function () {
       // Assert CSM extension is enabled
       const extensionEnabled = this.availablePluginTitles.includes(
         "org.openflexure.camera_stage_mapping"
@@ -214,7 +204,7 @@ export default {
       // Combine
       return stageConnected && extensionEnabled;
     },
-    canLSTCalibrated: function() {
+    canLSTCalibrated: function () {
       // Assert LST extension is enabled
       const extensionEnabled = this.availablePluginTitles.includes(
         "org.openflexure.calibration.picamera"
@@ -224,11 +214,11 @@ export default {
       // Combine
       return cameraConnected && extensionEnabled;
     },
-    isUseful: function() {
+    isUseful: function () {
       const CSMUseful = this.canCSMCalibrated && !this.isCSMCalibrated;
       const LSTUseful = this.canLSTCalibrated && !this.isLSTCalibrated;
       return CSMUseful || LSTUseful;
-    }
+    },
   },
 
   mounted() {
@@ -236,7 +226,7 @@ export default {
   },
 
   methods: {
-    show: function() {
+    show: function () {
       // Get current settings
       this.getSettings()
         .then(() => {
@@ -257,54 +247,54 @@ export default {
         });
     },
 
-    hide: function() {
+    hide: function () {
       // Show the modal
       const el = this.$refs["calibrationModalEl"];
       this.hideModalElement(el); // Calls the mixin
       this.ready = false;
     },
 
-    onHide: function() {
+    onHide: function () {
       console.log("UIKit modal hidden");
       this.$emit("onClose");
     },
 
-    getSettings: function() {
+    getSettings: function () {
       return axios
         .get(this.settingsUri)
-        .then(response => {
+        .then((response) => {
           this.settings = response.data;
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    getConfig: function() {
+    getConfig: function () {
       return axios
         .get(this.configUri)
-        .then(response => {
+        .then((response) => {
           this.config = response.data;
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    decrement: function() {
+    decrement: function () {
       if (this.stepValue > 0) {
         this.stepValue = this.stepValue - 1;
       }
     },
 
-    increment: function() {
+    increment: function () {
       // Upper bound on section number
       if (this.stepValue < 3) {
         this.stepValue = this.stepValue + 1;
         return true;
       }
-    }
-  }
+    },
+  },
 };
 </script>
 

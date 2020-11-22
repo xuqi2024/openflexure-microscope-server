@@ -6,7 +6,7 @@
     :uk-tooltip="tooltipOptions"
     @click="setThisTab"
   >
-    <slot></slot>
+    <slot />
     <div v-if="showTitle" class="tabtitle">
       {{ computedTitle }}
     </div>
@@ -20,37 +20,37 @@ export default {
   props: {
     tabID: {
       type: String,
-      required: true
+      required: true,
     },
     title: {
       type: String,
       required: false,
-      default: undefined
+      default: undefined,
     },
     showTitle: {
       type: Boolean,
       required: false,
-      default: true
+      default: true,
     },
     showTooltip: {
       type: Boolean,
       required: false,
-      default: true
+      default: true,
     },
     currentTab: {
       type: String,
-      required: true
+      required: true,
     },
     clickCallback: {
       type: Function,
       required: false,
-      default: null
+      default: null,
     },
-    requireConnection: Boolean
+    requireConnection: Boolean,
   },
 
   computed: {
-    computedTitle: function() {
+    computedTitle: function () {
       if (this.title !== undefined) {
         return this.title;
       } else {
@@ -61,7 +61,7 @@ export default {
       }
     },
 
-    tooltipOptions: function() {
+    tooltipOptions: function () {
       if (this.showTooltip) {
         return `pos: right; title: ${this.computedTitle}; delay: 500`;
       } else {
@@ -69,12 +69,12 @@ export default {
       }
     },
 
-    classObject: function() {
+    classObject: function () {
       return {
         "tabicon-active": this.currentTab == this.tabID,
-        "uk-disabled": this.requireConnection && !this.$store.getters.ready
+        "uk-disabled": this.requireConnection && !this.$store.getters.ready,
       };
-    }
+    },
   },
 
   methods: {
@@ -83,8 +83,8 @@ export default {
       if (this.clickCallback) {
         this.clickCallback();
       }
-    }
-  }
+    },
+  },
 };
 </script>
 

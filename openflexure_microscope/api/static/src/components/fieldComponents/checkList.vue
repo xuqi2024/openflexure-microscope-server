@@ -28,22 +28,22 @@ export default {
     value: {
       type: Array,
       required: false,
-      default: function() {
+      default: function () {
         return [];
-      }
+      },
     },
     options: {
       type: Array,
-      required: true
+      required: true,
     },
     name: {
       type: String,
-      required: true
+      required: true,
     },
     label: {
       type: String,
-      required: true
-    }
+      required: true,
+    },
   },
 
   methods: {
@@ -56,14 +56,14 @@ export default {
         }
       } else {
         if (newSelected.includes(target.value)) {
-          newSelected = newSelected.filter(function(value) {
+          newSelected = newSelected.filter(function (value) {
             return value != target.value;
           });
         }
       }
       this.$emit("input", newSelected);
-    }
-  }
+    },
+  },
 };
 </script>
 

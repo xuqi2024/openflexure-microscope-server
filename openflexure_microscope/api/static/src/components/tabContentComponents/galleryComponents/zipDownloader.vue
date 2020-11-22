@@ -20,8 +20,7 @@
         @submit="onSubmit"
         @response="onResponse"
         @error="onError"
-      >
-      </taskSubmitter>
+      />
     </div>
   </div>
 </template>
@@ -35,17 +34,17 @@ export default {
   name: "ZipDownloader",
 
   components: {
-    taskSubmitter
+    taskSubmitter,
   },
 
   props: {
     captureIds: {
       type: Array,
-      required: true
-    }
+      required: true,
+    },
   },
 
-  data: function() {
+  data: function () {
     return {
       downloadProgress: 0,
       isDownloading: false,
@@ -53,27 +52,27 @@ export default {
       downloadUrl: null,
       zipBuilderUri: null,
       zipGetterUri: null,
-      lastSessionId: null
+      lastSessionId: null,
     };
   },
 
   computed: {
-    pluginsUri: function() {
+    pluginsUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/extensions`;
-    }
+    },
   },
 
-  mounted: function() {
+  mounted: function () {
     this.updateZipperUri();
   },
 
-  created: function() {
+  created: function () {
     // Watch for host 'ready', then update status
     this.unwatchStoreFunction = this.$store.watch(
       (state, getters) => {
         return getters.ready;
       },
-      ready => {
+      (ready) => {
         if (ready) {
           // If the connection is now ready, update zipper URL
           this.updateZipperUri();
@@ -83,14 +82,14 @@ export default {
   },
 
   methods: {
-    updateZipperUri: function() {
+    updateZipperUri: function () {
       if (this.$store.state.available) {
         axios
           .get(this.pluginsUri) // Get a list of plugins
-          .then(response => {
+          .then((response) => {
             const plugins = response.data;
             const foundExtension = plugins.find(
-              e => e.title === "org.openflexure.zipbuilder"
+              (e) => e.title === "org.openflexure.zipbuilder"
             );
             // if ZipBuilderPlugin is enabled
             if (foundExtension) {
@@ -99,7 +98,7 @@ export default {
               this.zipGetterUri = foundExtension.links.get.href;
             }
           })
-          .catch(error => {
+          .catch((error) => {
             this.modalError(error); // Let mixin handle error
           });
       } else {
@@ -108,7 +107,7 @@ export default {
       }
     },
 
-    resetZipper: function() {
+    resetZipper: function () {
       this.downloadReady = false;
     },
 
@@ -128,11 +127,11 @@ export default {
       // Configure progress indicator and response type
       const config = {
         responseType: "blob",
-        onDownloadProgress: progressEvent => {
+        onDownloadProgress: (progressEvent) => {
           this.downloadProgress = Math.floor(
             (progressEvent.loaded * 100) / progressEvent.total
           );
-        }
+        },
       };
 
       // Set downloading flag
@@ -141,12 +140,12 @@ export default {
       // Start download
       axios
         .get(this.downloadUrl, config)
-        .then(response => {
+        .then((response) => {
           this.forceFileDownload(response);
           this.deleteLastZip();
           this.resetZipper();
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         })
         .finally(() => {
@@ -157,28 +156,28 @@ export default {
     deleteLastZip() {
       axios
         .delete(this.downloadUrl)
-        .then(response => {
+        .then((response) => {
           console.log(response);
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    onResponse: function(response) {
+    onResponse: function (response) {
       this.lastSessionId = response.output.id;
       this.downloadUrl = `${this.zipGetterUri}/${this.lastSessionId}`;
       this.downloadReady = true;
     },
 
-    onSubmit: function(submitData) {
+    onSubmit: function (submitData) {
       console.log("SUBMITTED");
       console.log(submitData);
     },
 
-    onError: function(error) {
+    onError: function (error) {
       this.modalError(error); // Let mixin handle error
-    }
-  }
+    },
+  },
 };
 </script>

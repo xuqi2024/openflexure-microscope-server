@@ -30,33 +30,33 @@ export default {
 
   components: {
     CSMCalibrationSettings,
-    miniStreamDisplay
+    miniStreamDisplay,
   },
 
   props: {
     showExtraSettings: {
       type: Boolean,
       required: false,
-      default: true
-    }
+      default: true,
+    },
   },
 
-  data: function() {
+  data: function () {
     return {
       settings: null,
       recalibrationLinks: {},
       isCalibrating: false,
-      dataAvailable: false
+      dataAvailable: false,
     };
   },
 
   computed: {
-    settingsUri: function() {
+    settingsUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/instrument/settings`;
     },
-    pluginsUri: function() {
+    pluginsUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/extensions`;
-    }
+    },
   },
 
   mounted() {
@@ -65,25 +65,25 @@ export default {
   },
 
   methods: {
-    updateSettings: function() {
+    updateSettings: function () {
       // Update links
       axios
         .get(this.settingsUri)
-        .then(response => {
+        .then((response) => {
           this.settings =
             response.data.extensions["org.openflexure.camera_stage_mapping"];
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
           this.settings = {};
         });
     },
 
-    updateCalibrationDataAvailability: function() {
+    updateCalibrationDataAvailability: function () {
       if ("get_calibration" in this.recalibrationLinks) {
         axios
           .get(this.recalibrationLinks.get_calibration.href)
-          .then(response => {
+          .then((response) => {
             console.log("CSM data:");
             console.log(response.data);
             if (Object.keys(response.data).length === 0) {
@@ -92,16 +92,16 @@ export default {
               this.dataAvailable = true;
             }
           })
-          .catch(error => {
+          .catch((error) => {
             this.modalError(error); // Let mixin handle error
           });
       }
     },
 
-    getCalibrationData: function() {
+    getCalibrationData: function () {
       axios
         .get(this.recalibrationLinks.get_calibration.href)
-        .then(response => {
+        .then((response) => {
           if (response.data != {}) {
             const data = JSON.stringify(response.data);
             const url = window.URL.createObjectURL(new Blob([data]));
@@ -112,18 +112,18 @@ export default {
             link.click();
           }
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    updateRecalibrationLinks: function() {
+    updateRecalibrationLinks: function () {
       axios
         .get(this.pluginsUri) // Get a list of plugins
-        .then(response => {
+        .then((response) => {
           const plugins = response.data;
           const foundExtension = plugins.find(
-            e => e.title === "org.openflexure.camera_stage_mapping"
+            (e) => e.title === "org.openflexure.camera_stage_mapping"
           );
           // if camera-stage mapping extension is enabled
           if (foundExtension) {
@@ -135,21 +135,21 @@ export default {
             this.recalibrationLinks = {};
           }
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    onRecalibrateResponse: function() {
+    onRecalibrateResponse: function () {
       this.modalNotify("Finished stage-to-camera calibration.");
       // Update local settings
       this.updateSettings();
     },
 
-    onRecalibrateError: function(error) {
+    onRecalibrateError: function (error) {
       this.modalError(error); // Let mixin handle error
-    }
-  }
+    },
+  },
 };
 </script>
 

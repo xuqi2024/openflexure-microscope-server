@@ -22,22 +22,22 @@ export default {
     value: {
       type: Number,
       required: false,
-      default: 0
+      default: 0,
     },
     placeholder: {
       type: Number,
       required: false,
-      default: 0
+      default: 0,
     },
     name: {
       type: String,
-      required: true
+      required: true,
     },
     label: {
       type: String,
-      required: true
-    }
-  }
+      required: true,
+    },
+  },
 };
 </script>
 

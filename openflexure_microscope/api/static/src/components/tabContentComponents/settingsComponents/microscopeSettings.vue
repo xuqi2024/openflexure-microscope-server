@@ -72,16 +72,16 @@ import axios from "axios";
 export default {
   name: "MicroscopeSettings",
 
-  data: function() {
+  data: function () {
     return {
-      settings: null
+      settings: null,
     };
   },
 
   computed: {
-    settingsUri: function() {
+    settingsUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/instrument/settings`;
-    }
+    },
   },
 
   mounted() {
@@ -89,23 +89,23 @@ export default {
   },
 
   methods: {
-    updateSettings: function() {
+    updateSettings: function () {
       axios
         .get(this.settingsUri)
-        .then(response => {
+        .then((response) => {
           this.settings = response.data;
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    applyConfigRequest: function() {
+    applyConfigRequest: function () {
       const payload = {
         name: this.settings.name,
         stage: {
-          backlash: this.settings.stage.backlash
-        }
+          backlash: this.settings.stage.backlash,
+        },
       };
 
       console.log(payload);
@@ -118,11 +118,11 @@ export default {
           this.updateSettings();
           this.modalNotify("Microscope settings applied.");
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
-    }
-  }
+    },
+  },
 };
 </script>
 

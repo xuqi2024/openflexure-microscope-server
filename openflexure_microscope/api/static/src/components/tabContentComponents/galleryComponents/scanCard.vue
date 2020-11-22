@@ -61,50 +61,50 @@ export default {
   props: {
     id: {
       type: String,
-      required: true
+      required: true,
     },
     name: {
       type: String,
-      required: true
+      required: true,
     },
     time: {
       type: String,
-      required: true
+      required: true,
     },
     type: {
       type: String,
       required: false,
-      default: "Dataset"
+      default: "Dataset",
     },
     thumbnail: {
       type: String,
-      required: true
+      required: true,
     },
     tags: {
       type: Array,
       required: false,
-      default: function() {
+      default: function () {
         return [];
-      }
-    }
+      },
+    },
   },
 
   computed: {
-    allURLs: function() {
+    allURLs: function () {
       const urls = [];
       for (const capture of this.scanState.captures) {
         urls.push(capture.links.self.href);
       }
       return urls;
-    }
+    },
   },
 
   methods: {
-    onClick: function() {
+    onClick: function () {
       this.$emit("selectFolder", this.id);
     },
 
-    delAllConfirm: function() {
+    delAllConfirm: function () {
       this.modalConfirm(
         "Permanantly delete all captures in this dataset?"
       ).then(() => {
@@ -112,12 +112,12 @@ export default {
       });
     },
 
-    deleteAll: function() {
-      axios.all(this.allURLs.map(l => axios.delete(l))).then(() => {
+    deleteAll: function () {
+      axios.all(this.allURLs.map((l) => axios.delete(l))).then(() => {
         // Emit signal to update capture list
         this.$root.$emit("globalUpdateCaptures");
       });
-    }
-  }
+    },
+  },
 };
 </script>

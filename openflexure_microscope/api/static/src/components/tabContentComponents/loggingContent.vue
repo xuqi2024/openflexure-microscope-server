@@ -11,7 +11,7 @@
       <!-- Left side controls -->
       <div
         class="uk-navbar-left uk-padding-remove-top uk-padding-remove-bottom"
-      ></div>
+      />
 
       <!-- Right side buttons -->
       <div class="uk-navbar-right">
@@ -42,7 +42,7 @@
         uk-alert
         :class="{
           'uk-alert-warning uk-alert': item.data.levelname == 'WARNING',
-          'uk-alert-danger uk-alert': item.data.levelname == 'ERROR'
+          'uk-alert-danger uk-alert': item.data.levelname == 'ERROR',
         }"
       >
         <p>
@@ -63,8 +63,7 @@
         :active-class="'uk-active'"
         :disabled-class="'uk-disabled'"
         :click-handler="scrollToTop()"
-      >
-      </Paginate>
+      />
     </div>
   </div>
 </template>
@@ -77,31 +76,31 @@ export default {
   name: "LoggingContent",
 
   components: {
-    Paginate
+    Paginate,
   },
 
-  data: function() {
+  data: function () {
     return {
       maxitems: 20,
       page: 1,
-      logs: []
+      logs: [],
     };
   },
 
   computed: {
-    loggingUri: function() {
+    loggingUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/events/logging`;
     },
-    logFileURI: function() {
+    logFileURI: function () {
       return `${this.$store.getters.baseUri}/api/v2/log`;
     },
-    pagedItems: function() {
+    pagedItems: function () {
       const startIndex = (this.page - 1) * this.maxitems;
       return this.logs.slice(startIndex, startIndex + this.maxitems);
     },
-    numberOfPages: function() {
+    numberOfPages: function () {
       return Math.floor(this.logs.length / this.maxitems);
-    }
+    },
   },
 
   mounted() {
@@ -118,22 +117,22 @@ export default {
         this.updateLogs();
       }
     },
-    updateLogs: function() {
+    updateLogs: function () {
       console.log("Updating logs...");
       axios
         .get(this.loggingUri)
-        .then(response => {
+        .then((response) => {
           this.logs = response.data.reverse();
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
-    formatDateTime: function(isoDateTimeString) {
+    formatDateTime: function (isoDateTimeString) {
       const date = new Date(isoDateTimeString);
       return date.toLocaleDateString() + " " + date.toLocaleTimeString();
-    }
-  }
+    },
+  },
 };
 </script>
 

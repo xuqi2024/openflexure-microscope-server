@@ -32,7 +32,9 @@
         <div v-if="configuration.camera.type != 'MissingCamera'">
           {{ configuration.camera.type }}
         </div>
-        <div v-else class="uk-text-danger"><b>No camera connected</b></div>
+        <div v-else class="uk-text-danger">
+          <b>No camera connected</b>
+        </div>
       </div>
       <div>
         <b>Stage:</b>
@@ -40,7 +42,9 @@
         <div v-if="configuration.stage.type != 'MissingStage'">
           {{ configuration.stage.type }}
         </div>
-        <div v-else class="uk-text-danger"><b>No stage connected</b></div>
+        <div v-else class="uk-text-danger">
+          <b>No stage connected</b>
+        </div>
       </div>
 
       <hr />
@@ -67,9 +71,7 @@
         </div>
       </div>
     </div>
-    <div v-else-if="$store.state.waiting">
-      Loading...
-    </div>
+    <div v-else-if="$store.state.waiting">Loading...</div>
     <div v-else-if="$store.state.error">
       <b>Error:</b> {{ $store.state.error }}
     </div>
@@ -85,27 +87,27 @@ export default {
 
   components: {},
 
-  data: function() {
+  data: function () {
     return {
       configuration: null,
       settings: null,
-      systemActionLinks: {}
+      systemActionLinks: {},
     };
   },
 
   computed: {
-    settingsUri: function() {
+    settingsUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/instrument/settings`;
     },
-    configurationUri: function() {
+    configurationUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/instrument/configuration`;
     },
-    rootUri: function() {
+    rootUri: function () {
       return `${this.$store.getters.baseUri}/api/v2`;
-    }
+    },
   },
 
-  mounted: function() {
+  mounted: function () {
     // Watch for host 'ready', then update configuration
     this.updateConfiguration();
     this.updateSettings();
@@ -113,30 +115,30 @@ export default {
   },
 
   methods: {
-    updateConfiguration: function() {
+    updateConfiguration: function () {
       axios
         .get(this.configurationUri)
-        .then(response => {
+        .then((response) => {
           this.configuration = response.data;
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
-    updateSettings: function() {
+    updateSettings: function () {
       axios
         .get(this.settingsUri)
-        .then(response => {
+        .then((response) => {
           this.settings = response.data;
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
-    updateSystemActions: function() {
+    updateSystemActions: function () {
       axios
         .get(this.rootUri)
-        .then(response => {
+        .then((response) => {
           if ("RebootAPI" in response.data.actions) {
             this.$set(
               this.systemActionLinks,
@@ -156,31 +158,31 @@ export default {
             delete this.systemActionLinks.shutdown;
           }
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
-    shutdownRequest: function() {
+    shutdownRequest: function () {
       this.modalConfirm("Shut down microscope?").then(() => {
         if ("shutdown" in this.systemActionLinks) {
           this.$store.commit("resetState");
-          axios.post(this.systemActionLinks.shutdown).catch(error => {
+          axios.post(this.systemActionLinks.shutdown).catch((error) => {
             console.log(error); // Be quiet when empty response is recieved
           });
         }
       });
     },
-    rebootRequest: function() {
+    rebootRequest: function () {
       this.modalConfirm("Restart microscope?").then(() => {
         if ("reboot" in this.systemActionLinks) {
           this.$store.commit("resetState");
-          axios.post(this.systemActionLinks.reboot).catch(error => {
+          axios.post(this.systemActionLinks.reboot).catch((error) => {
             console.log(error); // Be quiet when empty response is recieved
           });
         }
       });
-    }
-  }
+    },
+  },
 };
 </script>
 

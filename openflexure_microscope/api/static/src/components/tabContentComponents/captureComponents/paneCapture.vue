@@ -78,7 +78,7 @@
               class="uk-textarea"
               rows="5"
               placeholder="Capture notes"
-            ></textarea>
+            />
           </div>
         </div>
       </li>
@@ -242,7 +242,7 @@
       </li>
     </ul>
 
-    <div v-if="scanCapture" class="uk-margin uk-margin-remove-top ">
+    <div v-if="scanCapture" class="uk-margin uk-margin-remove-top">
       <taskSubmitter
         :submit-url="scanUri"
         :submit-data="scanPayload"
@@ -250,8 +250,7 @@
         :button-primary="true"
         @response="onScanResponse"
         @error="onScanError"
-      >
-      </taskSubmitter>
+      />
     </div>
 
     <button
@@ -279,10 +278,10 @@ export default {
   components: {
     tagList,
     keyvalList,
-    taskSubmitter
+    taskSubmitter,
   },
 
-  data: function() {
+  data: function () {
     return {
       filename: "",
       temporary: false,
@@ -297,35 +296,35 @@ export default {
       scanStepSize: {
         x: 800,
         y: 640,
-        z: 50
+        z: 50,
       },
       scanSteps: {
         x: 3,
         y: 3,
-        z: 5
+        z: 5,
       },
       resizeDims: [640, 480],
       tags: [],
       annotations: {
-        Client: `${process.env.PACKAGE.name}.${process.env.PACKAGE.version}`
+        Client: `${process.env.PACKAGE.name}.${process.env.PACKAGE.version}`,
       },
-      scanUri: null
+      scanUri: null,
     };
   },
 
   computed: {
-    resizeClass: function() {
+    resizeClass: function () {
       return {
-        "uk-disabled": !this.resizeCapture
+        "uk-disabled": !this.resizeCapture,
       };
     },
-    captureActionUri: function() {
+    captureActionUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/actions/camera/capture`;
     },
-    pluginsUri: function() {
+    pluginsUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/extensions`;
     },
-    basePayload: function() {
+    basePayload: function () {
       const payload = {};
 
       // Filename
@@ -342,7 +341,7 @@ export default {
       if (this.resizeCapture) {
         payload["resize"] = {
           width: this.resizeDims[0],
-          height: this.resizeDims[1]
+          height: this.resizeDims[1],
         };
       }
 
@@ -360,7 +359,7 @@ export default {
       return payload;
     },
 
-    scanPayload: function() {
+    scanPayload: function () {
       const payload = this.basePayload;
 
       // Scan params
@@ -368,7 +367,7 @@ export default {
       payload["stride_size"] = [
         this.scanStepSize.x,
         this.scanStepSize.y,
-        this.scanStepSize.z
+        this.scanStepSize.z,
       ];
       payload["style"] = this.scanStyle.toLowerCase();
       payload["namemode"] = this.namingStyle.toLowerCase();
@@ -379,14 +378,14 @@ export default {
         Coarse: 100,
         Medium: 30,
         Fine: 10,
-        Fast: 2000
+        Fast: 2000,
       };
 
       payload["autofocus_dz"] = afDeltas[this.scanDeltaZ];
       payload["fast_autofocus"] = this.scanDeltaZ == "Fast";
 
       return payload;
-    }
+    },
   },
 
   mounted() {
@@ -398,7 +397,7 @@ export default {
   },
 
   methods: {
-    handleCapture: function() {
+    handleCapture: function () {
       const payload = this.basePayload;
 
       // Do capture
@@ -410,18 +409,18 @@ export default {
           // Update the global capture list
           this.$root.$emit("globalUpdateCaptures");
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    updateScanUri: function() {
+    updateScanUri: function () {
       axios
         .get(this.pluginsUri) // Get a list of plugins
-        .then(response => {
+        .then((response) => {
           const plugins = response.data;
           const foundExtension = plugins.find(
-            e => e.title === "org.openflexure.scan"
+            (e) => e.title === "org.openflexure.scan"
           );
           // if ScanPlugin is enabled
           if (foundExtension) {
@@ -429,20 +428,20 @@ export default {
             this.scanUri = foundExtension.links.tile.href;
           }
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    onScanResponse: function(responseData) {
+    onScanResponse: function (responseData) {
       console.log("Scan finished with response data: ", responseData);
       this.modalNotify("Finished scan.");
     },
 
-    onScanError: function(error) {
+    onScanError: function (error) {
       this.modalError(error);
-    }
-  }
+    },
+  },
 };
 </script>
 

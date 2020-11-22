@@ -64,27 +64,27 @@ export default {
   name: "KeyvalList",
 
   components: {
-    labelInput
+    labelInput,
   },
 
   props: {
     value: {
       type: Object,
-      required: true
-    }
+      required: true,
+    },
   },
 
-  data: function() {
+  data: function () {
     return {
       newMetadata: {
         key: "",
-        value: ""
-      }
+        value: "",
+      },
     };
   },
 
   methods: {
-    handleMetadataSubmit: function() {
+    handleMetadataSubmit: function () {
       const newSelected = {};
 
       if (this.value != null) {
@@ -101,7 +101,7 @@ export default {
       this.$refs.textboxKey.focus();
     },
 
-    delMetadataKey: function(key) {
+    delMetadataKey: function (key) {
       const newSelected = {};
 
       if (this.value != null) {
@@ -113,11 +113,11 @@ export default {
       this.$emit("input", newSelected);
     },
 
-    modifyValue: function(e, v) {
+    modifyValue: function (e, v) {
       console.log(e);
       console.log(v);
-    }
-  }
+    },
+  },
 };
 </script>
 

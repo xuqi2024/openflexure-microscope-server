@@ -4,7 +4,7 @@
     :hidden="currentTab != tabID"
     class="uk-width-expand uk-height-1-1"
   >
-    <slot></slot>
+    <slot />
   </div>
 </template>
 
@@ -15,17 +15,17 @@ export default {
   props: {
     tabID: {
       type: String,
-      required: true
+      required: true,
     },
     currentTab: {
       type: String,
-      required: true
+      required: true,
     },
-    requireConnection: Boolean
+    requireConnection: Boolean,
   },
   computed: {},
 
-  methods: {}
+  methods: {},
 };
 </script>
 

@@ -86,7 +86,9 @@
       </form>
 
       <div id="form-stepper">
-        <p class="warning">{{ message }}</p>
+        <p class="warning">
+          {{ message }}
+        </p>
         <taskSubmitter
           v-if="scanUri"
           v-show="stepValue == 3"
@@ -96,7 +98,7 @@
           @submit="scanRunning = true"
           @response="scanRunning = false"
           @error="scanRunning = false"
-        ></taskSubmitter>
+        />
         <br />
 
         <div v-show="!scanRunning" class="grid-container">
@@ -139,10 +141,10 @@ import taskSubmitter from "../../genericComponents/taskSubmitter";
 
 export default {
   components: {
-    taskSubmitter
+    taskSubmitter,
   },
 
-  data: function() {
+  data: function () {
     return {
       scanUri: null,
       stepValue: 0,
@@ -160,12 +162,12 @@ export default {
       strideSize: [800, 600, 10],
       fastAutofocus: true,
       autofocusDz: 2000,
-      useVideoPort: false
+      useVideoPort: false,
     };
   },
 
   computed: {
-    pluginsUri: function() {
+    pluginsUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/extensions`;
     },
     currentTimeForm: {
@@ -179,13 +181,13 @@ export default {
         const dt = new Date();
         const tzo = -dt.getTimezoneOffset(),
           dif = tzo >= 0 ? "+" : "-",
-          pad = function(num) {
+          pad = function (num) {
             const norm = Math.floor(Math.abs(num));
             return (norm < 10 ? "0" : "") + norm;
           };
         // Stick to the end of the new timestring from the form
         this.currentTime = val + dif + pad(tzo / 60) + ":" + pad(tzo % 60);
-      }
+      },
     },
 
     payload: {
@@ -203,27 +205,27 @@ export default {
         payload["annotations"] = {
           patientID: this.patientID,
           username: this.username,
-          clientDatetime: this.currentTime
+          clientDatetime: this.currentTime,
         };
         payload["tags"] = ["slidescan"];
 
         return payload;
-      }
-    }
+      },
+    },
   },
 
-  mounted: function() {
+  mounted: function () {
     this.updateScanUri();
   },
 
   methods: {
-    updateScanUri: function() {
+    updateScanUri: function () {
       axios
         .get(this.pluginsUri) // Get a list of plugins
-        .then(response => {
+        .then((response) => {
           const plugins = response.data;
           const foundExtension = plugins.find(
-            e => e.title === "org.openflexure.scan"
+            (e) => e.title === "org.openflexure.scan"
           );
           // if ScanPlugin is enabled
           if (foundExtension) {
@@ -231,18 +233,18 @@ export default {
             this.scanUri = foundExtension.links.tile.href;
           }
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    decrement: function() {
+    decrement: function () {
       if (this.stepValue > 0) {
         this.stepValue = this.stepValue - 1;
       }
     },
 
-    increment: function() {
+    increment: function () {
       // Validate sections
       if (this.stepValue == 0) {
         if (!this.username) {
@@ -264,17 +266,17 @@ export default {
       }
     },
 
-    restart: function() {
+    restart: function () {
       this.stepValue = 0;
       this.patientID = "";
       this.currentTime = this.getLocalDatetimeString();
     },
 
-    getLocalDatetimeString: function() {
+    getLocalDatetimeString: function () {
       const dt = new Date();
       const tzo = -dt.getTimezoneOffset(),
         dif = tzo >= 0 ? "+" : "-",
-        pad = function(num) {
+        pad = function (num) {
           const norm = Math.floor(Math.abs(num));
           return (norm < 10 ? "0" : "") + norm;
         };
@@ -295,8 +297,8 @@ export default {
         ":" +
         pad(tzo % 60)
       );
-    }
-  }
+    },
+  },
 };
 </script>
 

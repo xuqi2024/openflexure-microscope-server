@@ -19,7 +19,7 @@
 export default {
   name: "AppSettings",
 
-  data: function() {
+  data: function () {
     return {};
   },
 
@@ -30,21 +30,21 @@ export default {
       },
       set(value) {
         this.$store.commit("changeAppTheme", value);
-      }
-    }
+      },
+    },
   },
 
   watch: {
     appTheme() {
       console.log("Saving appTheme setting");
       this.setLocalStorageObj("appTheme", this.appTheme);
-    }
+    },
   },
 
   mounted() {
     // Try loading settings from localStorage. If null, don't change.
     this.appTheme = this.getLocalStorageObj("appTheme") || this.appTheme;
-  }
+  },
 };
 </script>
 

@@ -28,21 +28,21 @@ export default {
     value: {
       type: String,
       required: false,
-      default: ""
+      default: "",
     },
     options: {
       type: Array,
-      required: true
+      required: true,
     },
     name: {
       type: String,
-      required: true
+      required: true,
     },
     label: {
       type: String,
-      required: true
-    }
-  }
+      required: true,
+    },
+  },
 };
 </script>
 

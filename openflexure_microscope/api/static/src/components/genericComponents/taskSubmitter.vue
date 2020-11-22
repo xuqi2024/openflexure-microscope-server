@@ -9,8 +9,8 @@
           v-if="progress"
           class="determinate"
           :style="barWidthFromProgress"
-        ></div>
-        <div v-else class="indeterminate"></div>
+        />
+        <div v-else class="indeterminate" />
       </div>
 
       <button
@@ -46,66 +46,66 @@ export default {
   props: {
     submitUrl: {
       type: String,
-      required: true
+      required: true,
     },
     submitData: {
       type: [Object, Array],
       required: false,
-      default: () => ({})
+      default: () => ({}),
     },
     pollInterval: {
       type: Number,
       required: false,
-      default: 1
+      default: 1,
     },
     submitLabel: {
       type: String,
       required: false,
-      default: "Submit"
+      default: "Submit",
     },
     canTerminate: {
       type: Boolean,
       required: false,
-      default: true
+      default: true,
     },
     requiresConfirmation: {
       type: Boolean,
       required: false,
-      default: false
+      default: false,
     },
     confirmationMessage: {
       type: String,
       required: false,
-      default: "Start task?"
+      default: "Start task?",
     },
     buttonPrimary: {
       type: Boolean,
       required: false,
-      default: true
+      default: true,
     },
     submitOnEvent: {
       type: String,
       required: false,
-      default: null
-    }
+      default: null,
+    },
   },
 
-  data: function() {
+  data: function () {
     return {
       taskId: null,
       taskUrl: null,
       progress: null,
       taskStarted: false,
-      taskRunning: false
+      taskRunning: false,
     };
   },
 
   computed: {
-    barWidthFromProgress: function() {
+    barWidthFromProgress: function () {
       const progress = this.progress <= 100 ? this.progress : 100;
       const styleString = `width: ${progress}%`;
       return styleString;
-    }
+    },
   },
 
   mounted() {
@@ -134,8 +134,8 @@ export default {
       }
     },
 
-    checkExistingTasks: function() {
-      axios.get(this.submitUrl).then(response => {
+    checkExistingTasks: function () {
+      axios.get(this.submitUrl).then((response) => {
         console.log(response.data);
         for (const task of response.data) {
           if (task.status == "pending" || task.status == "running") {
@@ -147,7 +147,7 @@ export default {
       });
     },
 
-    bootstrapTask: function() {
+    bootstrapTask: function () {
       // Starts the process of creating a new Actiont ask
       if (this.requiresConfirmation) {
         this.modalConfirm(this.confirmationMessage).then(() => {
@@ -158,7 +158,7 @@ export default {
       }
     },
 
-    startTask: function() {
+    startTask: function () {
       // Starts a new Action task
       console.log("Task start clicked");
       this.$emit("submit", this.submitData);
@@ -169,13 +169,13 @@ export default {
       axios
         .post(this.submitUrl, this.submitData)
         // Get the returned Task ID
-        .then(response => {
+        .then((response) => {
           // Start the store polling TaskId for success
           this.startPolling(response.data.id, response.data.href);
         });
     },
 
-    startPolling: function(taskId, taskUrl) {
+    startPolling: function (taskId, taskUrl) {
       if (this.taskRunning != true) {
         // Starts polling an existing Action task
         this.taskId = taskId;
@@ -184,13 +184,13 @@ export default {
         this.taskRunning = true;
         this.$emit("taskRunning", this.taskId);
         this.pollTask(this.taskId, this.pollInterval)
-          .then(response => {
+          .then((response) => {
             // Do something with the final response
             console.log("Emitting onResponse: ", response);
             this.$emit("response", response);
             this.$emit("finished");
           })
-          .catch(error => {
+          .catch((error) => {
             if (!error) {
               error = Error("Unknown error");
             }
@@ -212,12 +212,12 @@ export default {
       }
     },
 
-    pollTask: function(taskId, interval) {
+    pollTask: function (taskId, interval) {
       interval = interval * 1000 || 500;
 
       const checkCondition = (resolve, reject) => {
         // If the condition is met, we're done!
-        axios.get(this.taskUrl).then(response => {
+        axios.get(this.taskUrl).then((response) => {
           console.log(response.data.status);
           const result = response.data.status;
           // If the task ends with success
@@ -247,22 +247,22 @@ export default {
       return new Promise(checkCondition);
     },
 
-    pollProgress: function() {
+    pollProgress: function () {
       console.log("Starting progress polling");
 
-      axios.get(this.taskUrl).then(response => {
+      axios.get(this.taskUrl).then((response) => {
         console.log("PROGRESS RESPONSE: ", response.data.progress);
         this.progress = response.data.progress;
       });
     },
 
-    terminateTask: function() {
+    terminateTask: function () {
       console.log("Terminating task...");
-      axios.delete(this.taskUrl).then(response => {
+      axios.delete(this.taskUrl).then((response) => {
         console.log("TERMINATION RESPONSE: ", response.data);
       });
-    }
-  }
+    },
+  },
 };
 </script>
 

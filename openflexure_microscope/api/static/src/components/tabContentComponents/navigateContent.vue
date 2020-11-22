@@ -19,7 +19,7 @@ export default {
 
   components: {
     paneNavigate,
-    streamDisplay
-  }
+    streamDisplay,
+  },
 };
 </script>

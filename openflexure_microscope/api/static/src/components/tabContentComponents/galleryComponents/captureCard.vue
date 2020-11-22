@@ -70,11 +70,13 @@
       <div
         class="uk-modal-dialog uk-modal-body"
         :class="{
-          'uk-light uk-background-secondary': $store.state.darkMode
+          'uk-light uk-background-secondary': $store.state.darkMode,
         }"
       >
-        <button class="uk-modal-close-default" type="button" uk-close></button>
-        <h2 class="uk-modal-title">{{ name }}</h2>
+        <button class="uk-modal-close-default" type="button" uk-close />
+        <h2 class="uk-modal-title">
+          {{ name }}
+        </h2>
         <p><b>Path: </b>{{ path }}</p>
         <p><b>Time: </b>{{ time }}</p>
         <p><b>ID: </b>{{ id }}</p>
@@ -111,7 +113,7 @@
       <form
         class="uk-modal-dialog uk-modal-body uk-margin-auto-vertical"
         :class="{
-          'uk-light uk-background-secondary': $store.state.darkMode
+          'uk-light uk-background-secondary': $store.state.darkMode,
         }"
         @submit.prevent="handleTagSubmit"
       >
@@ -155,105 +157,105 @@ export default {
   name: "CaptureCard",
 
   components: {
-    keyvalList
+    keyvalList,
   },
 
   props: {
     id: {
       type: String,
-      required: true
+      required: true,
     },
     name: {
       type: String,
-      required: true
+      required: true,
     },
     time: {
       type: String,
-      required: true
+      required: true,
     },
     path: {
       type: String,
-      required: true
+      required: true,
     },
     format: {
       type: String,
-      required: true
+      required: true,
     },
     links: {
       type: Object,
-      required: true
+      required: true,
     },
     tags: {
       type: Array,
       required: false,
-      default: function() {
+      default: function () {
         return [];
-      }
+      },
     },
     annotations: {
       type: Object,
       required: false,
-      default: function() {
+      default: function () {
         return {};
-      }
-    }
+      },
+    },
   },
 
-  data: function() {
+  data: function () {
     return {
       newTag: "",
-      newAnnotations: {}
+      newAnnotations: {},
     };
   },
 
   computed: {
-    tagModalID: function() {
+    tagModalID: function () {
       return this.makeModalName("tag-modal-");
     },
-    tagModalTarget: function() {
+    tagModalTarget: function () {
       return "#" + this.tagModalID;
     },
-    metadataModalID: function() {
+    metadataModalID: function () {
       return this.makeModalName("metadata-modal-");
     },
-    metadataModalTarget: function() {
+    metadataModalTarget: function () {
       return "#" + this.metadataModalID;
     },
-    thumbURL: function() {
+    thumbURL: function () {
       return `${this.links.download.href}?thumbnail=true`;
     },
-    imgURL: function() {
+    imgURL: function () {
       return this.links.download.href;
     },
-    tagsURL: function() {
+    tagsURL: function () {
       return this.links.tags.href;
     },
-    annotationsURL: function() {
+    annotationsURL: function () {
       return this.links.annotations.href;
     },
-    captureURL: function() {
+    captureURL: function () {
       return this.links.self.href;
-    }
+    },
   },
 
   methods: {
-    getMetadata: function() {
+    getMetadata: function () {
       // Send metadata request
       console.log("Loading capture metadata...");
       axios
         .get(this.captureURL)
-        .then(response => {
+        .then((response) => {
           this.$emit("update:tags", response.data.metadata.image.tags);
           this.$emit(
             "update:annotations",
             response.data.metadata.image.annotations
           );
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
-    handleTagSubmit: function(event) {
+    handleTagSubmit: function (event) {
       if (this.newTag !== "") {
         this.newTagRequest(this.newTag);
         this.newTag = "";
@@ -261,18 +263,18 @@ export default {
       UIkit.modal(event.target.parentNode).hide();
     },
 
-    handleAnnotationsSubmit: function() {
+    handleAnnotationsSubmit: function () {
       this.putAnnotationsRequest(this.newAnnotations);
       this.newAnnotations = {};
     },
 
-    delCaptureConfirm: function() {
+    delCaptureConfirm: function () {
       this.modalConfirm("Permanantly delete capture?").then(() => {
         this.delCaptureRequest();
       });
     },
 
-    delCaptureRequest: function() {
+    delCaptureRequest: function () {
       // Send tag DELETE request
       axios
         .delete(this.captureURL)
@@ -280,12 +282,12 @@ export default {
           // Emit signal to update capture list
           this.$root.$emit("globalUpdateCaptures");
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    newTagRequest: function(tagString) {
+    newTagRequest: function (tagString) {
       // Send tag PUT request
       axios
         .put(this.tagsURL, [tagString])
@@ -293,12 +295,12 @@ export default {
           // Update tag array
           this.getTagRequest();
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    putAnnotationsRequest: function(annotationsObject) {
+    putAnnotationsRequest: function (annotationsObject) {
       // Send metadata PUT request
       axios
         .put(this.annotationsURL, annotationsObject)
@@ -306,18 +308,18 @@ export default {
           // Update metadata object
           this.getAnnotationsRequest();
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    delTagConfirm: function(tagString) {
+    delTagConfirm: function (tagString) {
       this.modalConfirm(`Remove tag '${tagString}'?`).then(() => {
         this.delTagRequest(tagString);
       });
     },
 
-    delTagRequest: function(tagString) {
+    delTagRequest: function (tagString) {
       console.log(tagString);
       // Send tag DELETE request
       axios
@@ -326,40 +328,40 @@ export default {
           // Update tag array
           this.getTagRequest();
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    getTagRequest: function() {
+    getTagRequest: function () {
       // Send tag request
       axios
         .get(this.tagsURL)
-        .then(response => {
+        .then((response) => {
           // Pass the update tag array to the parent
           this.$emit("update:tags", response.data);
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    getAnnotationsRequest: function() {
+    getAnnotationsRequest: function () {
       // Send tag request
       axios
         .get(this.annotationsURL)
-        .then(response => {
+        .then((response) => {
           // Pass the update annotation array to the parent
           this.$emit("update:annotations", response.data);
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    makeModalName: function(prefix) {
+    makeModalName: function (prefix) {
       return prefix + this.id;
-    }
-  }
+    },
+  },
 };
 </script>

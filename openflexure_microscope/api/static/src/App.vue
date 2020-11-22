@@ -5,7 +5,8 @@
     :class="handleTheme"
   >
     <loadingContent v-if="!$store.getters.ready" />
-    <div v-if="$store.getters.ready" id="tour-header"></div>
+    <div v-if="$store.getters.ready" id="tour-header" />
+
     <appContent v-if="$store.getters.ready" />
     <!-- Runtime modals -->
     <div
@@ -15,15 +16,19 @@
       uk-modal
     >
       <div class="uk-modal-dialog uk-modal-body uk-margin-auto-vertical">
-        <button class="uk-modal-close-default" type="button" uk-close></button>
+        <button class="uk-modal-close-default" type="button" uk-close />
         <div
           v-for="shortcut in keyboardManual"
           :key="shortcut.shortcut"
           class="uk-margin-small"
           uk-grid
         >
-          <div class="uk-width-small">{{ shortcut.shortcut }}</div>
-          <div class="uk-width-expand">{{ shortcut.description }}</div>
+          <div class="uk-width-small">
+            {{ shortcut.shortcut }}
+          </div>
+          <div class="uk-width-expand">
+            {{ shortcut.description }}
+          </div>
         </div>
       </div>
     </div>
@@ -33,7 +38,7 @@
       :steps="tourSteps"
       :callbacks="tourCallbacks"
       :options="{ highlight: true }"
-    ></v-tour>
+    />
   </div>
 </template>
 
@@ -45,7 +50,7 @@ import loadingContent from "./components/loadingContent.vue";
 import axios from "axios";
 import Mousetrap from "mousetrap";
 
-Mousetrap.prototype.stopCallback = function(e, element) {
+Mousetrap.prototype.stopCallback = function (e, element) {
   // if the element has the class "mousetrap" then no need to stop
   if ((" " + element.className + " ").indexOf(" mousetrap ") > -1) {
     return false;
@@ -71,10 +76,10 @@ export default {
 
   components: {
     appContent,
-    loadingContent
+    loadingContent,
   },
 
-  data: function() {
+  data: function () {
     return {
       appAvailable: false,
       arrowKeysDown: {},
@@ -84,13 +89,13 @@ export default {
       tourCallbacks: {
         onStop: () => {
           this.setLocalStorageObj("completedTour", true);
-        }
-      }
+        },
+      },
     };
   },
 
   computed: {
-    isSystemDark: function() {
+    isSystemDark: function () {
       if (
         window.matchMedia &&
         window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -100,7 +105,7 @@ export default {
         return false;
       }
     },
-    handleTheme: function() {
+    handleTheme: function () {
       let isDark = false;
       if (this.$store.state.appTheme == "dark") {
         isDark = true;
@@ -111,58 +116,58 @@ export default {
       }
       return {
         "uk-light": isDark,
-        "uk-background-secondary": isDark
+        "uk-background-secondary": isDark,
       };
     },
-    tourSteps: function() {
+    tourSteps: function () {
       return [
         {
           target: "#tour-header", // We're using document.querySelector() under the hood
           header: {
-            title: "Welcome to the OpenFlexure Microscope"
+            title: "Welcome to the OpenFlexure Microscope",
           },
           content: `Click Next to learn how to use your microscope`,
           params: {
-            placement: "bottom"
-          }
+            placement: "bottom",
+          },
         },
         {
           target: "#gallery-tab-icon",
           header: {
-            title: "Capture gallery"
+            title: "Capture gallery",
           },
-          content: `View and download your microscope images from the gallery tab`
+          content: `View and download your microscope images from the gallery tab`,
         },
         {
           target: "#navigate-tab-icon",
           header: {
-            title: "Navigate around your sample"
+            title: "Navigate around your sample",
           },
-          content: `Move your microscope stage and perform autofocus from the navigate tab`
+          content: `Move your microscope stage and perform autofocus from the navigate tab`,
         },
         {
           target: "#capture-tab-icon",
           header: {
-            title: "Capture microscope images"
+            title: "Capture microscope images",
           },
-          content: `Take images and simple tile scans from the capture tab`
+          content: `Take images and simple tile scans from the capture tab`,
         },
         {
           target: "#settings-tab-icon",
           header: {
-            title: "Change settings"
+            title: "Change settings",
           },
-          content: `Change app and microscope settings, including microscope calibration, from the settings tab`
+          content: `Change app and microscope settings, including microscope calibration, from the settings tab`,
         },
         {
           target: "#extension-tab-divider",
           header: {
-            title: "Microscope extensions"
+            title: "Microscope extensions",
           },
-          content: `Extensions installed on your microscope will appear below this line`
-        }
+          content: `Extensions installed on your microscope will appear below this line`,
+        },
       ];
-    }
+    },
   },
 
   mounted() {
@@ -173,7 +178,7 @@ export default {
       this.systemDark = true;
     }
     // Create a theme observer to watch for changes
-    this.themeObserver = mql.addListener(e => {
+    this.themeObserver = mql.addListener((e) => {
       if (e.matches) {
         this.systemDark = true;
       } else {
@@ -190,7 +195,7 @@ export default {
     }
   },
 
-  created: function() {
+  created: function () {
     window.addEventListener("beforeunload", this.handleExit);
     // Scrollwheel listener
     window.addEventListener("wheel", this.wheelMonitor);
@@ -199,7 +204,7 @@ export default {
       (state, getters) => {
         return getters.uriV2;
       },
-      uriV2 => {
+      (uriV2) => {
         this.checkConnection();
         console.log(uriV2);
       }
@@ -214,7 +219,7 @@ export default {
     // Arrow keys
     Mousetrap.bind(
       ["up", "down", "left", "right"],
-      event => {
+      (event) => {
         this.arrowKeysDown[event.keyCode] = true; //Add key to array
         this.navigateKeyHandler();
       },
@@ -222,14 +227,14 @@ export default {
     );
     Mousetrap.bind(
       ["up", "down", "left", "right"],
-      event => {
+      (event) => {
         delete this.arrowKeysDown[event.keyCode]; //Remove key from array
       },
       "keyup"
     );
     this.keyboardManual.push({
       shortcut: "←↑→↓",
-      description: "Move the microscope stage"
+      description: "Move the microscope stage",
     });
 
     // Focus keys
@@ -241,7 +246,7 @@ export default {
     });
     this.keyboardManual.push({
       shortcut: "pgup / pgdn",
-      description: "Move the microscope focus"
+      description: "Move the microscope focus",
     });
 
     // Capture
@@ -250,7 +255,7 @@ export default {
     });
     this.keyboardManual.push({
       shortcut: "c",
-      description: "Take a capture"
+      description: "Take a capture",
     });
 
     // Autofocus
@@ -259,7 +264,7 @@ export default {
     });
     this.keyboardManual.push({
       shortcut: "a",
-      description: "Fast autofocus"
+      description: "Fast autofocus",
     });
 
     // Increment/decrement tab
@@ -271,7 +276,7 @@ export default {
     });
     this.keyboardManual.push({
       shortcut: "shift+↑ / shift+↓",
-      description: "Switch tab"
+      description: "Switch tab",
     });
 
     // Re-run tour
@@ -280,7 +285,7 @@ export default {
     });
   },
 
-  beforeDestroy: function() {
+  beforeDestroy: function () {
     // Disconnect the theme observer
     if (this.themeObserver) {
       this.themeObserver.disconnect();
@@ -295,7 +300,7 @@ export default {
   },
 
   methods: {
-    checkConnection: function() {
+    checkConnection: function () {
       const uriV2 = this.$store.getters.uriV2;
       this.$store.commit("changeWaiting", true);
       axios
@@ -304,7 +309,7 @@ export default {
           this.$store.commit("setConnected");
           this.$store.commit("setErrorMessage", null);
         })
-        .catch(error => {
+        .catch((error) => {
           this.$store.commit("setErrorMessage", error);
         })
         .finally(() => {
@@ -312,13 +317,13 @@ export default {
         });
     },
 
-    handleExit: function() {
+    handleExit: function () {
       console.log("Triggered beforeunload");
       this.$root.$emit("globalTogglePreview", false);
     },
 
     // Handle global mouse wheel events to be associated with navigation
-    wheelMonitor: function(event) {
+    wheelMonitor: function (event) {
       // Only capture scroll if the event target's parent contains the "scrollTarget" class
       if (
         event.target.parentNode.classList.contains("scrollTarget") ||
@@ -330,7 +335,7 @@ export default {
       }
     },
 
-    navigateKeyHandler: function() {
+    navigateKeyHandler: function () {
       // Calculate movement array
       let xRel = 0;
       let yRel = 0;
@@ -350,8 +355,8 @@ export default {
       // Make a position request
       // Emit a signal to move, acted on by panelNavigate.vue
       this.$root.$emit("globalMoveStepEvent", xRel, yRel, zRel);
-    }
-  }
+    },
+  },
 };
 </script>
 

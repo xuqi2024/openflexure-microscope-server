@@ -3,9 +3,7 @@
     <form class="uk-form-stacked" @submit.prevent="overrideAPIHost">
       <label class="uk-form-label">Override API origin</label>
       <input v-model="currentOrigin" class="uk-input" type="text" />
-      <button class="uk-button uk-button-default uk-margin-small">
-        Apply
-      </button>
+      <button class="uk-button uk-button-default uk-margin-small">Apply</button>
     </form>
   </div>
 </template>
@@ -17,9 +15,9 @@ export default {
 
   components: {},
 
-  data: function() {
+  data: function () {
     return {
-      currentOrigin: this.$store.state.origin
+      currentOrigin: this.$store.state.origin,
     };
   },
 
@@ -30,10 +28,10 @@ export default {
   },
 
   methods: {
-    overrideAPIHost: function() {
+    overrideAPIHost: function () {
       this.$store.commit("changeOrigin", this.currentOrigin);
-    }
-  }
+    },
+  },
 };
 </script>
 

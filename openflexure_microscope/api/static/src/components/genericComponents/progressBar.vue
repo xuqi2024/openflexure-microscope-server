@@ -2,7 +2,7 @@
   <div
     class="progress uk-margin-top uk-margin-horizontal-remove uk-padding-remove"
   >
-    <div class="indeterminate"></div>
+    <div class="indeterminate" />
   </div>
 </template>
 
@@ -13,24 +13,24 @@ export default {
   props: {},
 
   computed: {
-    tooltipOptions: function() {
+    tooltipOptions: function () {
       const title = this.id.charAt(0).toUpperCase() + this.id.slice(1);
       return `pos: right; title: ${title}; delay: 500`;
     },
 
-    classObject: function() {
+    classObject: function () {
       return {
         "tabicon-active": this.currentTab == this.id,
-        "uk-disabled": this.requireConnection && !this.$store.getters.ready
+        "uk-disabled": this.requireConnection && !this.$store.getters.ready,
       };
-    }
+    },
   },
 
   methods: {
     setThisTab(event) {
       this.$emit("set-tab", event, this.id);
-    }
-  }
+    },
+  },
 };
 </script>
 

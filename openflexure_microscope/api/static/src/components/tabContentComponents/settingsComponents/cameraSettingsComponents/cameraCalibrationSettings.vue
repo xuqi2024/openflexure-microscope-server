@@ -5,15 +5,12 @@
       <taskSubmitter
         :can-terminate="false"
         :requires-confirmation="true"
-        :confirmation-message="
-          'Start recalibration? This may take a while, and the microscope will be locked during this time.'
-        "
+        :confirmation-message="'Start recalibration? This may take a while, and the microscope will be locked during this time.'"
         :submit-url="recalibrationLinks.recalibrate.href"
         :submit-label="'Auto-Calibrate'"
         @response="onRecalibrateResponse"
         @error="onRecalibrateError"
-      >
-      </taskSubmitter>
+      />
     </div>
 
     <div v-show="showExtraSettings" class="uk-child-width-expand">
@@ -54,32 +51,32 @@ export default {
   name: "CameraCalibrationSettings",
 
   components: {
-    taskSubmitter
+    taskSubmitter,
   },
 
   props: {
     showExtraSettings: {
       type: Boolean,
       required: false,
-      default: true
-    }
+      default: true,
+    },
   },
 
-  data: function() {
+  data: function () {
     return {
       recalibrationLinks: {},
       isCalibrating: false,
-      LstDownloadEnabled: false
+      LstDownloadEnabled: false,
     };
   },
 
   computed: {
-    pluginsUri: function() {
+    pluginsUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/extensions`;
     },
-    LstDownloadUri: function() {
+    LstDownloadUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/instrument/camera/lst`;
-    }
+    },
   },
 
   mounted() {
@@ -88,13 +85,13 @@ export default {
   },
 
   methods: {
-    updateRecalibrationLinks: function() {
+    updateRecalibrationLinks: function () {
       axios
         .get(this.pluginsUri) // Get a list of plugins
-        .then(response => {
+        .then((response) => {
           const plugins = response.data;
           const foundExtension = plugins.find(
-            e => e.title === "org.openflexure.calibration.picamera"
+            (e) => e.title === "org.openflexure.calibration.picamera"
           );
           // if AutocalibrationPlugin is enabled
           if (foundExtension) {
@@ -104,41 +101,41 @@ export default {
             this.recalibrationLinks = {};
           }
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    checkLstDownload: function() {
+    checkLstDownload: function () {
       axios
         .get(this.LstDownloadUri) // Get a list of plugins
-        .then(response => {
+        .then((response) => {
           if (response.status === 200) {
             this.LstDownloadEnabled = true;
           } else {
             this.LstDownloadEnabled = false;
           }
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    onRecalibrateResponse: function() {
+    onRecalibrateResponse: function () {
       this.modalNotify("Finished recalibration.");
     },
 
-    onRecalibrateError: function(error) {
+    onRecalibrateError: function (error) {
       this.modalError(error); // Let mixin handle error
     },
 
-    flattenLensShadingTableRequest: function() {
+    flattenLensShadingTableRequest: function () {
       axios.post(this.recalibrationLinks.flatten_lens_shading_table.href);
     },
-    deleteLensShadingTableRequest: function() {
+    deleteLensShadingTableRequest: function () {
       axios.post(this.recalibrationLinks.delete_lens_shading_table.href);
-    }
-  }
+    },
+  },
 };
 </script>
 

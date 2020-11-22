@@ -176,23 +176,23 @@ export default {
     appSettings,
     featuresSettings,
     tabIcon,
-    tabContent
+    tabContent,
   },
 
-  data: function() {
+  data: function () {
     return {
       selected: "display",
-      currentTab: "display"
+      currentTab: "display",
     };
   },
 
   methods: {
-    setTab: function(event, tab) {
+    setTab: function (event, tab) {
       if (!(this.currentTab == tab)) {
         this.currentTab = tab;
       }
-    }
-  }
+    },
+  },
 };
 </script>
 

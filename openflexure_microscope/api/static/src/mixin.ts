@@ -83,7 +83,7 @@ class GlobalMixin extends Vue {
     this.$store.commit("setErrorMessage", errormsg);
     UIkit.notification({
       message: `${errormsg}`,
-      status: "danger"
+      status: "danger",
     });
   }
 

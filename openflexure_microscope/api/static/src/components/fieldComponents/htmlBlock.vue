@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- eslint-disable-next-line vue/no-v-html -->
-    <p v-html="content"></p>
+    <p v-html="content" />
   </div>
 </template>
 
@@ -13,17 +13,17 @@ export default {
     label: {
       type: String,
       required: false,
-      default: ""
+      default: "",
     },
     name: {
       type: String,
-      required: true
+      required: true,
     },
     content: {
       type: String,
-      required: true
-    }
-  }
+      required: true,
+    },
+  },
 };
 </script>
 

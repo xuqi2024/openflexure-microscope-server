@@ -14,7 +14,7 @@ export default {
   name: "ViewContent",
 
   components: {
-    streamDisplay
-  }
+    streamDisplay,
+  },
 };
 </script>

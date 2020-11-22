@@ -8,7 +8,7 @@
     "serve": "vue-cli-service serve --mode development",
     "build": "vue-cli-service build --mode production",
     "lint": "vue-cli-service lint",
-    "prettier": "vue-cli-service lint --fix"
+    "lint:fix": "vue-cli-service lint --fix"
   },
   "dependencies": {
     "material-design-icons": "^3.0.1",
@@ -25,7 +25,6 @@
     "@vue/cli-plugin-eslint": "^4.5.9",
     "@vue/cli-plugin-typescript": "^4.3.1",
     "@vue/cli-service": "^4.5.9",
-    "@vue/eslint-config-prettier": "^6.0.0",
     "@vue/eslint-config-typescript": "^5.1.0",
     "axios": "^0.19.2",
     "babel-eslint": "^10.1.0",
@@ -37,7 +36,7 @@
     "less": "^3.12.2",
     "less-loader": "^5.0.0",
     "mdns-js": "^1.0.3",
-    "prettier": "^1.19.1",
+    "prettier": "^2.2.0",
     "typescript": "^3.8.3",
     "uikit": "^3.5.9",
     "vue": "^2.6.12",

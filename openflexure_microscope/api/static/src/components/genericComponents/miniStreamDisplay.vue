@@ -20,22 +20,22 @@
 export default {
   name: "MiniStreamDisplay",
 
-  data: function() {
+  data: function () {
     return {
-      isVisible: false
+      isVisible: false,
     };
   },
 
   computed: {
-    streamImgUri: function() {
+    streamImgUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/streams/mjpeg`;
-    }
+    },
   },
   methods: {
     visibilityChanged(isVisible) {
       this.isVisible = isVisible;
-    }
-  }
+    },
+  },
 };
 </script>
 

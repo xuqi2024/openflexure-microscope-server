@@ -21,8 +21,7 @@
               :is="subfield.fieldType"
               v-model="formData[subfield.name]"
               v-bind="subfield"
-            >
-            </component>
+            />
           </div>
         </div>
 
@@ -30,8 +29,7 @@
           :is="field.fieldType"
           v-model="formData[field.name]"
           v-bind="field"
-        >
-        </component>
+        />
       </div>
 
       <div v-if="isTask" class="uk-margin">
@@ -41,8 +39,7 @@
           :submit-label="submitLabel"
           @response="onTaskResponse"
           @error="onTaskError"
-        >
-        </taskSubmitter>
+        />
       </div>
 
       <div v-else class="uk-margin">
@@ -84,61 +81,61 @@ export default {
     checkList,
     tagList,
     keyvalList,
-    taskSubmitter
+    taskSubmitter,
   },
 
   props: {
     name: {
       type: String,
       required: false,
-      default: "Plugin"
+      default: "Plugin",
     },
     schema: {
       type: Array,
-      required: true
+      required: true,
     },
     route: {
       type: String,
-      required: true
+      required: true,
     },
     isTask: {
       type: Boolean,
       required: false,
-      default: false
+      default: false,
     },
     submitLabel: {
       type: String,
       required: false,
-      default: "Submit"
+      default: "Submit",
     },
     emitOnResponse: {
       type: String,
       required: false,
-      default: null
-    }
+      default: null,
+    },
   },
 
-  data: function() {
+  data: function () {
     return {
-      formData: {}
+      formData: {},
     };
   },
 
   computed: {
-    pluginApiUri: function() {
+    pluginApiUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/extensions`;
     },
 
-    submitApiUri: function() {
+    submitApiUri: function () {
       return this.pluginApiUri + this.route;
-    }
+    },
   },
 
   watch: {
     // Whenever the form schema updates, re-check server for field values
-    schema: function() {
+    schema: function () {
       this.updateFormValues();
-    }
+    },
   },
 
   created() {
@@ -205,40 +202,40 @@ export default {
       this.$emit("reloadForms");
     },
 
-    onSubmissionCompleted: function() {
+    onSubmissionCompleted: function () {
       if (this.emitOnResponse) {
         this.$root.$emit(this.emitOnResponse);
       }
       this.updateForm();
     },
 
-    newQuickRequest: function(params) {
+    newQuickRequest: function (params) {
       console.log(this.submitApiUri);
       console.log(params);
       // Send a quick request
       axios
         .post(this.submitApiUri, params)
-        .then(response => {
+        .then((response) => {
           // Do something with the response
           console.log(response);
           // Do all the finished request stuff
           this.onSubmissionCompleted();
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    onTaskResponse: function(responseData) {
+    onTaskResponse: function (responseData) {
       console.log("Task finished with response data: ", responseData);
       // Do all the finished request stuff
       this.onSubmissionCompleted();
     },
 
-    onTaskError: function(error) {
+    onTaskError: function (error) {
       this.modalError(error);
-    }
-  }
+    },
+  },
 };
 </script>
 

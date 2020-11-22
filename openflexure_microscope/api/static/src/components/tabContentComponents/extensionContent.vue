@@ -2,7 +2,7 @@
   <!-- Grid managing tab content -->
   <div uk-grid class="uk-height-1-1 uk-margin-remove uk-padding-remove">
     <div class="control-component">
-      <vue-friendly-iframe v-if="frame" :src="frame.href"></vue-friendly-iframe>
+      <vue-friendly-iframe v-if="frame" :src="frame.href" />
       <!-- Handle OpenFlexure Forms -->
       <div
         v-for="form in forms"
@@ -42,26 +42,26 @@ export default {
     JsonForm,
     streamDisplay,
     galleryContent,
-    settingsContent
+    settingsContent,
   },
 
   props: {
     forms: {
       type: Array,
       required: false,
-      default: () => []
+      default: () => [],
     },
     frame: {
       type: Object,
       required: false,
-      default: null
+      default: null,
     },
     viewPanel: {
       type: String,
       required: false,
-      default: "stream"
-    }
-  }
+      default: "stream",
+    },
+  },
 };
 </script>
 

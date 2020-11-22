@@ -1,1 +1,1 @@
-declare module 'vue-friendly-iframe';
+declare module "vue-friendly-iframe";

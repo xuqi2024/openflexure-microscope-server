@@ -33,21 +33,21 @@ export default {
   props: {
     label: {
       type: String,
-      required: true
+      required: true,
     },
     name: {
       type: String,
-      required: true
+      required: true,
     },
     value: {
       type: String,
-      required: true
-    }
+      required: true,
+    },
   },
 
-  data: function() {
+  data: function () {
     return {
-      editing: false
+      editing: false,
     };
   },
 
@@ -57,8 +57,8 @@ export default {
       if (editing == true) {
         this.$nextTick(() => this.$refs.textinput.focus());
       }
-    }
-  }
+    },
+  },
 };
 </script>
 

@@ -41,18 +41,18 @@ export default {
   props: {
     value: {
       type: Array,
-      required: true
-    }
+      required: true,
+    },
   },
 
-  data: function() {
+  data: function () {
     return {
-      newTag: ""
+      newTag: "",
     };
   },
 
   methods: {
-    handleTagSubmit: function() {
+    handleTagSubmit: function () {
       const newSelected = this.value != null ? [...this.value] : []; // Clone value array
 
       newSelected.push(this.newTag);
@@ -61,18 +61,18 @@ export default {
       this.$emit("input", newSelected);
     },
 
-    delTag: function(tag) {
+    delTag: function (tag) {
       let newSelected = this.value != null ? [...this.value] : []; // Clone value array
 
       if (newSelected.includes(tag)) {
-        newSelected = newSelected.filter(function(value) {
+        newSelected = newSelected.filter(function (value) {
           return value != tag;
         });
       }
 
       this.$emit("input", newSelected);
-    }
-  }
+    },
+  },
 };
 </script>
 

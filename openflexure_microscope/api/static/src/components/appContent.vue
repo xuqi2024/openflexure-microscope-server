@@ -9,7 +9,7 @@
       ref="calibrationModal"
       :available-plugins="plugins"
       @onClose="enterApp()"
-    ></calibrationModal>
+    />
     <!-- Vertical tab bar -->
     <div id="switcher-left-container">
       <div
@@ -86,7 +86,7 @@
         :require-connection="true"
         :current-tab="currentTab"
       >
-        <component :is="item.component"></component>
+        <component :is="item.component" />
       </tabContent>
 
       <!-- For each plugin tab -->
@@ -114,7 +114,7 @@
         :require-connection="true"
         :current-tab="currentTab"
       >
-        <component :is="item.component"></component>
+        <component :is="item.component" />
       </tabContent>
     </div>
   </div>
@@ -157,10 +157,10 @@ export default {
     extensionContent,
     calibrationModal,
     aboutContent,
-    loggingContent
+    loggingContent,
   },
 
-  data: function() {
+  data: function () {
     return {
       plugins: [],
       currentTab: "view",
@@ -169,65 +169,65 @@ export default {
         {
           id: "view",
           icon: "visibility",
-          component: viewContent
+          component: viewContent,
         },
         {
           id: "gallery",
           icon: "photo_library",
           component: galleryContent,
-          divide: true // Add a divider after this tab icon
+          divide: true, // Add a divider after this tab icon
         },
         {
           id: "navigate",
           icon: "gamepad",
-          component: navigateContent
+          component: navigateContent,
         },
         {
           id: "capture",
           icon: "camera_alt",
           component: captureContent,
-          divide: true // Add a divider after this tab icon
-        }
+          divide: true, // Add a divider after this tab icon
+        },
       ],
       bottomTabs: [
         {
           id: "settings",
           icon: "settings",
           component: settingsContent,
-          class: "uk-margin-auto-top"
+          class: "uk-margin-auto-top",
         },
         {
           id: "logging",
           icon: "assignment_late",
-          component: loggingContent
+          component: loggingContent,
         },
         {
           id: "about",
           icon: "info",
-          component: aboutContent
-        }
-      ]
+          component: aboutContent,
+        },
+      ],
     };
   },
 
   computed: {
-    enabledTopTabs: function() {
+    enabledTopTabs: function () {
       const enabledTabs = this.topTabs;
       if (this.$store.state.IHIEnabled) {
         enabledTabs.push({
           id: "slidescan",
           icon: "settings_overscan",
-          component: slideScanContent
+          component: slideScanContent,
         });
       }
       return enabledTabs;
     },
 
-    pluginsUri: function() {
+    pluginsUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/extensions`;
     },
 
-    pluginsGuiList: function() {
+    pluginsGuiList: function () {
       // List of plugin GUIs, obtained from this.plugins values
       console.log("Recalculating plugins");
       const pluginGuis = [];
@@ -239,7 +239,7 @@ export default {
       return pluginGuis;
     },
 
-    tabOrder: function() {
+    tabOrder: function () {
       const ind = [];
       for (const tab of this.enabledTopTabs) {
         ind.push(tab.id);
@@ -253,12 +253,12 @@ export default {
       return ind;
     },
 
-    currentTabIndex: function() {
+    currentTabIndex: function () {
       return this.tabOrder.indexOf(this.currentTab);
-    }
+    },
   },
 
-  created: function() {
+  created: function () {
     if (this.$store.getters.ready) {
       // Detect local connection
       if (
@@ -280,7 +280,7 @@ export default {
 
   mounted() {
     // A global signal listener to switch tab
-    this.$root.$on("globalSwitchTab", tabID => {
+    this.$root.$on("globalSwitchTab", (tabID) => {
       this.currentTab = tabID;
     });
     // A global signal listener to increment tab
@@ -302,24 +302,24 @@ export default {
   },
 
   methods: {
-    updatePlugins: function() {
+    updatePlugins: function () {
       console.log("Updating plugin forms");
       return axios
         .get(this.pluginsUri)
-        .then(response => {
+        .then((response) => {
           console.log(response);
           this.plugins = response.data;
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
-    setTab: function(event, tab) {
+    setTab: function (event, tab) {
       if (!(this.currentTab == tab)) {
         this.currentTab = tab;
       }
     },
-    incrementTabBy: function(n) {
+    incrementTabBy: function (n) {
       const newIndex =
         (((this.currentTabIndex + n) % this.tabOrder.length) +
           this.tabOrder.length) %
@@ -327,15 +327,15 @@ export default {
       const newId = this.tabOrder[newIndex];
       this.currentTab = newId;
     },
-    startModals: function() {
+    startModals: function () {
       this.$refs["calibrationModal"].show();
     },
-    enterApp: function() {
+    enterApp: function () {
       // Stuff to do once connected and all init modals are finished
       console.log("Entering main application");
       //this.currentTab = "view";
-    }
-  }
+    },
+  },
 };
 </script>
 

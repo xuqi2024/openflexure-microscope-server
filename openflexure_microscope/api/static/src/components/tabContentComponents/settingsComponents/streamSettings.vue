@@ -54,7 +54,7 @@
 export default {
   name: "StreamSettings",
 
-  data: function() {
+  data: function () {
     return {};
   },
 
@@ -65,7 +65,7 @@ export default {
       },
       set(value) {
         this.$store.commit("changeDisableStream", value);
-      }
+      },
     },
 
     autoGpuPreview: {
@@ -75,7 +75,7 @@ export default {
       set(value) {
         this.$store.commit("changeAutoGpuPreview", value);
         this.$root.$emit("globalSafeTogglePreview", value);
-      }
+      },
     },
 
     trackWindow: {
@@ -84,9 +84,9 @@ export default {
       },
       set(value) {
         this.$store.commit("changeTrackWindow", value);
-      }
-    }
-  }
+      },
+    },
+  },
 };
 </script>
 

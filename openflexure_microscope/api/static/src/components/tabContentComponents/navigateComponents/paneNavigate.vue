@@ -115,7 +115,7 @@
                   :submit-on-event="'globalFastAutofocusEvent'"
                   @taskStarted="isAutofocusing = 1"
                   @finished="isAutofocusing = 0"
-                ></taskSubmitter>
+                />
               </div>
 
               <div v-show="!isAutofocusing || isAutofocusing == 2">
@@ -127,7 +127,7 @@
                   :button-primary="false"
                   @taskStarted="isAutofocusing = 2"
                   @finished="isAutofocusing = 0"
-                ></taskSubmitter>
+                />
               </div>
 
               <div v-show="!isAutofocusing || isAutofocusing == 3">
@@ -139,7 +139,7 @@
                   :button-primary="false"
                   @taskStarted="isAutofocusing = 3"
                   @finished="isAutofocusing = 0"
-                ></taskSubmitter>
+                />
               </div>
             </div>
           </div>
@@ -165,10 +165,10 @@ export default {
   name: "PaneNavigate",
 
   components: {
-    taskSubmitter
+    taskSubmitter,
   },
 
-  data: function() {
+  data: function () {
     return {
       stepXy: 200,
       stepZz: 50,
@@ -177,23 +177,23 @@ export default {
       moveLock: false,
       fastAutofocusUri: null,
       normalAutofocusUri: null,
-      moveInImageCoordinatesUri: null
+      moveInImageCoordinatesUri: null,
     };
   },
 
   computed: {
-    moveActionUri: function() {
+    moveActionUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/actions/stage/move`;
     },
-    zeroActionUri: function() {
+    zeroActionUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/actions/stage/zero`;
     },
-    positionStatusUri: function() {
+    positionStatusUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/instrument/state/stage/position`;
     },
-    pluginsUri: function() {
+    pluginsUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/extensions`;
-    }
+    },
   },
 
   mounted() {
@@ -229,7 +229,7 @@ export default {
   },
 
   methods: {
-    handleSubmit: function() {
+    handleSubmit: function () {
       this.moveRequest(
         this.setPosition.x,
         this.setPosition.y,
@@ -238,7 +238,7 @@ export default {
       );
     },
 
-    moveRequest: function(x, y, z, absolute) {
+    moveRequest: function (x, y, z, absolute) {
       console.log(`Sending move request of ${x}, ${y}, ${z}`);
       // If not movement-locked
       if (!this.moveLock) {
@@ -251,12 +251,12 @@ export default {
             x: x,
             y: y,
             z: z,
-            absolute: absolute
+            absolute: absolute,
           })
           .then(() => {
             this.updatePosition(); // Update the position in text boxes
           })
-          .catch(error => {
+          .catch((error) => {
             this.modalError(error); // Let mixin handle error
           })
           .then(() => {
@@ -265,7 +265,7 @@ export default {
       }
     },
 
-    moveInImageCoordinatesRequest: function(x, y) {
+    moveInImageCoordinatesRequest: function (x, y) {
       console.log(`Sending move request in image coordinates: ${x}, ${y}`);
       // If not movement-locked
       if (!this.moveLock) {
@@ -282,12 +282,12 @@ export default {
         axios
           .post(this.moveInImageCoordinatesUri, {
             x: y, // NB the coordinates are numpy/PIL style, meaning X and Y are swapped.
-            y: x
+            y: x,
           })
           .then(() => {
             this.updatePosition(); // Update the position in text boxes
           })
-          .catch(error => {
+          .catch((error) => {
             this.modalError(error); // Let mixin handle error
           })
           .then(() => {
@@ -296,36 +296,36 @@ export default {
       }
     },
 
-    zeroRequest: function() {
+    zeroRequest: function () {
       // Send move request
       axios
         .post(this.zeroActionUri)
         .then(() => {
           this.updatePosition(); // Update the position in text boxes
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    updatePosition: function() {
+    updatePosition: function () {
       axios
         .get(this.positionStatusUri)
-        .then(response => {
+        .then((response) => {
           this.setPosition = response.data;
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    updateAutofocusUri: function() {
+    updateAutofocusUri: function () {
       axios
         .get(this.pluginsUri) // Get a list of plugins
-        .then(response => {
+        .then((response) => {
           const plugins = response.data;
           const foundExtension = plugins.find(
-            e => e.title === "org.openflexure.autofocus"
+            (e) => e.title === "org.openflexure.autofocus"
           );
           // if ScanPlugin is enabled
           if (foundExtension) {
@@ -334,18 +334,18 @@ export default {
             this.normalAutofocusUri = foundExtension.links.autofocus.href;
           }
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    updateMoveInImageCoordinatesUri: function() {
+    updateMoveInImageCoordinatesUri: function () {
       axios
         .get(this.pluginsUri) // Get a list of plugins
-        .then(response => {
+        .then((response) => {
           const plugins = response.data;
           const foundExtension = plugins.find(
-            e => e.title === "org.openflexure.camera_stage_mapping"
+            (e) => e.title === "org.openflexure.camera_stage_mapping"
           );
           if (foundExtension) {
             // Get plugin action link
@@ -353,10 +353,10 @@ export default {
               foundExtension.links.move_in_image_coordinates.href;
           }
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
-    }
-  }
+    },
+  },
 };
 </script>

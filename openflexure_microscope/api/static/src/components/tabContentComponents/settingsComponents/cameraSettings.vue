@@ -57,7 +57,7 @@
         </form>
 
         <h3>Automatic calibration</h3>
-        <cameraCalibrationSettings></cameraCalibrationSettings>
+        <cameraCalibrationSettings />
       </div>
 
       <div id="mini-stream">
@@ -78,19 +78,19 @@ export default {
 
   components: {
     cameraCalibrationSettings,
-    miniStreamDisplay
+    miniStreamDisplay,
   },
 
-  data: function() {
+  data: function () {
     return {
-      settings: {}
+      settings: {},
     };
   },
 
   computed: {
-    settingsUri: function() {
+    settingsUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/instrument/settings`;
-    }
+    },
   },
 
   mounted() {
@@ -98,23 +98,23 @@ export default {
   },
 
   methods: {
-    updateSettings: function() {
+    updateSettings: function () {
       axios
         .get(this.settingsUri)
-        .then(response => {
+        .then((response) => {
           this.settings = response.data.camera;
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
     },
 
-    applyConfigRequest: function() {
+    applyConfigRequest: function () {
       console.log("Applying config to the microscope");
       const payload = {
         camera: {
-          picamera: {}
-        }
+          picamera: {},
+        },
       };
 
       payload["camera"]["picamera"][
@@ -131,18 +131,18 @@ export default {
       axios
         .put(this.settingsUri, payload)
         .then(() => {
-          return new Promise(r => setTimeout(r, 500));
+          return new Promise((r) => setTimeout(r, 500));
         }) // why is there no built-in for this??!
         .then(() => {
           // Update local settings
           this.updateSettings();
           this.modalNotify("Camera settings applied.");
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
-    }
-  }
+    },
+  },
 };
 </script>
 

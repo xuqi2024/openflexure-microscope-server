@@ -17,7 +17,7 @@
 
     <div v-if="!streamEnabled" class="uk-height-1-1">
       <div v-if="$store.state.waiting" class="uk-position-center">
-        <div uk-spinner="ratio: 4.5"></div>
+        <div uk-spinner="ratio: 4.5" />
       </div>
 
       <div
@@ -41,44 +41,44 @@ import axios from "axios";
 export default {
   name: "StreamDisplay",
 
-  data: function() {
+  data: function () {
     return {
       isVisible: false,
       displaySize: [0, 0],
       displayPosition: [0, 0],
-      resizeTimeoutId: setTimeout(this.doneResizing, 500)
+      resizeTimeoutId: setTimeout(this.doneResizing, 500),
     };
   },
 
   computed: {
-    streamEnabled: function() {
+    streamEnabled: function () {
       return this.$store.getters.ready && !this.$store.state.disableStream;
     },
-    thisStreamOpen: function() {
+    thisStreamOpen: function () {
       // Only a single MJPEG connection should be open at a time
       return !(this.displaySize[0] == 0) && !(this.displaySize[1] == 0);
     },
-    streamImgUri: function() {
+    streamImgUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/streams/mjpeg`;
     },
-    startPreviewUri: function() {
+    startPreviewUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/actions/camera/preview/start`;
     },
-    stopPreviewUri: function() {
+    stopPreviewUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/actions/camera/preview/stop`;
     },
-    settingsUri: function() {
+    settingsUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/instrument/settings`;
-    }
+    },
   },
 
   mounted() {
     console.log(`${this._uid} mounted`);
     // A global signal listener to change the GPU preview state
-    this.$root.$on("globalTogglePreview", state => {
+    this.$root.$on("globalTogglePreview", (state) => {
       this.previewRequest(state);
     });
-    this.$root.$on("globalSafeTogglePreview", state => {
+    this.$root.$on("globalSafeTogglePreview", (state) => {
       this.safePreviewRequest(state);
     });
     // A global signal listener to flash the stream element
@@ -96,13 +96,13 @@ export default {
     this.sizeObserver.observe(streamDisplayElement);
   },
 
-  created: function() {
+  created: function () {
     console.log(`${this._uid} created`);
     // Send a request to start/stop GPU preview based on global setting
     this.safePreviewRequest(this.$store.state.autoGpuPreview);
   },
 
-  beforeDestroy: function() {
+  beforeDestroy: function () {
     console.log(`${this._uid} being destroyed`);
     // Remove global signal listener to change the GPU preview state
     this.$root.$off("globalTogglePreview");
@@ -118,18 +118,18 @@ export default {
     visibilityChanged(isVisible) {
       this.isVisible = isVisible;
     },
-    flashStream: function() {
+    flashStream: function () {
       // Run an animation that flashes the stream (for capture feedback)
       const element = this.$refs.streamDisplay;
       element.classList.remove("uk-animation-fade");
       element.offsetHeight; /* trigger reflow */
       element.classList.add("uk-animation-fade");
-      setTimeout(function() {
+      setTimeout(function () {
         element.classList.remove("uk-animation-fade");
       }, 800);
     },
 
-    clickMonitor: function(event) {
+    clickMonitor: function (event) {
       // Calculate steps from event coordinates
       const xCoordinate = event.offsetX;
       const yCoordinate = event.offsetY;
@@ -155,13 +155,13 @@ export default {
       );
     },
 
-    handleResize: function() {
+    handleResize: function () {
       // Only fires resize event after no resize in 500ms (prevents resize event spam)
       clearTimeout(this.resizeTimeoutId);
       this.resizeTimeoutId = setTimeout(this.handleDoneResize, 250);
     },
 
-    handleDoneResize: function() {
+    handleDoneResize: function () {
       // Recalculate size
       console.log(`Recalculating frame size for ${this._uid}`);
       this.recalculateSize();
@@ -175,7 +175,7 @@ export default {
           this.$store.commit("removeStream", this._uid);
           // If all streams are closed, request the GPU preview close
           const a = Object.values(this.$store.state.activeStreams);
-          const allClosed = a.every(v => v === false);
+          const allClosed = a.every((v) => v === false);
           if (allClosed) {
             this.safePreviewRequest(false);
           }
@@ -211,7 +211,7 @@ export default {
       }
     },
 
-    recalculateSize: function() {
+    recalculateSize: function () {
       // Calculate stream size
       const element = this.$refs.streamDisplay.parentNode;
       const bound = element.getBoundingClientRect();
@@ -228,18 +228,18 @@ export default {
           windowPositionOnDisplay[1] +
             elementPositionOnWindow[1] +
             windowChromeHeight
-        )
+        ),
       ];
 
       this.displaySize = elementSize;
       this.displayPosition = elementPositionOnDisplay;
     },
 
-    safePreviewRequest: function(state) {
+    safePreviewRequest: function (state) {
       // previewRequest, but only stopping preview if all streams are invisible
       // and only starting preview if any stream is visible
       const a = Object.values(this.$store.state.activeStreams);
-      const allClosed = a.every(v => v === false);
+      const allClosed = a.every((v) => v === false);
       // If all streams are closed, don't start GPU preview
       if (state === true && allClosed) {
         return false;
@@ -251,7 +251,7 @@ export default {
       return this.previewRequest(state);
     },
 
-    previewRequest: function(state) {
+    previewRequest: function (state) {
       // If requesting starting the stream, but this component is inactive, skip
       if (
         this.$store.getters.ready == true &&
@@ -276,19 +276,19 @@ export default {
               this.displayPosition[0],
               this.displayPosition[1],
               this.displaySize[0],
-              this.displaySize[1]
-            ]
+              this.displaySize[1],
+            ],
           };
         }
 
         // Send preview request
         console.log(`${this._uid} toggled preview to ${state}`);
-        axios.post(requestUri, payload).catch(error => {
+        axios.post(requestUri, payload).catch((error) => {
           this.modalError(error); // Let mixin handle error
         });
       }
-    }
-  }
+    },
+  },
 };
 </script>
 

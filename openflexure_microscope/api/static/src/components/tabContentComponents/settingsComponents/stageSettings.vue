@@ -10,7 +10,7 @@
               <div class="uk-margin-small">
                 <select v-model="stageType" class="uk-select">
                   <option value="SangaStage">SangaStage (Standard)</option>
-                  <option value="SangaDeltaStage"> SangaStage (Delta)</option>
+                  <option value="SangaDeltaStage">SangaStage (Delta)</option>
                 </select>
               </div>
               <div>
@@ -38,16 +38,16 @@ export default {
 
   components: {},
 
-  data: function() {
+  data: function () {
     return {
-      stageType: "MissingStage"
+      stageType: "MissingStage",
     };
   },
 
   computed: {
-    stageTypeUri: function() {
+    stageTypeUri: function () {
       return `${this.$store.getters.baseUri}/api/v2/instrument/stage/type`;
-    }
+    },
   },
 
   mounted() {
@@ -55,36 +55,36 @@ export default {
   },
 
   methods: {
-    getStageType: function() {
+    getStageType: function () {
       console.log("Getting stage type");
       axios
         .get(this.stageTypeUri)
-        .then(response => {
+        .then((response) => {
           console.log("Stage type is  " + response.data);
           this.stageType = response.data;
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error);
         });
     },
-    setStageType: function() {
+    setStageType: function () {
       console.log("Setting stage type");
       axios
         .put(this.stageTypeUri, this.stageType, {
           headers: {
-            "Content-Type": "application/json"
-          }
+            "Content-Type": "application/json",
+          },
         })
-        .then(response => {
+        .then((response) => {
           this.stageType = response.data;
           console.log("Stage type set to " + this.stageType);
           this.modalNotify("Stage geometry changed.");
         })
-        .catch(error => {
+        .catch((error) => {
           this.modalError(error);
         });
-    }
-  }
+    },
+  },
 };
 </script>
 

@@ -5,11 +5,11 @@ module.exports = {
     plugins: [
       new webpack.DefinePlugin({
         "process.env": {
-          PACKAGE: JSON.stringify(require("./package.json"))
-        }
-      })
-    ]
+          PACKAGE: JSON.stringify(require("./package.json")),
+        },
+      }),
+    ],
   },
 
-  publicPath: ""
+  publicPath: "",
 };

@@ -22,7 +22,7 @@
 export default {
   name: "FeaturesSettings",
 
-  data: function() {
+  data: function () {
     return {};
   },
 
@@ -34,21 +34,21 @@ export default {
       set(value) {
         this.$store.commit("changeIHIEnabled", value);
         this.$root.$emit("globalSafeTogglePreview", value);
-      }
-    }
+      },
+    },
   },
 
   watch: {
     IHIEnabled() {
       console.log("Saving IHIEnabled setting");
       this.setLocalStorageObj("IHIEnabled", this.IHIEnabled);
-    }
+    },
   },
 
   mounted() {
     // Try loading settings from localStorage. If null, don't change.
     this.IHIEnabled = this.getLocalStorageObj("IHIEnabled") || this.IHIEnabled;
-  }
+  },
 };
 </script>
 
