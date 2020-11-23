@@ -5,7 +5,6 @@
     :class="handleTheme"
   >
     <loadingContent v-if="!$store.getters.ready" />
-    <div v-if="$store.getters.ready" id="tour-header"></div>
     <appContent v-if="$store.getters.ready" />
     <!-- Runtime modals -->
     <div
@@ -27,13 +26,6 @@
         </div>
       </div>
     </div>
-    <v-tour
-      v-show="$store.getters.ready"
-      name="guidedTour"
-      :steps="tourSteps"
-      :callbacks="tourCallbacks"
-      :options="{ highlight: true }"
-    ></v-tour>
   </div>
 </template>
 
@@ -80,12 +72,7 @@ export default {
       arrowKeysDown: {},
       keyboardManual: [],
       systemDark: undefined,
-      themeObserver: undefined,
-      tourCallbacks: {
-        onStop: () => {
-          this.setLocalStorageObj("completedTour", true);
-        }
-      }
+      themeObserver: undefined
     };
   },
 
@@ -113,55 +100,6 @@ export default {
         "uk-light": isDark,
         "uk-background-secondary": isDark
       };
-    },
-    tourSteps: function() {
-      return [
-        {
-          target: "#tour-header", // We're using document.querySelector() under the hood
-          header: {
-            title: "Welcome to the OpenFlexure Microscope"
-          },
-          content: `Click Next to learn how to use your microscope`,
-          params: {
-            placement: "bottom"
-          }
-        },
-        {
-          target: "#gallery-tab-icon",
-          header: {
-            title: "Capture gallery"
-          },
-          content: `View and download your microscope images from the gallery tab`
-        },
-        {
-          target: "#navigate-tab-icon",
-          header: {
-            title: "Navigate around your sample"
-          },
-          content: `Move your microscope stage and perform autofocus from the navigate tab`
-        },
-        {
-          target: "#capture-tab-icon",
-          header: {
-            title: "Capture microscope images"
-          },
-          content: `Take images and simple tile scans from the capture tab`
-        },
-        {
-          target: "#settings-tab-icon",
-          header: {
-            title: "Change settings"
-          },
-          content: `Change app and microscope settings, including microscope calibration, from the settings tab`
-        },
-        {
-          target: "#extension-tab-divider",
-          header: {
-            title: "Microscope extensions"
-          },
-          content: `Extensions installed on your microscope will appear below this line`
-        }
-      ];
     }
   },
 
@@ -182,12 +120,6 @@ export default {
     });
     // Check connection to API
     this.checkConnection();
-    // Handle guided tour
-    // If the user has already completed or skipped the guided tour
-    var completedTour = this.getLocalStorageObj("completedTour") || false;
-    if (!completedTour) {
-      this.$tours["guidedTour"].start();
-    }
   },
 
   created: function() {
@@ -232,10 +164,10 @@ export default {
 
     // Focus keys
     Mousetrap.bind("pageup", () => {
-      this.$root.$emit("globalMoveStepEvent", 0, 0, 1);
+      this.$emitter.emit("globalMoveStepEvent", 0, 0, 1);
     });
     Mousetrap.bind("pagedown", () => {
-      this.$root.$emit("globalMoveStepEvent", 0, 0, -1);
+      this.$emitter.emit("globalMoveStepEvent", 0, 0, -1);
     });
     this.keyboardManual.push({
       shortcut: "pgup / pgdn",
@@ -244,7 +176,7 @@ export default {
 
     // Capture
     Mousetrap.bind("c", () => {
-      this.$root.$emit("globalCaptureEvent");
+      this.$emitter.emit("globalCaptureEvent");
     });
     this.keyboardManual.push({
       shortcut: "c",
@@ -253,7 +185,7 @@ export default {
 
     // Autofocus
     Mousetrap.bind("a", () => {
-      this.$root.$emit("globalFastAutofocusEvent");
+      this.$emitter.emit("globalFastAutofocusEvent");
     });
     this.keyboardManual.push({
       shortcut: "a",
@@ -262,23 +194,18 @@ export default {
 
     // Increment/decrement tab
     Mousetrap.bind("shift+down", () => {
-      this.$root.$emit("globalIncrementTab");
+      this.$emitter.emit("globalIncrementTab");
     });
     Mousetrap.bind("shift+up", () => {
-      this.$root.$emit("globalDecrementTab");
+      this.$emitter.emit("globalDecrementTab");
     });
     this.keyboardManual.push({
       shortcut: "shift+↑ / shift+↓",
       description: "Switch tab"
     });
-
-    // Re-run tour
-    Mousetrap.bind("alt+t", () => {
-      this.$tours["guidedTour"].start();
-    });
   },
 
-  beforeDestroy: function() {
+  beforeUnmount: function() {
     // Disconnect the theme observer
     if (this.themeObserver) {
       this.themeObserver.disconnect();
@@ -310,7 +237,7 @@ export default {
     },
 
     handleExit: function() {
-      this.$root.$emit("globalTogglePreview", false);
+      this.$emitter.emit("globalTogglePreview", false);
     },
 
     // Handle global mouse wheel events to be associated with navigation
@@ -322,7 +249,7 @@ export default {
       ) {
         var z_rel = event.deltaY / 100;
         // Emit a signal to move, acted on by panelNavigate.vue
-        this.$root.$emit("globalMoveStepEvent", 0, 0, z_rel, false);
+        this.$emitter.emit("globalMoveStepEvent", 0, 0, z_rel, false);
       }
     },
 
@@ -345,7 +272,7 @@ export default {
       }
       // Make a position request
       // Emit a signal to move, acted on by panelNavigate.vue
-      this.$root.$emit("globalMoveStepEvent", x_rel, y_rel, z_rel);
+      this.$emitter.emit("globalMoveStepEvent", x_rel, y_rel, z_rel);
     }
   }
 };
@@ -405,59 +332,5 @@ html {
 .section-content {
   padding: 0;
   height: 100%;
-}
-
-// Style tour
-.v-tour__target--highlighted {
-  box-shadow: 0px 40px 200px 30px rgba(0, 0, 0, 0.5),
-    0px 0px 0px 4px rgba(128, 128, 128, 0.5) !important;
-  border-radius: 5px;
-  opacity: 100% !important;
-  pointer-events: none !important;
-}
-
-.v-step {
-  background: @global-primary-background !important;
-}
-
-.v-step__header {
-  background-color: darken(@global-primary-background, 7%) !important;
-}
-
-.v-step__button {
-  font-size: 0.9rem !important;
-}
-
-// Change step arrow colour
-// This is awful and hacky and makes me sad, but needs must
-.v-step .v-step__arrow {
-  border-color: darken(@global-primary-background, 7%) !important;
-  &--dark {
-    border-color: darken(@global-primary-background, 7%) !important;
-  }
-}
-
-.v-step[x-placement^="top"] .v-step__arrow {
-  border-left-color: transparent !important;
-  border-right-color: transparent !important;
-  border-bottom-color: transparent !important;
-}
-
-.v-step[x-placement^="bottom"] .v-step__arrow {
-  border-left-color: transparent !important;
-  border-right-color: transparent !important;
-  border-top-color: transparent !important;
-}
-
-.v-step[x-placement^="right"] .v-step__arrow {
-  border-left-color: transparent !important;
-  border-top-color: transparent !important;
-  border-bottom-color: transparent !important;
-}
-
-.v-step[x-placement^="left"] .v-step__arrow {
-  border-top-color: transparent !important;
-  border-right-color: transparent !important;
-  border-bottom-color: transparent !important;
 }
 </style>

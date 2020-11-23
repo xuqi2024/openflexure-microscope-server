@@ -17,7 +17,7 @@
           :submit-label="form.submitLabel"
           :schema="form.schema"
           :emit-on-response="form.emitOnResponse"
-          v-on="$listeners"
+          v-bind="$attrs"
         />
       </div>
     </div>

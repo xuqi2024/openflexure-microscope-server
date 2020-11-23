@@ -42,7 +42,9 @@ export default {
       type: String,
       required: true
     }
-  }
+  },
+
+  emits: ["input"]
 };
 </script>
 

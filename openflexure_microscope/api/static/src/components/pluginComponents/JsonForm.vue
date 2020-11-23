@@ -119,6 +119,8 @@ export default {
     }
   },
 
+  emits: ["reload-forms"],
+
   data: function() {
     return {
       formData: {}
@@ -201,12 +203,12 @@ export default {
     },
 
     updateForm() {
-      this.$emit("reloadForms");
+      this.$emit("reload-forms");
     },
 
     onSubmissionCompleted: function() {
       if (this.emitOnResponse) {
-        this.$root.$emit(this.emitOnResponse);
+        this.$emitter.emit(this.emitOnResponse);
       }
       this.updateForm();
     },

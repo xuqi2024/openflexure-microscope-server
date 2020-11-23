@@ -306,7 +306,7 @@ export default {
     // Update on mount (does nothing if not connected)
     this.updateCaptures();
     // A global signal listener to perform a gallery refresh
-    this.$root.$on("globalUpdateCaptures", () => {
+    this.$emitter.on("globalUpdateCaptures", () => {
       this.updateCaptures();
     });
   },
@@ -329,7 +329,7 @@ export default {
     );
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     // Remove global signal listener to perform a gallery refresh
     this.$root.$off("globalUpdateCaptures");
     // Then we call that function here to unwatch
@@ -433,7 +433,7 @@ export default {
   margin-bottom: 20px;
 }
 
-/deep/ .capture-card {
+::v-deep(.capture-card) {
   width: 300px;
   height: 100%; // Used to have all cards in a row match their heights
   margin-left: auto;

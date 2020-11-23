@@ -391,7 +391,7 @@ export default {
   mounted() {
     this.updateScanUri();
     // A global signal listener to perform a capture action
-    this.$root.$on("globalCaptureEvent", () => {
+    this.$emitter.on("globalCaptureEvent", () => {
       this.handleCapture();
     });
   },
@@ -405,9 +405,9 @@ export default {
         .post(this.captureActionUri, payload)
         .then(() => {
           // Flash the stream (capture animation)
-          this.$root.$emit("globalFlashStream");
+          this.$emitter.emit("globalFlashStream");
           // Update the global capture list
-          this.$root.$emit("globalUpdateCaptures");
+          this.$emitter.emit("globalUpdateCaptures");
         })
         .catch(error => {
           this.modalError(error); // Let mixin handle error

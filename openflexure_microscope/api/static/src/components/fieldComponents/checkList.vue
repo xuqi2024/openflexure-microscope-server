@@ -46,6 +46,8 @@ export default {
     }
   },
 
+  emits: ["input"],
+
   methods: {
     updateValue(target) {
       var newSelected = this.value != null ? [...this.value] : []; // Clone value array

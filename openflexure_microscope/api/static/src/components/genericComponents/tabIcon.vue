@@ -49,6 +49,8 @@ export default {
     requireConnection: Boolean
   },
 
+  emits: ["set-tab"],
+
   computed: {
     computedTitle: function() {
       if (this.title !== undefined) {

@@ -168,6 +168,8 @@ export default {
     }
   },
 
+  emits: ["on-close"],
+
   data: function() {
     return {
       ready: false,
@@ -265,7 +267,7 @@ export default {
     },
 
     onHide: function() {
-      this.$emit("onClose");
+      this.$emit("on-close");
     },
 
     getSettings: function() {

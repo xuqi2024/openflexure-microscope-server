@@ -12,6 +12,8 @@ export default {
 
   props: {},
 
+  emits: ["set-tab"],
+
   computed: {
     tooltipOptions: function() {
       var title = this.id.charAt(0).toUpperCase() + this.id.slice(1);

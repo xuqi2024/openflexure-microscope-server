@@ -38,7 +38,9 @@ export default {
       required: false,
       default: ""
     }
-  }
+  },
+
+  emits: ["input"]
 };
 </script>
 

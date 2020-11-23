@@ -74,14 +74,14 @@ export default {
 
   mounted() {
     // A global signal listener to change the GPU preview state
-    this.$root.$on("globalTogglePreview", state => {
+    this.$emitter.on("globalTogglePreview", state => {
       this.previewRequest(state);
     });
-    this.$root.$on("globalSafeTogglePreview", state => {
+    this.$emitter.on("globalSafeTogglePreview", state => {
       this.safePreviewRequest(state);
     });
     // A global signal listener to flash the stream element
-    this.$root.$on("globalFlashStream", () => {
+    this.$emitter.on("globalFlashStream", () => {
       this.flashStream();
     });
 
@@ -100,7 +100,7 @@ export default {
     this.safePreviewRequest(this.$store.state.autoGpuPreview);
   },
 
-  beforeDestroy: function() {
+  beforeUnmount: function() {
     // Remove global signal listener to change the GPU preview state
     this.$root.$off("globalTogglePreview");
     // Remove global signal listener to flash the stream element
@@ -145,7 +145,7 @@ export default {
       let yRelative = (0.5 * event.target.offsetHeight - yCoordinate) * scale;
 
       // Emit a signal to move, acted on by panelNavigate.vue
-      this.$root.$emit(
+      this.$emitter.emit(
         "globalMoveInImageCoordinatesEvent",
         -xRelative,
         -yRelative

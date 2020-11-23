@@ -198,15 +198,15 @@ export default {
 
   mounted() {
     // A global signal listener to perform a move action
-    this.$root.$on("globalMoveEvent", (x, y, z, absolute) => {
+    this.$emitter.on("globalMoveEvent", (x, y, z, absolute) => {
       this.moveRequest(x, y, z, absolute);
     });
     // A global signal listener to perform a move action in pixels
-    this.$root.$on("globalMoveInImageCoordinatesEvent", (x, y, absolute) => {
+    this.$emitter.on("globalMoveInImageCoordinatesEvent", (x, y, absolute) => {
       this.moveInImageCoordinatesRequest(x, y, absolute);
     });
     // A global signal listener to perform a move in multiples of a step size
-    this.$root.$on("globalMoveStepEvent", (x_steps, y_steps, z_steps) => {
+    this.$emitter.on("globalMoveStepEvent", (x_steps, y_steps, z_steps) => {
       this.moveRequest(
         x_steps * this.stepXy,
         y_steps * this.stepXy,
@@ -221,7 +221,7 @@ export default {
     this.updateMoveInImageCoordinatesUri();
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     // Remove global signal listener to perform a move action
     this.$root.$off("globalMoveEvent");
     this.$root.$off("globalMoveInImageCoordinatesEvent");

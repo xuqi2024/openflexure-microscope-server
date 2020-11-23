@@ -89,6 +89,8 @@ export default {
     }
   },
 
+  emits: ["select-folder"],
+
   computed: {
     allURLs: function() {
       var urls = [];
@@ -101,7 +103,7 @@ export default {
 
   methods: {
     onClick: function() {
-      this.$emit("selectFolder", this.id);
+      this.$emit("select-folder", this.id);
     },
 
     delAllConfirm: function() {
@@ -116,7 +118,7 @@ export default {
     deleteAll: function() {
       axios.all(this.allURLs.map(l => axios.delete(l))).then(() => {
         // Emit signal to update capture list
-        this.$root.$emit("globalUpdateCaptures");
+        this.$emitter.emit("globalUpdateCaptures");
       });
     }
   }

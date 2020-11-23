@@ -47,7 +47,7 @@
           :name="key"
           :label="key"
           :value="value[key]"
-          @input="value[key] = $event"
+          @input="updateRecord(key, $event)"
         />
       </div>
       <a href="#" class="uk-icon uk-width-auto" @click="delMetadataKey(key)"
@@ -74,6 +74,8 @@ export default {
     }
   },
 
+  emits: ["input"],
+
   data: function() {
     return {
       newMetadata: {
@@ -85,31 +87,30 @@ export default {
 
   methods: {
     handleMetadataSubmit: function() {
-      var newSelected = {};
+      this.updateRecord(this.newMetadata.key, this.newMetadata.value);
 
-      if (this.value != null) {
-        Object.assign(newSelected, this.value);
-      }
-
-      newSelected[this.newMetadata.key] = this.newMetadata.value;
+      // Reset input
       this.newMetadata.key = "";
       this.newMetadata.value = "";
-
-      this.$emit("input", newSelected);
-
       // Move focus back to key textbox
       this.$refs.textboxKey.focus();
     },
 
-    delMetadataKey: function(key) {
+    updateRecord(key, value) {
       var newSelected = {};
-
       if (this.value != null) {
         Object.assign(newSelected, this.value);
       }
+      newSelected[key] = value;
+      this.$emit("input", newSelected);
+    },
 
-      this.$delete(newSelected, key);
-
+    delMetadataKey: function(key) {
+      var newSelected = {};
+      if (this.value != null) {
+        Object.assign(newSelected, this.value);
+      }
+      delete newSelected[key];
       this.$emit("input", newSelected);
     }
   }

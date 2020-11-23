@@ -33,7 +33,7 @@ export default {
       },
       set(value) {
         this.$store.commit("changeIHIEnabled", value);
-        this.$root.$emit("globalSafeTogglePreview", value);
+        this.$emitter.emit("globalSafeTogglePreview", value);
       }
     }
   },

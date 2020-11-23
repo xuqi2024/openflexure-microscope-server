@@ -90,6 +90,15 @@ export default {
     }
   },
 
+  emits: [
+    "task-started",
+    "task-running",
+    "submit",
+    "response",
+    "finished",
+    "error"
+  ],
+
   data: function() {
     return {
       taskId: null,
@@ -117,13 +126,13 @@ export default {
     }
     // A global signal listener to perform the action
     if (this.submitOnEvent) {
-      this.$root.$on(this.submitOnEvent, () => {
+      this.$emitter.on(this.submitOnEvent, () => {
         this.bootstrapTask();
       });
     }
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     if (this.submitOnEvent) {
       this.$root.$off(this.submitOnEvent);
     }
@@ -141,7 +150,7 @@ export default {
         for (const task of response.data) {
           if (task.status == "pending" || task.status == "running") {
             this.taskStarted = true;
-            this.$emit("taskStarted", this.taskId);
+            this.$emit("task-started", this.taskId);
             this.startPolling(task.id, task.links.self.href);
           }
         }
@@ -169,7 +178,7 @@ export default {
       // Send a request to start a task
 
       this.taskStarted = true;
-      this.$emit("taskStarted", this.taskId);
+      this.$emit("task-started", this.taskId);
       axios
         .post(this.submitUrl, this.submitData)
         // Get the returned Task ID
@@ -186,7 +195,7 @@ export default {
         this.taskUrl = taskUrl;
         // Start the store polling TaskId for success
         this.taskRunning = true;
-        this.$emit("taskRunning", this.taskId);
+        this.$emit("task-running", this.taskId);
         this.pollTask(this.taskId, this.pollInterval)
           .then(response => {
             // Do something with the final response

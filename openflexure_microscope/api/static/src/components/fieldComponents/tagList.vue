@@ -45,6 +45,8 @@ export default {
     }
   },
 
+  emits: ["input"],
+
   data: function() {
     return {
       newTag: ""

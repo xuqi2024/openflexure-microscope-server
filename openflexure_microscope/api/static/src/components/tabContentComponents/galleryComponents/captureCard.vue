@@ -199,6 +199,8 @@ export default {
     }
   },
 
+  emits: ["update:tags", "update:annotations"],
+
   data: function() {
     return {
       newTag: "",
@@ -280,7 +282,7 @@ export default {
         .delete(this.captureURL)
         .then(() => {
           // Emit signal to update capture list
-          this.$root.$emit("globalUpdateCaptures");
+          this.$emitter.emit("globalUpdateCaptures");
         })
         .catch(error => {
           this.modalError(error); // Let mixin handle error

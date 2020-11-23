@@ -17,11 +17,13 @@
         class="uk-flex uk-flex-column uk-padding-remove uk-width-auto uk-height-1-1 uk-text-center"
       >
         <!-- For each top tab -->
-        <template v-for="(item, index) in enabledTopTabs">
+        <template
+          v-for="(item, index) in enabledTopTabs"
+          :key="item.id + '-tab-icon'"
+        >
           <!-- Render the tab icon -->
           <tabIcon
             :id="item.id + '-tab-icon'"
-            :key="item.id + '-tab-icon'"
             :tab-i-d="item.id"
             :require-connection="true"
             :current-tab="currentTab"
@@ -53,11 +55,13 @@
         <hr id="extension-tab-divider" />
 
         <!-- For each bottom tab -->
-        <template v-for="(item, index) in bottomTabs">
+        <template
+          v-for="(item, index) in bottomTabs"
+          :key="item.id + '-tab-icon'"
+        >
           <!-- Render the tab icon -->
           <tabIcon
             :id="item.id + '-tab-icon'"
-            :key="item.id + '-tab-icon'"
             :tab-i-d="item.id"
             :require-connection="true"
             :current-tab="currentTab"
@@ -280,20 +284,20 @@ export default {
 
   mounted() {
     // A global signal listener to switch tab
-    this.$root.$on("globalSwitchTab", tabID => {
+    this.$emitter.on("globalSwitchTab", tabID => {
       this.currentTab = tabID;
     });
     // A global signal listener to increment tab
-    this.$root.$on("globalIncrementTab", () => {
+    this.$emitter.on("globalIncrementTab", () => {
       this.incrementTabBy(1);
     });
     // A global signal listener to decrement tab
-    this.$root.$on("globalDecrementTab", () => {
+    this.$emitter.on("globalDecrementTab", () => {
       this.incrementTabBy(-1);
     });
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     // Then we call that function here to unwatch
     if (this.unwatchStoreFunction) {
       this.unwatchStoreFunction();
