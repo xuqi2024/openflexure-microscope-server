@@ -149,6 +149,7 @@ labthing.add_view(views.LSTImageProperty, "/instrument/camera/lst")
 # Attach streams resources
 labthing.add_view(views.MjpegStream, "/streams/mjpeg")
 labthing.add_view(views.SnapshotStream, "/streams/snapshot")
+labthing.add_view(views.MjpegFrameState, "/streams/framestate")
 
 # Attach microscope action resources
 for name, action in views.enabled_root_actions().items():

@@ -2,6 +2,8 @@
 import io
 import logging
 import time
+import threading
+from labthings.sync import ClientEvent
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
 from typing import BinaryIO, List, NamedTuple, Optional, Tuple, Type, Union
@@ -44,6 +46,7 @@ class FrameStream(io.BytesIO):
         self.new_frame: ClientEvent = ClientEvent()
 
         self._bad_frame: bool = False
+        self.bad_frame_event: ClientEvent = ClientEvent()
 
     def __enter__(self):
         self.start_tracking()
@@ -89,12 +92,14 @@ class FrameStream(io.BytesIO):
             logging.error(
                 "Incomplete frame data recieved. Camera bandwidth may have been exceeded. Consider lowing resolution, framerate, or target bitrate."
             )
+            self.bad_frame_event.set()
             # Record that last frame was bad
             self._bad_frame = True
         # If the last frame was bad, but this frame was good
         elif self._bad_frame and s[-2:] == JPEG_END_BYTES:
             # Clear the bad frame record
             self._bad_frame = False
+            # self.bad_frame_event.clear()
         # If we're tracking frame size
         if self.tracking:
             frame = TrackerFrame(size=len(s), time=time.time())
