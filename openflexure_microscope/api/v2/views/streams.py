@@ -66,12 +66,17 @@ class SnapshotStream(PropertyView):
 
 class MjpegFrameState(PropertyView):
     """
-    Real-time MJPEG stream from the microscope camera
+    SSE event stream pushing a bitrateLimitExceeded event when an incomplete or broken
+    frame is returned by the camera.
     """
 
     responses = {200: {"content_type": "text/event-stream"}}
 
     def get(self):
+        """
+        SSE event stream pushing a bitrateLimitExceeded event when an incomplete or broken
+        frame is returned by the camera.
+        """
         microscope = find_component("org.openflexure.microscope")
 
         def stream():
