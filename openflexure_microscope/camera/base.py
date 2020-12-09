@@ -2,8 +2,6 @@
 import io
 import logging
 import time
-import threading
-from labthings.sync import ClientEvent
 from abc import ABCMeta, abstractmethod
 from types import TracebackType
 from typing import BinaryIO, List, NamedTuple, Optional, Tuple, Type, Union

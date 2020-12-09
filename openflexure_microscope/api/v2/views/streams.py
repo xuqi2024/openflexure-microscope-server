@@ -1,7 +1,8 @@
+from datetime import datetime
+
 from flask import Response
 from labthings import find_component
 from labthings.views import PropertyView
-from datetime import datetime
 
 
 def gen(camera):
@@ -85,4 +86,3 @@ class MjpegFrameState(PropertyView):
                 yield msg
 
         return Response(stream(), mimetype="text/event-stream")
-
