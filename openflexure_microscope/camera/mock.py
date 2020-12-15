@@ -6,6 +6,7 @@ import logging
 import threading
 import time
 from datetime import datetime
+from io import BytesIO
 
 # Type hinting
 from typing import BinaryIO, Optional, Tuple, Union
@@ -34,6 +35,8 @@ class MissingCamera(BaseCamera):
         self.jpeg_quality: int = 75
         self.framerate: int = 10
 
+        self.badframe = False
+
         # Generate an initial dummy image
         self.generate_new_dummy_image()
 
@@ -44,7 +47,7 @@ class MissingCamera(BaseCamera):
         logging.info("Waiting for frames")
         self.stream.new_frame.wait()
 
-    def generate_new_dummy_image(self):
+    def generate_new_dummy_image(self, truncate: bool = False):
         # Create a dummy image to serve in the stream
         image = Image.new(
             "RGB",
@@ -60,7 +63,13 @@ class MissingCamera(BaseCamera):
             ),
         )
 
-        image.save(self.stream, format="JPEG")
+        output = BytesIO()
+        image.save(output, format="JPEG")
+        data = output.getvalue()
+        if truncate:
+            print("Truncating frame data")
+            data = data[:-4]
+        self.stream.write(data)
 
     def start_worker(self, **_) -> bool:
         """Start the background camera thread if it isn't running yet."""
@@ -98,11 +107,18 @@ class MissingCamera(BaseCamera):
 
         self.stream_active = True
 
+        i = 0
+
         while True:
             # Only serve frames at 1fps
             time.sleep(1)
+            i += 1
+            # Toggle between good and bad frames
+            if i >= 5:
+                i = 0
+                self.badframe = not self.badframe
             # Generate new dummy image
-            self.generate_new_dummy_image()
+            self.generate_new_dummy_image(truncate=self.badframe)
 
             try:
                 if self.stop is True:

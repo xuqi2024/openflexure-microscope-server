@@ -250,10 +250,10 @@ export default {
             // Show the modal
             var el = this.$refs["calibrationModalEl"];
             this.showModalElement(el); // Calls the mixin
-          } else {
-            // If not useful, we just return the onClose event immediately
-            this.onHide();
           }
+        })
+        .finally(() => {
+          this.onHide();
         });
     },
 

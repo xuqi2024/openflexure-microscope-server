@@ -205,7 +205,9 @@ export default {
           icon: "info",
           component: aboutContent
         }
-      ]
+      ],
+      JPEGFramePoll: null,
+      JPEGBadFrame: false
     };
   },
 
@@ -213,7 +215,9 @@ export default {
     pluginsUri: function() {
       return `${this.$store.getters.baseUri}/api/v2/extensions`;
     },
-
+    snapshotImgUri: function() {
+      return `${this.$store.getters.baseUri}/api/v2/streams/snapshot`;
+    },
     pluginsGuiList: function() {
       // List of plugin GUIs, obtained from this.plugins values
       var pluginGuis = [];
@@ -297,6 +301,11 @@ export default {
       this.unwatchStoreFunction();
       this.unwatchStoreFunction = null;
     }
+    // Clear the polling timer
+    if (this.JPEGFramePoll !== null) {
+      clearInterval(this.JPEGFramePoll);
+      this.JPEGFramePoll = null;
+    }
   },
 
   methods: {
@@ -341,6 +350,36 @@ export default {
     },
     enterApp: function() {
       // Stuff to do once connected and all init modals are finished
+      console.log("Entering main app");
+      this.setSnapshotPoll(2000);
+    },
+
+    setSnapshotPoll: function(timeout) {
+      // Start a timer to check frame data periodically
+      this.polling = setInterval(() => {
+        this.analyseFrame();
+      }, timeout);
+    },
+
+    analyseFrame: function() {
+      axios
+        .get(this.snapshotImgUri, {
+          responseType: "arraybuffer"
+        })
+        .then(response => {
+          var bufSlice = Buffer.from(response.data, "binary").slice(-2);
+          var endBytes = bufSlice.toString("base64");
+          if (endBytes !== "/9k=") {
+            if (!this.JPEGBadFrame) {
+              this.JPEGBadFrame = true;
+              console.log("BAD FRAME");
+            }
+          } else {
+            if (this.JPEGBadFrame) {
+              this.JPEGBadFrame = false;
+            }
+          }
+        });
     }
   }
 };
