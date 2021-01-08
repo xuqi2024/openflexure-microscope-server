@@ -1,8 +1,8 @@
 import datetime
 import logging
+import random
 import time
 import uuid
-import random
 from functools import reduce
 from typing import Dict, List, Optional, Tuple
 

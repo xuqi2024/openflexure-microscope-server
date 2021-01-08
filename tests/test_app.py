@@ -1,6 +1,6 @@
-from openflexure_microscope.api.app import app, labthing, api_microscope
-from openflexure_microscope.microscope import Microscope
+from openflexure_microscope.api.app import api_microscope, app, labthing
 from openflexure_microscope.camera.base import BaseCamera
+from openflexure_microscope.microscope import Microscope
 from openflexure_microscope.stage.base import BaseStage
 
 
