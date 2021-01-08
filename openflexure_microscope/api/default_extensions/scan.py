@@ -2,6 +2,7 @@ import datetime
 import logging
 import time
 import uuid
+import random
 from functools import reduce
 from typing import Dict, List, Optional, Tuple
 
@@ -68,6 +69,20 @@ def construct_grid(
                         last_coordinate[1] + direction[1] * step_sizes[1],
                     )
                     arr[i - 1].append(coord)
+
+    elif style == "bogo":
+        bogolist: List[XyCoordinate] = []  # Stick every position into a single "line"
+        for i in range(n_steps[0]):  # x axis
+            for j in range(n_steps[1]):  # y axis
+                # Create a coordinate tuple
+                coord = (
+                    initial[0] + [i, j][0] * step_sizes[0],
+                    initial[1] + [i, j][1] * step_sizes[1],
+                )
+                # Append coordinate array to position grid
+                bogolist.append(coord)
+        random.shuffle(bogolist)
+        arr.append(bogolist)
 
     # If raster or snake
     else:
