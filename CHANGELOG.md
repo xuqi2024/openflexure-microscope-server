@@ -26,7 +26,6 @@
   * Fix placement of tour messages for icons ([afbb716](https://gitlab.com/openflexure/openflexure-microscope-server/commit/afbb716))
   * This closes #199 and helps with #193
 * The IHI interface now explicitly states scan style should be raster (!113)
-
 * Absolute moves are now fixed (!126), closing #220, #221, and #222.
 * Fixed a typing error with the camera stage mapping matrix and `numpy` 1.20 (!127).
 * Scans now have a minimum dimension of 1 in each axis, which avoids dividing by zero (!123)
