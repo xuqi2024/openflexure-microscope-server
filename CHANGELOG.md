@@ -1,3 +1,37 @@
+# [v2.10.0b0](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.9.3...v2.10.0b0) (2021-05-18)
+
+## New features
+* Improved auto gain, white balance, and lens shading table correction (!119).  Fixes #191.
+  The old auto calibration code has been replaced by a slower, more manual method that is more reliable.
+  Individual parts of the calibration can be run independently (auto gain/exposure, auto white balance, lens shading).
+  This should also improve the experience when using e.g. fluorescence imaging modes.
+
+## Developer changes
+* Build instructions were updated (!115)
+* We've switched from `poetry` to `pipenv` to solve dependency management issues on the Raspberry Pi (!124).  See the updated 
+  repository README for a full breakdown of what configuration information goes where.  Closes #218.
+* Improved handling of stream settings and origin override (!125, !116, !117)
+  This fixes a longstanding irritation when developing on localhost using `npm run serve`, where it was necessary to
+  enter the API origin address every time the page was refreshed, and then manually re-enable the web stream.  Both
+  these issues are now fixed.
+  * The API origin override field in the "dev tools" pane now remembers its value
+  * The API origin can be overridden using the URL
+  * Stream settings are now remembered in local storage
+
+## Minor bug fixes and improvements
+* Better error handling for picamerax (!86)
+* Add coverage report to mypy (!110)
+* `MissingStage` can now be explicitly selected in microscope configuration (!112)
+* The first-run "tour" placement is improved and shouldn't block the interface any more (!114)
+  * Fix placement of tour messages for icons ([afbb716](https://gitlab.com/openflexure/openflexure-microscope-server/commit/afbb716))
+  * This closes #199 and helps with #193
+* The IHI interface now explicitly states scan style should be raster (!113)
+
+* Absolute moves are now fixed (!126), closing #220, #221, and #222.
+* Fixed a typing error with the camera stage mapping matrix and `numpy` 1.20 (!127).
+* Scans now have a minimum dimension of 1 in each axis, which avoids dividing by zero (!123)
+
+
 # [v2.9.3](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.9.2...v2.9.3) (2020-12-14)
 
 - Fix #194 ([0592d31](https://gitlab.com/openflexure/openflexure-microscope-server/commit/0592d31)), closes [#194](https://gitlab.com/openflexure/openflexure-microscope-server/issues/194)
