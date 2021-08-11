@@ -93,6 +93,7 @@ setup(
             "ofm-serve=openflexure_microscope.api.app:ofm_serve",
             "ofm-rescue=openflexure_microscope.rescue.auto:main",
             "ofm-generate-openapi=openflexure_microscope.api.app:generate_openapi",
+            "ofm-download-webapp-from-ci=openflexure_microscope.api.utilities.download_webapp:download_webapp_from_CI",
         ]
     },
     project_urls={
