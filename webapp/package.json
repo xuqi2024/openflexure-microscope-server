@@ -9,6 +9,7 @@
     "serve-without-imjoy": "VUE_APP_ENABLE_IMJOY=false vue-cli-service serve --mode development",
     "build": "vue-cli-service build --mode production",
     "build-without-imjoy": "VUE_APP_ENABLE_IMJOY=false vue-cli-service build --mode production",
+    "cypress": "cypress run",
     "lint": "vue-cli-service lint",
     "lint:fix": "vue-cli-service lint --fix"
   },

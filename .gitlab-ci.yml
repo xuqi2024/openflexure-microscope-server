@@ -5,6 +5,24 @@ stages:
   - package
   - deploy
 
+
+# Re-usable block to install everything to run the server and the webapp
+.install-all-template: &install-all
+  before_script:
+    - python3 -m venv .venv        # NB this does not overwrite an existing cached venv
+    - source .venv/bin/activate
+    - pip install pipenv           # Should be cached after first run
+    - pipenv install --dev --deploy        # Should be cached after first run - will just check packages are present
+    - cd webapp
+    - npm install
+    - cd ..
+  cache:
+    key: "${CI_COMMIT_REF_SLUG}"
+    paths:
+      - .cache/pip
+      - .venv
+      - webapp/node_modules
+
 # Re-usable block to install (and cache) Poetry and openflexure-microscope-server
 .python-install-template: &python-install
   before_script:
@@ -18,7 +36,7 @@ stages:
       - .cache/pip
       - .venv
 
-# Re-usable block to install (and cache) openflexure-microscope-server static app
+# Re-usable block to install (and cache) openflexure-microscope-server webapp
 .node-install-template: &node-install
   before_script:
     - cd webapp
@@ -123,7 +141,7 @@ openapi:
     expire_in: 1 week
     paths:
       - "./docs/build/swagger.yaml"
-  
+
   only:
     - branches
     - merge_requests
@@ -138,7 +156,6 @@ eslint:
   <<: *node-install
 
   script:
-    # Build JS application for production
     - npm run lint
 
   only:
@@ -146,6 +163,25 @@ eslint:
     - merge_requests
     - tags
     - web
+
+# Interactive visual tests using Cypress
+cypress:
+  stage: testing
+  image: node:16
+
+  <<: *install-all
+
+  script:
+    - python -m openflexure_microscope.api.app &
+    - cd webapp
+    - npm run cypress
+
+  only:
+    - branches
+    - merge_requests
+    - tags
+    - web
+
 
 # Build JS app
 build:

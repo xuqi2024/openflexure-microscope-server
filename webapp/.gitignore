@@ -30,3 +30,4 @@ platforms
 ./webpack.config.js
 
 cypress/videos/
+cypress/screenshots/
