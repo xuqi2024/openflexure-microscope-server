@@ -167,7 +167,7 @@ eslint:
 # Interactive visual tests using Cypress
 cypress:
   stage: testing
-  image: node:16
+  image: ubuntu:20.04
 
   <<: *install-all
 
