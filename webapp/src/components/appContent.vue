@@ -11,7 +11,7 @@
       @onClose="enterApp()"
     ></calibrationModal>
     <!-- Vertical tab bar -->
-    <div id="switcher-left-container">
+    <div data-cy="nav-container" id="switcher-left-container">
       <div
         id="switcher-left"
         class="uk-flex uk-flex-column uk-padding-remove uk-width-auto uk-height-1-1 uk-text-center"
