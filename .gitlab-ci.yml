@@ -9,7 +9,8 @@ stages:
 # Re-usable block to install everything to run the server and the webapp
 .install-all-template: &install-all
   before_script:
-    - apt install python3 python3-venv
+    - apt-get update
+    - apt-get install python3-pip python3-venv
     - python3 -m venv .venv        # NB this does not overwrite an existing cached venv
     - source .venv/bin/activate
     - pip install pipenv           # Should be cached after first run
