@@ -162,6 +162,6 @@ user_configuration = OpenflexureSettingsFile(
     path=CONFIGURATION_FILE_PATH,
     defaults={
         "camera": {"type": "PiCamera"},
-        "stage": {"type": "SangaStage", "port": None},
+        "stage": {"type": "openflexure_microscope.stage.sanga:SangaStage", "port": None},
     },
 )
