@@ -93,6 +93,11 @@ setup(
             "ofm-serve=openflexure_microscope.api.app:ofm_serve",
             "ofm-rescue=openflexure_microscope.rescue.auto:main",
             "ofm-generate-openapi=openflexure_microscope.api.app:generate_openapi",
+        ],
+        "openflexure_microscope_stages": [
+            "ofm-missing-stage=openflexure_microscope.stage.mock:MissingStage",
+            "ofm-sanga-stage=openflexure_microscope.stage.sanga:SangaStage",
+            "ofm-sanga-delta-stage=openflexure_microscope.stage.sanga:SangaDeltaStage",
         ]
     },
     project_urls={
