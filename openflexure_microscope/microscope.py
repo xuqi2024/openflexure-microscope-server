@@ -2,11 +2,13 @@
 """
 Defines a microscope object, binding a camera and stage with basic functionality.
 """
+from json import load
 import logging
 import uuid
 from typing import Dict, List, Optional, Tuple, Union
 
 import pkg_resources
+
 from expiringdict import ExpiringDict
 
 from openflexure_microscope.camera.base import BaseCamera
@@ -15,7 +17,7 @@ from openflexure_microscope.captures import THUMBNAIL_SIZE, CaptureManager
 from openflexure_microscope.config import OpenflexureSettingsFile
 from openflexure_microscope.stage.base import BaseStage
 from openflexure_microscope.stage.mock import MissingStage
-from openflexure_microscope.stage.sanga import SangaDeltaStage, SangaStage
+from openflexure_microscope.utilities import load_entrypoint
 
 try:
     from openflexure_microscope.camera.pi import PiCameraStreamer
@@ -143,42 +145,18 @@ class Microscope:
 
         ### Close any existing stages
         if self.stage:
-            stage_port = getattr(self.stage, "port")
             self.stage.close()
 
         logging.info("Setting stage")
         stage_port = configuration["stage"].get("port")
 
-        if stage_type in ("SangaBoard", "SangaStage"):
-            try:
-                logging.info("Trying SangaStage")
-                self.stage = SangaStage(port=stage_port)
-                logging.info("Saving new SangaStage type configuration")
-                configuration["stage"]["type"] = stage_type
-                self.configuration_file.save(configuration)
-            except Exception as e:  # pylint: disable=W0703
-                logging.error(e)
-                logging.warning("No compatible Sangaboard hardware found.")
-        elif stage_type in ("SangaDeltaStage",):
-            try:
-                logging.info("Trying SangaDeltaStage")
-                self.stage = SangaDeltaStage(port=stage_port)
-                logging.info("Saving new SangaDeltaStage type configuration")
-                configuration["stage"]["type"] = stage_type
-                self.configuration_file.save(configuration)
-            except Exception as e:  # pylint: disable=W0703
-                logging.error(e)
-                logging.warning("No compatible Sangaboard hardware found.")
-        elif stage_type in ("MissingStage",):
-            logging.warning(
-                "The stage is set to MissingStage in "
-                "configuration, which disables any physical stage."
-            )
-            self.stage = MissingStage()
-            configuration["stage"]["type"] = "MissingStage"
-            self.configuration_file.save(configuration)
-        else:
-            logging.warning("The stage type is incorrectly defined.")
+        stage_class = load_entrypoint(stage_type, "openflexure_microscope_stages")
+
+        logging.info(f"Attempting to instantiate stage '{stage_type}'")
+        self.stage = stage_class(port=stage_port)
+        configuration["stage"]["type"] = stage_type
+        self.configuration_file.save(configuration)
+
 
     def has_real_stage(self) -> bool:
         """

@@ -6,6 +6,12 @@ import time
 from contextlib import contextmanager
 from typing import Dict, List, Optional, Sequence, Tuple, Type, Union
 
+# We need to work around importlib.metadata not being present in Python < 3.8
+try:
+    from importlib import metadata
+except ImportError:
+    import importlib_metadata as metadata
+
 import numpy as np
 
 # TypedDict was added to typing in 3.8. Use typing_extensions for <3.8
@@ -13,6 +19,28 @@ if sys.version_info >= (3, 8):
     from typing import TypedDict  # pylint: disable=no-name-in-module
 else:
     from typing_extensions import TypedDict
+
+
+def load_entrypoint(value: str, group: str):
+    """Load an entrypoint, with the specified value and group
+    
+    Python packages can declare entry points, intended to make plugins
+    easier to manage.  This function lists all entrypoints in a
+    particular group, picks the one that matches the value given,
+    and loads it.  
+    
+    A loaded entry point is returned.
+    """
+    try:
+        available_stages = metadata.entry_points()[group]
+    except KeyError as e:
+        raise KeyError(f"There don't appear to be any entry points in group '{group}'.")
+    for ep in available_stages:
+        if ep.value == value:
+            return ep.load()
+    raise ValueError(
+        f"Tried to load '{value}' from entry point group '{group}' but it wasn't found."
+    )
 
 
 class Timer(object):
