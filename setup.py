@@ -93,6 +93,8 @@ setup(
             "ofm-serve=openflexure_microscope.api.app:ofm_serve",
             "ofm-rescue=openflexure_microscope.rescue.auto:main",
             "ofm-generate-openapi=openflexure_microscope.api.app:generate_openapi",
+            "ofm-install-extension=openflexure_microscope.extensions.find_and_load:install_extension_cmd",
+            "ofm-check-extensions=openflexure_microscope.extensions.find_and_load:check_extensions_cmd"
         ],
         "openflexure_microscope_stages": [
             "ofm-missing-stage=openflexure_microscope.stage.mock:MissingStage",
