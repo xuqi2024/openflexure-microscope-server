@@ -35,6 +35,28 @@ def entry_point_list(group_name=EXTENSION_GROUP_NAME):
     except KeyError:
         return []
 
+
+def load_extension_dict(entry_point):
+    """Attempt to load an extension from an entry point, returning a dict"""
+    p = entry_point
+    ext = {"name": p.name, "value": p.value, "status": "unknown"}
+    try:
+        ext["extension"] = p.load()
+        if ext["extension"].configuration_required():
+            ext["status"] = "configuration_required"
+        else:
+            ext["status"] = "loaded"
+    except ImportError as err:
+        # TODO: think of a method that is less platform-specific!
+        if hasattr(err, "of_raspbian_install_script"):
+            ext["status"] = "install_script_required"
+            ext["install_script"] = err.of_raspbian_install_script
+        else:
+            ext["status"] = "broken"
+        ext["import_error"] = err
+    return ext
+
+
 def find_and_load_extensions():
     """Locate all extensions that declare themselves as entry points.
     
@@ -42,25 +64,7 @@ def find_and_load_extensions():
     further configuration is needed.
     """
     entry_points = entry_point_list(EXTENSION_GROUP_NAME)
-    extensions = []
-    for p in entry_points:
-        ext = {"name": p.name, "value": p.value, "status": "unknown"}
-        try:
-            ext["extension"] = p.load()
-            if ext["extension"].configuration_required():
-                ext["status"] = "configuration_required"
-            else:
-                ext["status"] = "loaded"
-        except ImportError as err:
-            # TODO: think of a method that is less platform-specific!
-            if hasattr(err, "of_raspbian_install_script"):
-                ext["status"] = "install_script_required"
-                ext["install_script"] = err.of_raspbian_install_script
-            else:
-                ext["status"] = "broken"
-            ext["import_error"] = err
-        extensions.append(ext)
-    return extensions
+    return [load_extension_dict(p) for p in entry_points]
 
 
 def filter_extension_list(extensions, status):
@@ -94,7 +98,7 @@ def run_installation_commands(extensions, skip_admin_check=False):
     """For each extension, if it suggests running a command so it can load, interactively run that command."""
     if not skip_admin_check:
         ensure_root_privileges()
-    ensure_root_privileges()
+    print("Checking for extensions that require system-level dependencies...")
     for ext in extensions:
         if ext['status'] != "install_script_required":
             print(f"Skipping {ext['name']}")
@@ -120,6 +124,7 @@ def configure_extensions(extensions, skip_admin_check=False):
     """Run the configuration method of any extensions that request it."""
     if not skip_admin_check:
         ensure_root_privileges()
+    print("Checking and configuring extensions...")
     for ext in extensions:
         if ext['status'] != "configuration_required":
             print(f"Skipping {ext['name']}")
@@ -177,9 +182,30 @@ def install_extension_cmd():
     args = parser.parse_args()
     if not args.user:
         ensure_root_privileges()
-    print(f"Installing '{args.package_name}'...")
-    subprocess.run(["pip", "install", args.package_name])
-    print("Please now run ofm-check-extensions to ensure your new extension is installed properly.")
+
+    preinstall_eps = entry_point_list(EXTENSION_GROUP_NAME)
+    try:
+        print(f"Installing '{args.package_name}'...")
+        completed_process = subprocess.run(["pip", "install", args.package_name])
+        completed_process.check_returncode()
+    except subprocess.CalledProcessError:
+        print("The installation command failed: see output above for details.")
+        exit(completed_process.returncode)
+    postinstall_eps = entry_point_list(EXTENSION_GROUP_NAME)
+    new_eps = [ep for ep in postinstall_eps if ep not in preinstall_eps]
+    if len(new_eps) == 0:
+        print(
+            "We did not find any newly-installed extensions. Please run ofm-check-extensions"
+            "to ensure your new extension is installed properly."
+        )
+        exit(-1)
+    new_extensions = [load_extension_dict(p) for p in new_eps]
+    print("Installed the following extensions:")
+    print_extension_list(new_extensions)
+    print()
+    run_installation_commands(new_extensions, skip_admin_check=args.user)
+    configure_extensions(new_extensions, skip_admin_check=args.user)
+    print("All done :)")
 
 if __name__ == "__main__":
     check_extensions_cmd()
