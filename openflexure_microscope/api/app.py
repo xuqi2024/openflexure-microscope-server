@@ -119,10 +119,10 @@ labthing.add_component(api_microscope, "org.openflexure.microscope")
 
 # Attach extensions
 # New-style extensions are explicitly enabled in the configuration file
-extensions = extensions.find.entry_points_from_list(
+extension_entry_points = extensions.find.entry_points_from_list(
     api_microscope.configuration["extensions_enabled"]
 )
-for entrypoint in extensions:
+for entrypoint in extension_entry_points:
     extension_class = entrypoint.load()
     labthing.register_extension(extension_class())
 # This loads old-style extensions and is deprecated

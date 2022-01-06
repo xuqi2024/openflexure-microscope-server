@@ -11,7 +11,8 @@ from typing import Dict, List, Optional, Sequence, Tuple, Type, Union
 try:
     from importlib import metadata
 except ImportError:
-    import importlib_metadata as metadata
+    logging.info("importlib.metadata not present, using importlib_metadata")
+    import importlib_metadata as metadata  # type: ignore
 
 import numpy as np
 
@@ -33,7 +34,7 @@ def load_entrypoint(value: str, group: str):
     A loaded entry point is returned.
     """
     try:
-        available_entrypoints = metadata.entry_points()[group]
+        available_entrypoints = metadata.entry_points()[group]  # type: ignore
     except KeyError as e:
         raise KeyError(
             f"There don't appear to be any entry points in group '{group}'."

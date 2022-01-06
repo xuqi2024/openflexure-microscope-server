@@ -141,6 +141,8 @@ class Microscope:
         else:
             stage_type = configuration["stage"].get("type")
 
+        assert stage_type is not None
+
         ### Close any existing stages
         if self.stage:
             self.stage.close()

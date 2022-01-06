@@ -2,11 +2,9 @@
 
 import logging
 
-try:
-    from importlib import metadata
-except ImportError:
-    logging.info("importlib.metadata not present, using importlib_metadata")
-    import importlib_metadata as metadata
+from openflexure_microscope.utilities import (  # this is importlib.metadata, with a workaround for python<3.8
+    metadata,
+)
 
 EXTENSION_GROUP_NAME = "openflexure_microscope_extensions"
 
