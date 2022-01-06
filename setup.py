@@ -93,13 +93,23 @@ setup(
             "ofm-serve=openflexure_microscope.api.app:ofm_serve",
             "ofm-rescue=openflexure_microscope.rescue.auto:main",
             "ofm-generate-openapi=openflexure_microscope.api.app:generate_openapi",
-            "ofm-install-extension=openflexure_microscope.extensions.find_and_load:install_extension_cmd",
-            "ofm-check-extensions=openflexure_microscope.extensions.find_and_load:check_extensions_cmd"
+            "ofm-install-extension=openflexure_microscope.extensions.manage:install_extension_cmd",
+            "ofm-enable-extension=openflexure_microscope.extensions.manage:enable_extension_cmd",
+            "ofm-disable-extension=openflexure_microscope.extensions.manage:disable_extension_cmd",
+            "ofm-check-extensions=openflexure_microscope.extensions.manage:check_extensions_cmd"
         ],
         "openflexure_microscope_stages": [
             "ofm-missing-stage=openflexure_microscope.stage.mock:MissingStage",
             "ofm-sanga-stage=openflexure_microscope.stage.sanga:SangaStage",
             "ofm-sanga-delta-stage=openflexure_microscope.stage.sanga:SangaDeltaStage",
+        ],
+        "openflexure_microscope_extensions": [
+            "ofm-autofocus=openflexure_microscope.api.default_extensions.autofocus:AutofocusExtension",
+            "ofm-scan=openflexure_microscope.api.default_extensions.scan:ScanExtension",
+            "ofm-zipbuilder=openflexure_microscope.api.default_extensions.zip_builder:ZipBuilderExtension",
+            "ofm-autostorage=openflexure_microscope.api.default_extensions.autostorage:AutostorageExtension",
+            "ofm-picamera-autocalibrate=openflexure_microscope.api.default_extensions.picamera_autocalibrate:LSTExtension",
+            "ofm-camera-stage-mapping=openflexure_microscope.api.default_extensions.camera_stage_mapping:CSMExtension",
         ]
     },
     project_urls={

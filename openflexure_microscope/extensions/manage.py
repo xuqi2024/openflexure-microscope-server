@@ -10,42 +10,28 @@ import logging
 import shlex
 import subprocess
 import traceback
-from ..utilities import ensure_root_privileges, running_as_root
 
-try:
-    from importlib import metadata
-except ImportError:
-    logging.info("importlib.metadata not present, using importlib_metadata")
-    import importlib_metadata as metadata
-
-EXTENSION_GROUP_NAME = "openflexure_microscope_extensions"
-
-def entry_point_list(group_name=EXTENSION_GROUP_NAME):
-    """Return a list of entry points in a particular group.
-    
-    This uses the importlib metadata mechanism to enumerate entry points
-    declared in installed packages.  By default, it will list all entry
-    points belonging to the group for OFM extensions.
-
-    A list of EntryPoint objects is returned, which may be empty.
-    """
-    try:
-        group_name = "openflexure_microscope_extensions"
-        return metadata.entry_points()[group_name]
-    except KeyError:
-        return []
-
+from ..utilities import ensure_root_privileges
+from . import config
+from .find import extension_entry_points, entry_points_from_list
 
 def load_extension_dict(entry_point):
     """Attempt to load an extension from an entry point, returning a dict"""
     p = entry_point
-    ext = {"name": p.name, "value": p.value, "status": "unknown"}
+    ext = {"name": p.name, "value": p.value, "status": "unknown", "config": "missing from config"}
+    if p.value in config.extensions_enabled():
+        ext["config"] = "enabled"
+    if p.value in config.extensions_disabled():
+        ext["config"] = "disabled"
+
     try:
         ext["extension"] = p.load()
-        if ext["extension"].configuration_required():
-            ext["status"] = "configuration_required"
-        else:
-            ext["status"] = "loaded"
+        ext["status"] = "loaded"
+        try:
+            if ext["extension"].configuration_required():
+                ext["status"] = "configuration_required"
+        except AttributeError:
+            pass # If `configuration_required` is missing, assume no action is needed
     except ImportError as err:
         # TODO: think of a method that is less platform-specific!
         if hasattr(err, "of_raspbian_install_script"):
@@ -54,45 +40,47 @@ def load_extension_dict(entry_point):
         else:
             ext["status"] = "broken"
         ext["import_error"] = err
+    except Exception as e: # pylint: disable=W0703
+        ext["status"] = "broken"
+        ext["import_error"] = e
     return ext
 
 
-def find_and_load_extensions():
-    """Locate all extensions that declare themselves as entry points.
-    
-    Each extension will be loaded, to determine if it can load, and whether
-    further configuration is needed.
-    """
-    entry_points = entry_point_list(EXTENSION_GROUP_NAME)
-    return [load_extension_dict(p) for p in entry_points]
-
-
-def filter_extension_list(extensions, status):
+def filter_extension_list(extensions, status=None, config=None):
     """Return a subset of extensions matching a particular status"""
-    return [ext for ext in extensions if ext["status"] == status]
+    return [
+        ext for ext in extensions 
+            if ext["status"] == status or status is None
+            if ext["config"] == config or config is None
+        ]
+
 
 def print_extension_list(extensions):
-    """Pretty-print a list of extensions from the output of `find_and_load_extensions`"""
+    """Pretty-print a list of extension status dictionaries"""
     for ext in extensions:
-            print(f"* {ext['name']}: {ext['status']} (from {ext['value']})")
+            print(f"* {ext['name']}: {ext['status']}, {ext['config']} (from {ext['value']})")
+
 
 def print_extensions_by_status(extensions):
     """Print extensions, sorted by their status."""
-    for status, message in [
-        ("loaded", "The following extensions are installed and could be loaded:"),
-        ("broken", "The following extensions are installed but cannot be loaded or automatically fixed:"),
-        ("install_script_required", "The following extensions cannot be loaded, but suggest a script that could fix them:"),
-        ("configuration_required", "The following extensions require configuration before they will work properly:")
+    for status, config, message in [
+        ("loaded", None, "The following extensions are installed and could be loaded:"),
+        ("broken", None, "The following extensions are installed but cannot be loaded or automatically fixed:"),
+        ("install_script_required", None, "The following extensions cannot be loaded, but suggest a script that could fix them:"),
+        ("configuration_required", None, "The following extensions require configuration before they will work properly:"),
+        (None, "missing from config", "The following extensions are neither enabled nor explicitly disabled:")
     ]:
-        subset = filter_extension_list(extensions, status)
+        subset = filter_extension_list(extensions, status=status, config=config)
         if len(subset) > 0:
             print(message)
             print_extension_list(subset)
             print()
 
+
 def yes_no_prompt():
     """Ask for a yes/no answer on the command line."""
     return input("(enter Y or N):").tolower().startswith("y")
+
 
 def run_installation_commands(extensions, skip_admin_check=False):
     """For each extension, if it suggests running a command so it can load, interactively run that command."""
@@ -150,8 +138,14 @@ def check_extensions_cmd():
     """Check available extensions, and list their status (for the command line utility)"""
     parser = argparse.ArgumentParser(description="""Check available extensions, showing which can be loaded and which require attention.""")
     parser.add_argument("-u", "--user", action="store_true", help="Skip the check for administrative privileges (use if your installation is user-writeable).")
+    parser.add_argument("-a", "--all", action="store_true", help="Attempt to load all plugins, rather than just the enabled ones")
     args = parser.parse_args()
-    extensions = find_and_load_extensions()
+
+    if args.all:
+        entry_points = extension_entry_points()
+    else:
+        entry_points = entry_points_from_list(config.extensions_enabled(), fail_on_missing=True)
+    extensions = [load_extension_dict(p) for p in entry_points]
 
     print("The following extensions were found:")
     print_extension_list(extensions)
@@ -175,7 +169,7 @@ def check_extensions_cmd():
 
 
 def install_extension_cmd():
-    """Install a Python package, then check for extensions that need to be fixed or enabled."""
+    """Install a Python package, then check for new extensions that need to be fixed or enabled."""
     parser = argparse.ArgumentParser(description="Install an extension from a Python package via pip")
     parser.add_argument("package_name", help="The name of the package to install, as expected by pip")
     parser.add_argument("-u", "--user", action="store_true", help="Skip the check for administrative privileges (use if your installation is user-writeable).")
@@ -183,7 +177,7 @@ def install_extension_cmd():
     if not args.user:
         ensure_root_privileges()
 
-    preinstall_eps = entry_point_list(EXTENSION_GROUP_NAME)
+    preinstall_eps = extension_entry_points()
     try:
         print(f"Installing '{args.package_name}'...")
         completed_process = subprocess.run(["pip", "install", args.package_name])
@@ -191,7 +185,7 @@ def install_extension_cmd():
     except subprocess.CalledProcessError:
         print("The installation command failed: see output above for details.")
         exit(completed_process.returncode)
-    postinstall_eps = entry_point_list(EXTENSION_GROUP_NAME)
+    postinstall_eps = extension_entry_points()
     new_eps = [ep for ep in postinstall_eps if ep not in preinstall_eps]
     if len(new_eps) == 0:
         print(
@@ -204,8 +198,39 @@ def install_extension_cmd():
     print_extension_list(new_extensions)
     print()
     run_installation_commands(new_extensions, skip_admin_check=args.user)
+    new_extensions = [load_extension_dict(p) for p in new_eps] # reload, in case some are now fixed
     configure_extensions(new_extensions, skip_admin_check=args.user)
+    new_extensions = [load_extension_dict(p) for p in new_eps] # reload, in case some are now fixed
+    for ext in new_extensions:
+        if ext["status"] == "loaded":
+            config.enable_extension(ext["value"])
+            print(f"Enabled extension {ext['value']}")
+        else:
+            config.disable_extension(ext["value"])
+            print(f"Disabled extension {ext['value']} as it's not loadable")
+            
+
     print("All done :)")
+
+def enable_disable_extension_cmd(action: str):
+    parser = argparse.ArgumentParser(description=f"{action} a microscope extension.")
+    parser.add_argument("entry_point", help="The module and object of the extension, in the format module.submodule:ClassName.")
+    args = parser.parse_args()
+    try:
+        _ = entry_points_from_list([args.entry_point], fail_on_missing=True)
+    except ValueError:
+        print("The entry point you specified was not found.  Valid entry points are listed below:")
+        for ep in extension_entry_points():
+            print(ep.value)
+    
+    if action=="enable":
+        config.enable_extension(args.entry_point)
+    elif action=="disable":
+        config.disable_extension(args.entry_point)
+def enable_extension_cmd():
+    enable_disable_extension_cmd("enable")
+def disable_extension_cmd():
+    enable_disable_extension_cmd("disable")
 
 if __name__ == "__main__":
     check_extensions_cmd()

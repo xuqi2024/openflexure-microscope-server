@@ -30,8 +30,11 @@ from labthings import create_app
 from labthings.extensions import find_extensions
 from labthings.views import View
 
-from openflexure_microscope.api.utilities import init_default_extensions, list_routes
+from openflexure_microscope import extensions
+from openflexure_microscope.api.utilities import list_routes
 from openflexure_microscope.api.v2 import views
+from openflexure_microscope.config import user_configuration
+from openflexure_microscope.extensions.manage import load_extensions_from_list
 from openflexure_microscope.json import JSONEncoder
 from openflexure_microscope.microscope import Microscope
 from openflexure_microscope.paths import (
@@ -117,10 +120,19 @@ app.json_encoder = JSONEncoder
 labthing.add_component(api_microscope, "org.openflexure.microscope")
 
 # Attach extensions
-if not os.path.isfile(OPENFLEXURE_EXTENSIONS_PATH):
-    init_default_extensions(OPENFLEXURE_EXTENSIONS_PATH)
-for extension in find_extensions(OPENFLEXURE_EXTENSIONS_PATH):
-    labthing.register_extension(extension)
+# New-style extensions are explicitly enabled in the configuration file
+extensions = extensions.find.entry_points_from_list(api_microscope.configuration["extensions_enabled"])
+for entrypoint in extensions:
+    extension_class = entrypoint.load()
+    labthing.register_extension(extension_class())
+# This loads old-style extensions and is deprecated
+if os.path.isfile(OPENFLEXURE_EXTENSIONS_PATH):
+    for extension in find_extensions(OPENFLEXURE_EXTENSIONS_PATH):
+        logging.warning(
+            f"Using an old-style extension {extension.__name__}.  "
+            "Support for this will be removed in the future."
+        )
+        labthing.register_extension(extension)
 
 # Attach captures resources
 labthing.add_view(views.CaptureList, "/captures")

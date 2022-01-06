@@ -70,19 +70,3 @@ def create_file(config_path: str):
             if exc.errno != errno.EEXIST:
                 raise
 
-
-def init_default_extensions(extension_dir: str):
-    os.makedirs(extension_dir, exist_ok=True)
-
-    default_ext_path = os.path.join(extension_dir, "defaults.py")
-
-    if not os.path.isfile(default_ext_path):  # If user extensions file doesn't exist
-        logging.warning("No extension file found at %s. Creating...", (extension_dir))
-        create_file(default_ext_path)
-
-        logging.info("Populating %s...", (default_ext_path))
-        with open(default_ext_path, "w") as outfile:
-            outfile.write(_DEFAULT_EXTENSION_INIT)
-
-
-_DEFAULT_EXTENSION_INIT = "from openflexure_microscope.api.default_extensions import *"
