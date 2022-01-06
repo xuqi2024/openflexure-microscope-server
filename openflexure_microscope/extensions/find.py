@@ -10,6 +10,7 @@ except ImportError:
 
 EXTENSION_GROUP_NAME = "openflexure_microscope_extensions"
 
+
 def extension_entry_points(group_name=EXTENSION_GROUP_NAME):
     """Return a list of entry points in a particular group.
     
@@ -37,7 +38,7 @@ def entry_points_from_list(entry_point_values, fail_on_missing=False):
     value is not matched.  The default logs an error but continues
     with other entry points.
     """
-    #TODO: deduplicate with utilities:load_entrypoint
+    # TODO: deduplicate with utilities:load_entrypoint
     available_eps = extension_entry_points()
     entry_points = []
     for v in entry_point_values:

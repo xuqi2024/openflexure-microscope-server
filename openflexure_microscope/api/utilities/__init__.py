@@ -15,7 +15,6 @@ __all__ = [
     "get_bool",
     "list_routes",
     "create_file",
-    "init_default_extensions",
 ]
 
 
@@ -69,4 +68,3 @@ def create_file(config_path: str):
         except OSError as exc:  # Guard against race condition
             if exc.errno != errno.EEXIST:
                 raise
-

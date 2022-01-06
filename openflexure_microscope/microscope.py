@@ -2,13 +2,11 @@
 """
 Defines a microscope object, binding a camera and stage with basic functionality.
 """
-from json import load
 import logging
 import uuid
 from typing import Dict, List, Optional, Tuple, Union
 
 import pkg_resources
-
 from expiringdict import ExpiringDict
 
 from openflexure_microscope.camera.base import BaseCamera
@@ -156,7 +154,6 @@ class Microscope:
         self.stage = stage_class(port=stage_port)
         configuration["stage"]["type"] = stage_type
         self.configuration_file.save(configuration)
-
 
     def has_real_stage(self) -> bool:
         """

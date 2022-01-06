@@ -96,7 +96,7 @@ setup(
             "ofm-install-extension=openflexure_microscope.extensions.manage:install_extension_cmd",
             "ofm-enable-extension=openflexure_microscope.extensions.manage:enable_extension_cmd",
             "ofm-disable-extension=openflexure_microscope.extensions.manage:disable_extension_cmd",
-            "ofm-check-extensions=openflexure_microscope.extensions.manage:check_extensions_cmd"
+            "ofm-check-extensions=openflexure_microscope.extensions.manage:check_extensions_cmd",
         ],
         "openflexure_microscope_stages": [
             "ofm-missing-stage=openflexure_microscope.stage.mock:MissingStage",
@@ -110,7 +110,7 @@ setup(
             "ofm-autostorage=openflexure_microscope.api.default_extensions.autostorage:AutostorageExtension",
             "ofm-picamera-autocalibrate=openflexure_microscope.api.default_extensions.picamera_autocalibrate:LSTExtension",
             "ofm-camera-stage-mapping=openflexure_microscope.api.default_extensions.camera_stage_mapping:CSMExtension",
-        ]
+        ],
     },
     project_urls={
         "Source": "https://gitlab.com/openflexure/openflexure-microscope-server"

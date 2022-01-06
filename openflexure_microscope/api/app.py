@@ -33,8 +33,6 @@ from labthings.views import View
 from openflexure_microscope import extensions
 from openflexure_microscope.api.utilities import list_routes
 from openflexure_microscope.api.v2 import views
-from openflexure_microscope.config import user_configuration
-from openflexure_microscope.extensions.manage import load_extensions_from_list
 from openflexure_microscope.json import JSONEncoder
 from openflexure_microscope.microscope import Microscope
 from openflexure_microscope.paths import (
@@ -121,7 +119,9 @@ labthing.add_component(api_microscope, "org.openflexure.microscope")
 
 # Attach extensions
 # New-style extensions are explicitly enabled in the configuration file
-extensions = extensions.find.entry_points_from_list(api_microscope.configuration["extensions_enabled"])
+extensions = extensions.find.entry_points_from_list(
+    api_microscope.configuration["extensions_enabled"]
+)
 for entrypoint in extensions:
     extension_class = entrypoint.load()
     labthing.register_extension(extension_class())

@@ -35,7 +35,9 @@ def load_entrypoint(value: str, group: str):
     try:
         available_entrypoints = metadata.entry_points()[group]
     except KeyError as e:
-        raise KeyError(f"There don't appear to be any entry points in group '{group}'.")
+        raise KeyError(
+            f"There don't appear to be any entry points in group '{group}'."
+        ) from e
     for ep in available_entrypoints:
         if ep.value == value:
             return ep.load()
@@ -52,7 +54,9 @@ def running_as_root():
 def ensure_root_privileges():
     """Check if we are running as root, and fail with an error if we are not."""
     if not running_as_root():
-        print("Error: this command must be run as root.  You may need to prefix this command with 'sudo'.")
+        print(
+            "Error: this command must be run as root.  You may need to prefix this command with 'sudo'."
+        )
         exit(-1)
 
 
