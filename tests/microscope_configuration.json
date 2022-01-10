@@ -1,0 +1,19 @@
+{
+  "camera": {
+    "type": "PiCamera"
+  },
+  "extensions_disabled": [
+  ],
+  "extensions_enabled": [
+    "openflexure_microscope.api.default_extensions.autofocus:AutofocusExtension",
+    "openflexure_microscope.api.default_extensions.autostorage:AutostorageExtension",
+    "openflexure_microscope.api.default_extensions.camera_stage_mapping:CSMExtension",
+    "openflexure_microscope.api.default_extensions.scan:ScanExtension",
+    "openflexure_microscope.api.default_extensions.zip_builder:ZipBuilderExtension",
+    "openflexure_microscope.api.default_extensions.picamera_autocalibrate:LSTExtension"
+  ],
+  "stage": {
+    "port": null,
+    "type": "openflexure_microscope.stage.mock:MissingStage"
+  }
+}
