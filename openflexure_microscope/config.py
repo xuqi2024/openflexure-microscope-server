@@ -4,6 +4,7 @@ import logging
 import os
 import shutil
 
+from .extensions.find import extension_entry_points
 from .json import JSONEncoder
 from .paths import CONFIGURATION_FILE_PATH, SETTINGS_FILE_PATH
 
@@ -162,6 +163,15 @@ user_configuration = OpenflexureSettingsFile(
     path=CONFIGURATION_FILE_PATH,
     defaults={
         "camera": {"type": "PiCamera"},
-        "stage": {"type": "openflexure_microscope.stage.sanga:SangaStage", "port": None},
+        "stage": {
+            "type": "openflexure_microscope.stage.sanga:SangaStage",
+            "port": None,
+        },
+        "extensions_enabled": [
+            ep.value
+            for ep in extension_entry_points()
+            if ep.value.startswith("openflexure_microscope.api.default_extensions")
+        ],
+        "extensions_disabled": [],
     },
 )

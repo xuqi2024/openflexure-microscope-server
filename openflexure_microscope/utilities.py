@@ -1,6 +1,7 @@
 import base64
 import copy
 import logging
+import os
 import sys
 import time
 from contextlib import contextmanager
@@ -10,7 +11,8 @@ from typing import Dict, List, Optional, Sequence, Tuple, Type, Union
 try:
     from importlib import metadata
 except ImportError:
-    import importlib_metadata as metadata
+    logging.info("importlib.metadata not present, using importlib_metadata")
+    import importlib_metadata as metadata  # type: ignore
 
 import numpy as np
 
@@ -32,15 +34,31 @@ def load_entrypoint(value: str, group: str):
     A loaded entry point is returned.
     """
     try:
-        available_stages = metadata.entry_points()[group]
+        available_entrypoints = metadata.entry_points()[group]  # type: ignore
     except KeyError as e:
-        raise KeyError(f"There don't appear to be any entry points in group '{group}'.")
-    for ep in available_stages:
+        raise KeyError(
+            f"There don't appear to be any entry points in group '{group}'."
+        ) from e
+    for ep in available_entrypoints:
         if ep.value == value:
             return ep.load()
     raise ValueError(
         f"Tried to load '{value}' from entry point group '{group}' but it wasn't found."
     )
+
+
+def running_as_root():
+    """Return true if we are currently running as root."""
+    return os.getuid() == 0
+
+
+def ensure_root_privileges():
+    """Check if we are running as root, and fail with an error if we are not."""
+    if not running_as_root():
+        print(
+            "Error: this command must be run as root.  You may need to prefix this command with 'sudo'."
+        )
+        exit(-1)
 
 
 class Timer(object):
