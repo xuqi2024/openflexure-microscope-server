@@ -98,26 +98,14 @@ class Microscope:
         Attach microscope components based on initially passed configuration file
         """
 
-        ### Detector
+        ### Camera
         logging.info("Creating camera")
-        if configuration.get("camera"):
-            camera_type = configuration["camera"].get("type")
-            if camera_type in ("PiCamera", "PiCameraStreamer"):
-                try:
-                    self.camera = PiCameraStreamer()
-                except Exception as e:  # pylint: disable=W0703
-                    logging.error(e)
-                    logging.warning("No compatible camera hardware found.")
+        camera_type = configuration["camera"].get("type")
+        camera_class = load_entrypoint(camera_type, "openflexure_microscope.cameras")
+        self.camera = camera_class()
 
         ### Stage
         self.set_stage(configuration=configuration)
-
-        logging.info("Handling fallbacks")
-        ### Fallbacks
-        if not self.camera:
-            self.camera = MissingCamera()
-        if not self.stage:
-            self.stage = MissingStage()
 
         ### Locks
         logging.info("Creating locks")
@@ -150,7 +138,7 @@ class Microscope:
         logging.info("Setting stage")
         stage_port = configuration["stage"].get("port")
 
-        stage_class = load_entrypoint(stage_type, "openflexure_microscope_stages")
+        stage_class = load_entrypoint(stage_type, "openflexure_microscope.stages")
 
         logging.info(f"Attempting to instantiate stage '{stage_type}'")
         self.stage = stage_class(port=stage_port)
