@@ -1,10 +1,8 @@
 #!/usr/bin/env python
-import argparse
 import atexit
 import logging
-import time
-
 import os
+import time
 
 import pkg_resources
 from flask import abort
@@ -12,9 +10,11 @@ from flask_cors import CORS, cross_origin
 from labthings import create_app
 from labthings.extensions import find_extensions
 
+from openflexure_microscope import extensions
+from openflexure_microscope.api import openapi
+
 # `logging_configuration` performs log file setup as an import side-effect
 from openflexure_microscope.api.logging_configuration import log_level
-from openflexure_microscope import extensions
 from openflexure_microscope.api.utilities import list_routes
 from openflexure_microscope.api.v2 import views
 from openflexure_microscope.json import JSONEncoder
@@ -23,9 +23,6 @@ from openflexure_microscope.paths import (
     OPENFLEXURE_EXTENSIONS_PATH,
     OPENFLEXURE_VAR_PATH,
 )
-
-from openflexure_microscope.api import openapi
-
 
 # Log server paths being used
 logging.info("Running with data path %s", OPENFLEXURE_VAR_PATH)
@@ -135,12 +132,15 @@ def ofm_serve():
 
     logging.info("Starting OpenFlexure Microscope Server...")
     server: Server = Server(app)
-    server.run(host="0.0.0.0", port=5000, debug=log_level==logging.DEBUG, zeroconf=True)
+    server.run(
+        host="0.0.0.0", port=5000, debug=log_level == logging.DEBUG, zeroconf=True
+    )
 
 
 def generate_openapi():
     """Generate an OpenAPI description and save as a file"""
     openapi.generate_openapi_from_labthing(labthing)
+
 
 # Start the app if the module is run directly
 if __name__ == "__main__":

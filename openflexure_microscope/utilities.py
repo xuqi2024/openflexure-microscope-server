@@ -49,7 +49,7 @@ def load_entrypoint(value: str, group: str):
 
 def running_as_root():
     """Return true if we are currently running as root."""
-    return os.getuid() == 0
+    return os.getuid() == 0  # pylint: disable=E1101 (getuid is missing on Windows)
 
 
 def ensure_root_privileges():

@@ -1,10 +1,12 @@
+from openflexure_microscope.api.logging_configuration import LogFileView
+
 from .actions import enabled_root_actions
 from .camera import *
 from .captures import *
 from .instrument import *
 from .stage import *
 from .streams import *
-from openflexure_microscope.api.logging_configuration import LogFileView
+
 
 def add_views_to_labthing(labthing):
     # Attach captures resources
@@ -40,7 +42,7 @@ def add_views_to_labthing(labthing):
     labthing.add_view(SnapshotStream, "/streams/snapshot")
 
     # Attach microscope action resources
-    for name, action in enabled_root_actions().items():
+    for _, action in enabled_root_actions().items():
         view_class = action["view_class"]
         rule = action["rule"]
         labthing.add_view(view_class, f"/actions{rule}")

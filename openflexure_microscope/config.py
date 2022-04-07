@@ -162,13 +162,10 @@ user_settings = OpenflexureSettingsFile(path=SETTINGS_FILE_PATH)
 user_configuration = OpenflexureSettingsFile(
     path=CONFIGURATION_FILE_PATH,
     defaults={
-        "camera": {
-            "type": "openflexure_microscope.camera.pi:PiCameraStreamer"},
+        "camera": {"type": "openflexure_microscope.camera.pi:PiCameraStreamer"},
         "stage": {
             "type": "openflexure_microscope.stage.sanga:SangaStage",
-            "init_kwargs": {
-                "port": None
-            },
+            "init_kwargs": {"port": None},
         },
         "extensions_enabled": [
             ep.value

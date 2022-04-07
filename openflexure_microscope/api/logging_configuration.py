@@ -11,8 +11,8 @@ import logging
 import logging.handlers
 import sys
 
-from labthings.views import View
 from flask import send_file
+from labthings.views import View
 
 from openflexure_microscope.paths import logs_file_path
 
@@ -61,9 +61,13 @@ access_log: logging.Logger = logging.getLogger("werkzeug")
 access_log.propagate = False
 
 # Create error log file handler
-fh: logging.Handler = CustomRotatingFileHandler(ROOT_LOGFILE, debug=log_level==logging.DEBUG)
+fh: logging.Handler = CustomRotatingFileHandler(
+    ROOT_LOGFILE, debug=log_level == logging.DEBUG
+)
 # Create access log file handler
-afh: logging.Handler = CustomRotatingFileHandler(ACCESS_LOGFILE, debug=log_level==logging.DEBUG)
+afh: logging.Handler = CustomRotatingFileHandler(
+    ACCESS_LOGFILE, debug=log_level == logging.DEBUG
+)
 # Add file handler to root logger
 root_log.addHandler(fh)
 access_log.addHandler(afh)
@@ -74,7 +78,7 @@ class LogFileView(View):
         """
         Most recent 1mb of log output
         """
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         return send_file(
             ROOT_LOGFILE,
             as_attachment=True,

@@ -8,23 +8,19 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import pkg_resources
 from expiringdict import ExpiringDict
+from labthings import CompositeLock
 
 from openflexure_microscope.camera.base import BaseCamera
 from openflexure_microscope.camera.mock import MissingCamera
 from openflexure_microscope.captures import THUMBNAIL_SIZE, CaptureManager
-from openflexure_microscope.config import OpenflexureSettingsFile
+from openflexure_microscope.config import (
+    OpenflexureSettingsFile,
+    user_configuration,
+    user_settings,
+)
 from openflexure_microscope.stage.base import BaseStage
 from openflexure_microscope.stage.mock import MissingStage
 from openflexure_microscope.utilities import load_entrypoint
-
-try:
-    from openflexure_microscope.camera.pi import PiCameraStreamer
-except Exception as exc:  # pylint: disable=W0703
-    logging.error(exc)
-    logging.warning("Unable to import PiCameraStreamer")
-from labthings import CompositeLock
-
-from openflexure_microscope.config import user_configuration, user_settings
 
 
 class Microscope:
