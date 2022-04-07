@@ -98,12 +98,16 @@ setup(
             "ofm-disable-extension=openflexure_microscope.extensions.manage:disable_extension_cmd",
             "ofm-check-extensions=openflexure_microscope.extensions.manage:check_extensions_cmd",
         ],
-        "openflexure_microscope_stages": [
+        "openflexure_microscope.stages": [
             "ofm-missing-stage=openflexure_microscope.stage.mock:MissingStage",
             "ofm-sanga-stage=openflexure_microscope.stage.sanga:SangaStage",
             "ofm-sanga-delta-stage=openflexure_microscope.stage.sanga:SangaDeltaStage",
         ],
-        "openflexure_microscope_extensions": [
+        "openflexure_microscope.cameras": [
+            "ofm-missing-camera=openflexure_microscope.camera.mock:MissingCamera",
+            "ofm-pi-camera=openflexure_microscope.camera.pi:PiCameraStreamer",
+        ],
+        "labthings.extensions": [
             "ofm-autofocus=openflexure_microscope.api.default_extensions.autofocus:AutofocusExtension",
             "ofm-scan=openflexure_microscope.api.default_extensions.scan:ScanExtension",
             "ofm-zipbuilder=openflexure_microscope.api.default_extensions.zip_builder:ZipBuilderExtension",
