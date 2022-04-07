@@ -6,7 +6,7 @@ from openflexure_microscope.utilities import (  # this is importlib.metadata, wi
     metadata,
 )
 
-EXTENSION_GROUP_NAME = "openflexure_microscope_extensions"
+EXTENSION_GROUP_NAME = "labthings.extensions"
 
 
 def extension_entry_points(group_name=EXTENSION_GROUP_NAME):
