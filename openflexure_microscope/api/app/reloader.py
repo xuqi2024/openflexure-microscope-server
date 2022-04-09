@@ -67,7 +67,7 @@ class AppReloader(object):
 
     def __call__(self, environ, start_response):
         """Pass WSGI calls through to the app"""
-        return self.app(environ, start_response)  # pylint disable=E1102
+        return self.app(environ, start_response)  # pylint: disable=E1102
 
     def app_context(self):
         """Pass through app_context() calls to the app"""

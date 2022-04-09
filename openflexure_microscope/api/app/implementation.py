@@ -20,7 +20,6 @@ from labthings.extensions import BaseExtension
 from openflexure_microscope.api import openapi
 
 # `logging_configuration` performs log file setup as an import side-effect
-from openflexure_microscope.api.logging_configuration import log_level
 from openflexure_microscope.api.utilities import list_routes
 from openflexure_microscope.api.v2 import views
 from openflexure_microscope.extensions.load import load_extensions
