@@ -4,8 +4,11 @@ import logging
 import os
 
 from labthings.extensions import find_extensions
+
 from openflexure_microscope.paths import OPENFLEXURE_EXTENSIONS_PATH
+
 from . import find
+
 
 def load_extensions(config):
     """Load extensions defined in config file and folder

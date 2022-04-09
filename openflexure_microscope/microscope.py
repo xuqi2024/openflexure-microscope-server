@@ -4,8 +4,8 @@ Defines a microscope object, binding a camera and stage with basic functionality
 """
 import atexit
 import logging
-import uuid
 import time
+import uuid
 from typing import Dict, List, Optional, Tuple, Union
 
 import pkg_resources

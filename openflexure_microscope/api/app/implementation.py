@@ -9,13 +9,13 @@ This module should not have import-time side-effects.
 
 #!/usr/bin/env python
 import logging
+from typing import List, Tuple
 
 import pkg_resources
-from flask import abort, Flask
+from flask import Flask, abort
 from flask_cors import CORS
-from labthings import create_app, LabThing
+from labthings import LabThing, create_app
 from labthings.extensions import BaseExtension
-from typing import List, Tuple
 
 from openflexure_microscope.api import openapi
 
@@ -47,9 +47,10 @@ def load_hardware_and_extensions() -> Tuple[Flask, List[BaseExtension]]:
     extensions = load_extensions(api_microscope.configuration)
     return api_microscope, extensions
 
+
 def create_app_and_labthing(
-    api_microscope: Microscope, 
-    extensions: List[BaseExtension]) -> Tuple[Flask, LabThing]:
+    api_microscope: Microscope, extensions: List[BaseExtension]
+) -> Tuple[Flask, LabThing]:
     """Create the labthing and flask application
     
     After successfully loading the hardware/extensions according

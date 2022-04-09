@@ -2,10 +2,10 @@
 import logging
 import threading
 import time
+from typing import Optional
 
 from flask import Flask
 from labthings import LabThing
-from typing import Optional
 
 
 class AppReloader(object):
@@ -21,6 +21,7 @@ class AppReloader(object):
     and the app and labthing will be deleted and recreated on the next
     HTTP request.
     """
+
     _app: Optional[Flask] = None
     _labthing: Optional[LabThing] = None
     _to_reload: bool = True
@@ -43,7 +44,7 @@ class AppReloader(object):
                 time.sleep(1)
                 self._app, self._labthing = self.factory_function()
                 self._to_reload = False
-    
+
     def request_reload(self):
         """Trigger a reload on the next request"""
         logging.info("A server reload has been triggered")

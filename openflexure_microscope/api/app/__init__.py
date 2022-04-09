@@ -1,15 +1,15 @@
 #!/usr/bin/env python
+import atexit
 import logging
 import threading
 import time
+from typing import List, Optional, Tuple
 
-import atexit
 import pkg_resources
-from flask import abort, Flask
+from flask import Flask, abort
 from flask_cors import CORS, cross_origin
-from labthings import create_app, LabThing
+from labthings import LabThing, create_app
 from labthings.extensions import BaseExtension
-from typing import List, Tuple, Optional
 
 from openflexure_microscope.api import openapi
 
@@ -20,10 +20,9 @@ from openflexure_microscope.api.v2 import views
 from openflexure_microscope.extensions.load import load_extensions
 from openflexure_microscope.json import JSONEncoder
 from openflexure_microscope.microscope import Microscope
-from openflexure_microscope.paths import (
-    OPENFLEXURE_VAR_PATH,
-)
-from .implementation import load_hardware_and_extensions, create_app_and_labthing
+from openflexure_microscope.paths import OPENFLEXURE_VAR_PATH
+
+from .implementation import create_app_and_labthing, load_hardware_and_extensions
 from .reloader import AppReloader
 
 # Log server paths being used
