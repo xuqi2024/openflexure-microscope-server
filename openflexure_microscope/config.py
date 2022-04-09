@@ -173,5 +173,6 @@ user_configuration = OpenflexureSettingsFile(
             if ep.value.startswith("openflexure_microscope.api.default_extensions")
         ],
         "extensions_disabled": [],
+        "enable_legacy_extensions_folder": True,
     },
 )
