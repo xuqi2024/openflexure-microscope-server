@@ -19,7 +19,7 @@ def load_extensions(config):
     corresponding option is set in the config file.
     """
     extensions = []
-    handler = ConfigurableComponentErrorHandler()
+    handler = ConfigurableComponentErrorHandler("extensions")
     # New-style extensions are explicitly enabled in the configuration file
     extension_entry_points = find.entry_points_from_list(
         config.get("extensions_enabled", [])

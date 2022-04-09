@@ -214,10 +214,34 @@ class ConfigurableComponentFailedToLoad(RuntimeError):
     and we want to know which one(s) failed.
     """
     loaded_components_and_errors = None
-    def __init__(self, loaded_components_and_errors: dict):
+    def __init__(
+        self, 
+        loaded_components_and_errors: dict,
+        handler_name: Optional[str] = None):
         super().__init__(self)
         self.loaded_components_and_errors = loaded_components_and_errors
+        self.hander_name = handler_name
 
+    @property
+    def summary(self):
+        """A summary of which components failed, as a multiline string."""
+        summary = f"Attempted to load {self.hander_name} components:\n"
+        for k, v in self.loaded_components_and_errors.items():
+            if v["loaded"]:
+                summary += f"[ OK ] {k}\n"
+            else:
+                summary += f"[FAIL] {k}\n"
+        return summary
+
+    @property
+    def json_safe_dict(self):
+        """A JSON-safe dictionary describing the componenents"""
+        sanitised_errors = {}
+        for k, v in self.loaded_components_and_errors.items():
+            sanitised_errors[k] = v.copy()
+            if "exception" in v:
+                sanitised_errors["k"]["exception"] = str(v["exception"])
+        return sanitised_errors
 
 class ConfigurableComponentErrorHandler:
     """Try multiple steps and capture errors
@@ -237,10 +261,11 @@ class ConfigurableComponentErrorHandler:
        with handler.try_component("second component"):
            load_second_component()
        handler.raise_errors()
-       
+
     """
-    def __init__(self):
+    def __init__(self, name: Optional[str]=None):
         self.results = {}
+        self.name = name
 
     @contextmanager
     def try_component(self, name: str):
@@ -267,4 +292,4 @@ class ConfigurableComponentErrorHandler:
         easily tell which one failed.
         """
         if any((v["loaded"] != True for v in self.results.values())):
-            raise ConfigurableComponentFailedToLoad(self.results)
+            raise ConfigurableComponentFailedToLoad(self.results, handler_name=self.name)

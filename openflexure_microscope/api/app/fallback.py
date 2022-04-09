@@ -1,7 +1,6 @@
 #!/usr/bin/env python
-import contextlib
+import json
 import logging
-import traceback
 from typing import List, Tuple
 
 import pkg_resources
@@ -11,12 +10,9 @@ from labthings import LabThing, create_app
 
 # `logging_configuration` performs log file setup as an import side-effect
 from openflexure_microscope.api.logging_configuration import log_level
+from openflexure_microscope.api.v2.views import LogFileView
 from openflexure_microscope.json import JSONEncoder
 from openflexure_microscope.config import user_configuration
-from openflexure_microscope.paths import (
-    OPENFLEXURE_EXTENSIONS_PATH,
-    OPENFLEXURE_VAR_PATH,
-)
 from openflexure_microscope.utilities import ConfigurableComponentFailedToLoad
 
 
@@ -27,6 +23,14 @@ FALLBACK_HTML_PAGE = """
         <p>
             The server could not start, most likely because of an error in config.json.  In the future, this page should tell you what is wrong, but for now please log in using SSH and run <pre>ofm log</pre> to see the log.
         </p>
+        <h2>Summary of the errors</h2>
+<pre>
+{{error_summary}}
+</pre>
+        <h2>Current configuration</h2>
+<pre>
+{{config}}
+</pre>
     </body>
 </html>
 """
@@ -53,21 +57,26 @@ def create_fallback_app_and_labthing(e: ConfigurableComponentFailedToLoad) -> Tu
     labthing.json_encoder = JSONEncoder
     app.json_encoder = JSONEncoder
 
-    config = user_configuration.load()
+    config_dict = user_configuration.load()
+
+    labthing.add_view(LogFileView, "/log")
     
     # Serve the built-in web app at the root of the webserver
     @app.route("/")
     def openflexure_ev():
-        return render_template_string(FALLBACK_HTML_PAGE)
+        return render_template_string(
+            FALLBACK_HTML_PAGE, 
+            error_summary=e.summary,
+            config=json.dumps(config_dict, indent=2),
+        )
 
     @app.route("/component_errors.json")
     def error_as_json():
-        sanitised_errors = {}
-        for k, v in e.loaded_components_and_errors.items():
-            sanitised_errors[k] = {
-                k: v.get(k, None) for k in ["loaded", "traceback"]
-            }
-        return sanitised_errors
+        return e.json_safe_dict
+
+    @app.route("/config.json")
+    def config_endpoint():
+        return config_dict
 
     @app.route("/api/v1/", defaults={"path": ""})
     @app.route("/api/<path:path>")
@@ -76,7 +85,7 @@ def create_fallback_app_and_labthing(e: ConfigurableComponentFailedToLoad) -> Tu
             500,
             "The microscope server could not start due to plugins or extensions failing to load."
             "  You most likely need to reset the configuration file.  "
-            "See /errors.json or the HTML page at / for details.",
+            "See /component_errors.json or the HTML page at / for details.",
         )
 
     return app, labthing

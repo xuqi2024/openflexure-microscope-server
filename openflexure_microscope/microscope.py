@@ -127,12 +127,12 @@ class Microscope:
         """
         Attach microscope components based on initially passed configuration file
         """
-        handler = ConfigurableComponentErrorHandler()  # Try camera *and* stage
+        handler = ConfigurableComponentErrorHandler("microscope hardware")  # Try camera *and* stage
         with handler.try_component("camera"):
             self.camera = self.load_camera(configuration)
         with handler.try_component("stage"):
             self.stage = self.load_stage(configuration)
-        handler.raise_errors()                         # Raise error if either failed
+        handler.raise_errors()                                              # Raise error if either failed
 
         ### Locks
         logging.info("Creating locks")

@@ -38,7 +38,7 @@ def create_app_and_labthing_with_fallback() -> Tuple[Flask, LabThing]:
         print("")
         print("This may be fixable by altering your configuration.")
         print("Errors are summarised below:")
-        print(e.loaded_components_and_errors)
+        print(e.summary)
         print("Starting fallback server to display the error...")
         return create_fallback_app_and_labthing(e)
 
