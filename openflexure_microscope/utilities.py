@@ -199,13 +199,6 @@ def axes_to_array(
     return base_array
 
 
-
-
-@contextmanager
-def try_and_save_error(dest: dict, key: str):
-    """Context manager that clears and saves exceptions"""
-
-
 class ConfigurableComponentFailedToLoad(RuntimeError):
     """One or more optional/configurable components didn't load
     
@@ -213,11 +206,12 @@ class ConfigurableComponentFailedToLoad(RuntimeError):
     It is used when we're loading several user-defined components,
     and we want to know which one(s) failed.
     """
+
     loaded_components_and_errors = None
+
     def __init__(
-        self, 
-        loaded_components_and_errors: dict,
-        handler_name: Optional[str] = None):
+        self, loaded_components_and_errors: dict, handler_name: Optional[str] = None
+    ):
         super().__init__(self)
         self.loaded_components_and_errors = loaded_components_and_errors
         self.hander_name = handler_name
@@ -240,10 +234,11 @@ class ConfigurableComponentFailedToLoad(RuntimeError):
         for k, v in self.loaded_components_and_errors.items():
             sanitised_errors[k] = v.copy()
             if "exception" in v:
-                sanitised_errors["k"]["exception"] = str(v["exception"])
+                sanitised_errors[k]["exception"] = str(v["exception"])
         return sanitised_errors
 
-class ConfigurableComponentErrorHandler:
+
+class TryMultipleComponents:
     """Try multiple steps and capture errors
     
     This class provides a context manager that allows multiple
@@ -255,17 +250,27 @@ class ConfigurableComponentErrorHandler:
 
     The usage pattern is:
        
-       hander = ConfigurableComponentErrorHandler()
-       with handler.try_component("first component"):
-           load_first_component()
-       with handler.try_component("second component"):
-           load_second_component()
-       handler.raise_errors()
+       with TryMultipleComponents("plugins"):
+           with handler.try_component("first component"):
+               load_first_component()
+           with handler.try_component("second component"):
+               load_second_component()
 
+    Both `with` blocks will be executed, and at the end of the outer
+    block, an exception is raised if either failed.  The exception
+    will include the component names, and the block name.
     """
-    def __init__(self, name: Optional[str]=None):
-        self.results = {}
+
+    def __init__(self, name: Optional[str] = None):
+        self.results: dict = {}
         self.name = name
+
+    def __enter__(self):
+        """Errors will be raised at the end of a with block."""
+        return self
+
+    def __exit__(self, _exc, _value, _traceback):
+        self.raise_errors()
 
     @contextmanager
     def try_component(self, name: str):
@@ -275,7 +280,7 @@ class ConfigurableComponentErrorHandler:
         try:
             yield
             self.results[name] = {"loaded": True}
-        except Exception as e:
+        except Exception as e:  # pylint: disable=W0703
             logging.error(f"Failed loading component: {name}")
             logging.error(format_exc())
             self.results[name] = {
@@ -292,4 +297,6 @@ class ConfigurableComponentErrorHandler:
         easily tell which one failed.
         """
         if any((v["loaded"] != True for v in self.results.values())):
-            raise ConfigurableComponentFailedToLoad(self.results, handler_name=self.name)
+            raise ConfigurableComponentFailedToLoad(
+                self.results, handler_name=self.name
+            )

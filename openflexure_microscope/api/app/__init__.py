@@ -1,8 +1,9 @@
 #!/usr/bin/env python
-from flask import Flask
 from typing import List, Optional, Tuple
 
+from flask import Flask
 from labthings import LabThing
+
 from openflexure_microscope.api import openapi
 from openflexure_microscope.api.app.fallback import create_fallback_app_and_labthing
 
@@ -12,9 +13,9 @@ from openflexure_microscope.api.logging_configuration import log_level, logging
 from openflexure_microscope.paths import OPENFLEXURE_VAR_PATH
 from openflexure_microscope.utilities import ConfigurableComponentFailedToLoad
 
+from .fallback import create_fallback_app_and_labthing
 from .implementation import create_app_and_labthing, load_hardware_and_extensions
 from .reloader import AppReloader
-from .fallback import create_fallback_app_and_labthing
 
 # Log server paths being used
 logging.info("Running with data path %s", OPENFLEXURE_VAR_PATH)

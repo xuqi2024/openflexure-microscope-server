@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import json
 import logging
-from typing import List, Tuple
+from typing import Tuple
 
 import pkg_resources
 from flask import Flask, abort, render_template_string
@@ -11,10 +11,9 @@ from labthings import LabThing, create_app
 # `logging_configuration` performs log file setup as an import side-effect
 from openflexure_microscope.api.logging_configuration import log_level
 from openflexure_microscope.api.v2.views import LogFileView
-from openflexure_microscope.json import JSONEncoder
 from openflexure_microscope.config import user_configuration
+from openflexure_microscope.json import JSONEncoder
 from openflexure_microscope.utilities import ConfigurableComponentFailedToLoad
-
 
 FALLBACK_HTML_PAGE = """
 <html>
@@ -36,14 +35,16 @@ FALLBACK_HTML_PAGE = """
 """
 
 
-def create_fallback_app_and_labthing(e: ConfigurableComponentFailedToLoad) -> Tuple[Flask, LabThing]:
+def create_fallback_app_and_labthing(
+    e: ConfigurableComponentFailedToLoad
+) -> Tuple[Flask, LabThing]:
     """Create a flask app and labthing"""
     # Create flask app
     logging.info("Creating fallback app")
     app, labthing = create_app(
         __name__,
         prefix="/api/v2",
-        title=f"OpenFlexure Microscope Configurator",
+        title="OpenFlexure Microscope",
         description="Configuration error server for the OpenFlexure Microscope",
         types=["org.openflexure.microscope"],
         version=pkg_resources.get_distribution("openflexure-microscope-server").version,
@@ -51,7 +52,7 @@ def create_fallback_app_and_labthing(e: ConfigurableComponentFailedToLoad) -> Tu
     )
 
     # Enable CORS for some routes outside of LabThings
-    cors: CORS = CORS(app)
+    CORS(app)
 
     # Use custom JSON encoder
     labthing.json_encoder = JSONEncoder
@@ -60,12 +61,12 @@ def create_fallback_app_and_labthing(e: ConfigurableComponentFailedToLoad) -> Tu
     config_dict = user_configuration.load()
 
     labthing.add_view(LogFileView, "/log")
-    
+
     # Serve the built-in web app at the root of the webserver
     @app.route("/")
     def openflexure_ev():
         return render_template_string(
-            FALLBACK_HTML_PAGE, 
+            FALLBACK_HTML_PAGE,
             error_summary=e.summary,
             config=json.dumps(config_dict, indent=2),
         )
@@ -90,23 +91,7 @@ def create_fallback_app_and_labthing(e: ConfigurableComponentFailedToLoad) -> Tu
 
     return app, labthing
 
-# The code below is helpful to debug the fallback server.  However,
-# it's worth noting that we will already have imported __init__, and so
-# we'll already have created either a real app or a fallback app.
-# This will most likely have implications for device acquisition, etc.
 
-def fallback_serve():
-    # Start a debug server
-    from labthings import Server
-
-    logging.info("Starting OpenFlexure Microscope Fallback Server manually...")
-    app, labthing = create_fallback_app_and_labthing()
-    server: Server = Server(app)
-    server.run(
-        host="0.0.0.0", port=5000, debug=log_level == logging.DEBUG, zeroconf=True
-    )
-
-
-# Start the app if the module is run directly
-if __name__ == "__main__":
-    fallback_serve()
+# NB it's not a good idea to try to run this with a __name__=="__main__"
+# block, because of the side-effects of the `__init__` module in this
+# folder, which will already create many of the objects in here.

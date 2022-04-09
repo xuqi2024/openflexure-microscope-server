@@ -22,10 +22,11 @@ from openflexure_microscope.config import (
 )
 from openflexure_microscope.stage.base import BaseStage
 from openflexure_microscope.stage.mock import MissingStage
-from openflexure_microscope.utilities import load_entrypoint, ConfigurableComponentErrorHandler
+from openflexure_microscope.utilities import TryMultipleComponents, load_entrypoint
 
 CAMERA_ENTRY_POINT_GROUP = "openflexure_microscope.cameras"
 STAGE_ENTRY_POINT_GROUP = "openflexure_microscope.stages"
+
 
 class Microscope:
     """
@@ -127,12 +128,13 @@ class Microscope:
         """
         Attach microscope components based on initially passed configuration file
         """
-        handler = ConfigurableComponentErrorHandler("microscope hardware")  # Try camera *and* stage
-        with handler.try_component("camera"):
-            self.camera = self.load_camera(configuration)
-        with handler.try_component("stage"):
-            self.stage = self.load_stage(configuration)
-        handler.raise_errors()                                              # Raise error if either failed
+        with TryMultipleComponents("microscope hardware") as handler:
+            # Attempt to load both the camera and the stage, and afterwards
+            # raise an exception if either (or both) did not load
+            with handler.try_component("camera"):
+                self.camera = self.load_camera(configuration)
+            with handler.try_component("stage"):
+                self.stage = self.load_stage(configuration)
 
         ### Locks
         logging.info("Creating locks")
