@@ -49,7 +49,10 @@ def load_entrypoint(value: str, group: str):
 
 def running_as_root():
     """Return true if we are currently running as root."""
-    return os.getuid() == 0  # pylint: disable=E1101 (getuid is missing on Windows)
+    # The linter directive below is because getuid() is missing on Windows.
+    # This function is only relevant to commands that are primarily for
+    # Linux.
+    return os.getuid() == 0  # pylint: disable=E1101
 
 
 def ensure_root_privileges():
