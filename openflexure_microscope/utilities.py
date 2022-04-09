@@ -5,6 +5,7 @@ import os
 import sys
 import time
 from contextlib import contextmanager
+from traceback import format_exc
 from typing import Dict, List, Optional, Sequence, Tuple, Type, Union
 
 # We need to work around importlib.metadata not being present in Python < 3.8
@@ -196,3 +197,74 @@ def axes_to_array(
             base_array[axis] = value
 
     return base_array
+
+
+
+
+@contextmanager
+def try_and_save_error(dest: dict, key: str):
+    """Context manager that clears and saves exceptions"""
+
+
+class ConfigurableComponentFailedToLoad(RuntimeError):
+    """One or more optional/configurable components didn't load
+    
+    This exception is raised by `raise_if_errors_in_dictionary`.
+    It is used when we're loading several user-defined components,
+    and we want to know which one(s) failed.
+    """
+    loaded_components_and_errors = None
+    def __init__(self, loaded_components_and_errors: dict):
+        super().__init__(self)
+        self.loaded_components_and_errors = loaded_components_and_errors
+
+
+class ConfigurableComponentErrorHandler:
+    """Try multiple steps and capture errors
+    
+    This class provides a context manager that allows multiple
+    blocks of code to run, and exceptions are not propagated until
+    all of the blocks have been attempted.
+    
+    This is helpful when e.g. loading extensions or hardware, so
+    we get a friendly summary of which ones failed at the end.
+
+    The usage pattern is:
+       
+       hander = ConfigurableComponentErrorHandler()
+       with handler.try_component("first component"):
+           load_first_component()
+       with handler.try_component("second component"):
+           load_second_component()
+       handler.raise_errors()
+       
+    """
+    def __init__(self):
+        self.results = {}
+
+    @contextmanager
+    def try_component(self, name: str):
+        """Context manager that saves and suppresses exceptions
+        
+        """
+        try:
+            yield
+            self.results[name] = {"loaded": True}
+        except Exception as e:
+            logging.error(f"Failed loading component: {name}")
+            logging.error(format_exc())
+            self.results[name] = {
+                "loaded": False,
+                "traceback": format_exc(),
+                "exception": e,
+            }
+
+    def raise_errors(self):
+        """Check for errors and raise an exception
+        
+        Check for any components that did not load correctly, and raise an
+        exception that includes the dictionary of results, so we can
+        easily tell which one failed.
+        """
+        if any((v["loaded"] != True for v in self.results.values())):
+            raise ConfigurableComponentFailedToLoad(self.results)

@@ -1,29 +1,20 @@
 #!/usr/bin/env python
-import atexit
-import logging
-import threading
-import time
+from flask import Flask
 from typing import List, Optional, Tuple
 
-import pkg_resources
-from flask import Flask, abort
-from flask_cors import CORS, cross_origin
-from labthings import LabThing, create_app
-from labthings.extensions import BaseExtension
-
+from labthings import LabThing
 from openflexure_microscope.api import openapi
+from openflexure_microscope.api.app.fallback import create_fallback_app_and_labthing
 
 # `logging_configuration` performs log file setup as an import side-effect
-from openflexure_microscope.api.logging_configuration import log_level
-from openflexure_microscope.api.utilities import list_routes
-from openflexure_microscope.api.v2 import views
-from openflexure_microscope.extensions.load import load_extensions
-from openflexure_microscope.json import JSONEncoder
-from openflexure_microscope.microscope import Microscope
+# The `logging` module is the one from the standard library
+from openflexure_microscope.api.logging_configuration import log_level, logging
 from openflexure_microscope.paths import OPENFLEXURE_VAR_PATH
+from openflexure_microscope.utilities import ConfigurableComponentFailedToLoad
 
 from .implementation import create_app_and_labthing, load_hardware_and_extensions
 from .reloader import AppReloader
+from .fallback import create_fallback_app_and_labthing
 
 # Log server paths being used
 logging.info("Running with data path %s", OPENFLEXURE_VAR_PATH)
@@ -38,8 +29,18 @@ def create_app_and_labthing_with_fallback() -> Tuple[Flask, LabThing]:
     which will make it clear what's wrong to anyone looking at the HTTP
     API.
     """
-    api_microscope, extensions = load_hardware_and_extensions()
-    return create_app_and_labthing(api_microscope, extensions)
+    try:
+        api_microscope, extensions = load_hardware_and_extensions()
+        return create_app_and_labthing(api_microscope, extensions)
+    except ConfigurableComponentFailedToLoad as e:
+        print("")
+        print("****** The OpenFlexure Microscope cannot start *****")
+        print("")
+        print("This may be fixable by altering your configuration.")
+        print("Errors are summarised below:")
+        print(e.loaded_components_and_errors)
+        print("Starting fallback server to display the error...")
+        return create_fallback_app_and_labthing(e)
 
 
 # This object will work like an application, but it's wrapped in a hook

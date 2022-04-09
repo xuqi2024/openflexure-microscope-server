@@ -22,8 +22,10 @@ from openflexure_microscope.config import (
 )
 from openflexure_microscope.stage.base import BaseStage
 from openflexure_microscope.stage.mock import MissingStage
-from openflexure_microscope.utilities import load_entrypoint
+from openflexure_microscope.utilities import load_entrypoint, ConfigurableComponentErrorHandler
 
+CAMERA_ENTRY_POINT_GROUP = "openflexure_microscope.cameras"
+STAGE_ENTRY_POINT_GROUP = "openflexure_microscope.stages"
 
 class Microscope:
     """
@@ -103,19 +105,34 @@ class Microscope:
         self.close()
         logging.debug("Microscope shut down cleanly.")
 
+    @staticmethod
+    def load_camera(configuration: dict):
+        """Load the camera and return an instance"""
+        logging.info("Creating camera")
+        camera_type = configuration["camera"].get("type")
+        init_kwargs = configuration["camera"].get("init_kwargs", {})
+        camera_class = load_entrypoint(camera_type, CAMERA_ENTRY_POINT_GROUP)
+        return camera_class(**init_kwargs)
+
+    @staticmethod
+    def load_stage(configuration: dict):
+        """Load the camera and return an instance"""
+        logging.info("Creating stage")
+        stage_type = configuration["stage"].get("type")
+        init_kwargs = configuration["stage"].get("init_kwargs", {})
+        stage_class = load_entrypoint(stage_type, STAGE_ENTRY_POINT_GROUP)
+        return stage_class(**init_kwargs)
+
     def setup(self, configuration: dict):
         """
         Attach microscope components based on initially passed configuration file
         """
-
-        ### Camera
-        logging.info("Creating camera")
-        camera_type = configuration["camera"].get("type")
-        camera_class = load_entrypoint(camera_type, "openflexure_microscope.cameras")
-        self.camera = camera_class()
-
-        ### Stage
-        self.set_stage(configuration=configuration)
+        handler = ConfigurableComponentErrorHandler()  # Try camera *and* stage
+        with handler.try_component("camera"):
+            self.camera = self.load_camera(configuration)
+        with handler.try_component("stage"):
+            self.stage = self.load_stage(configuration)
+        handler.raise_errors()                         # Raise error if either failed
 
         ### Locks
         logging.info("Creating locks")
@@ -123,37 +140,6 @@ class Microscope:
             self.lock.locks.append(self.camera.lock)
         if hasattr(self.stage, "lock"):
             self.lock.locks.append(self.stage.lock)
-
-    def set_stage(
-        self, configuration: Optional[dict] = None, stage_type: Optional[str] = None
-    ):
-        """
-        Set or change the stage geometry
-        """
-        configuration = configuration or self.configuration
-
-        if stage_type:
-            if stage_type == configuration["stage"].get("type"):
-                logging.info("Stage already set to that stage type")
-                return
-        else:
-            stage_type = configuration["stage"].get("type")
-
-        assert stage_type is not None
-
-        ### Close any existing stages
-        if self.stage:
-            self.stage.close()
-
-        logging.info("Setting stage")
-        stage_port = configuration["stage"].get("port")
-
-        stage_class = load_entrypoint(stage_type, "openflexure_microscope.stages")
-
-        logging.info(f"Attempting to instantiate stage '{stage_type}'")
-        self.stage = stage_class(port=stage_port)
-        configuration["stage"]["type"] = stage_type
-        self.configuration_file.save(configuration)
 
     def has_real_stage(self) -> bool:
         """
