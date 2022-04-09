@@ -8,8 +8,6 @@ from flask import Flask, abort, render_template_string
 from flask_cors import CORS
 from labthings import LabThing, create_app
 
-# `logging_configuration` performs log file setup as an import side-effect
-from openflexure_microscope.api.logging_configuration import log_level
 from openflexure_microscope.api.v2.views import LogFileView
 from openflexure_microscope.config import user_configuration
 from openflexure_microscope.json import JSONEncoder
