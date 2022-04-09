@@ -2,8 +2,10 @@
 """
 Defines a microscope object, binding a camera and stage with basic functionality.
 """
+import atexit
 import logging
 import uuid
+import time
 from typing import Dict, List, Optional, Tuple, Union
 
 import pkg_resources
@@ -64,6 +66,7 @@ class Microscope:
         self.metadata_cache: Union[dict, ExpiringDict] = ExpiringDict(
             max_len=100, max_age_seconds=3600
         )
+        atexit.register(self.handle_app_exit)
 
     def __enter__(self):
         """Create microscope on context enter."""
@@ -87,7 +90,18 @@ class Microscope:
             except TimeoutError as e:
                 logging.error(e)
         self.captures.close()
+        # Once the hardware is closed, no need to close it again when we exit.
+        atexit.unregister(self.handle_app_exit)
         logging.info("Closed %s", (self))
+
+    def handle_app_exit(self):
+        # Automatically clean up microscope at exit
+        logging.debug("Microscope saving settings and shutting down hardware...")
+        time.sleep(0.5)
+        self.save_settings()
+        time.sleep(0.5)
+        self.close()
+        logging.debug("Microscope shut down cleanly.")
 
     def setup(self, configuration: dict):
         """
