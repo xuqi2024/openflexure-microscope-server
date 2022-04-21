@@ -10,14 +10,14 @@ from typing import List, Optional, TypeVar, Type
 
 from labthings.extensions import find_extensions, BaseExtension
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 from openflexure_microscope.config import (
     SingleExtensionConfig,
     MicroscopeConfig,
     EXTENSION_ENTRY_POINT_GROUP,
     STAGE_ENTRY_POINT_GROUP,
-    CAMERA_ENTRY_POINT_GROUP
+    CAMERA_ENTRY_POINT_GROUP,
 )
 from openflexure_microscope.stage.base import BaseStage
 from openflexure_microscope.camera.base import BaseCamera
@@ -29,6 +29,7 @@ class MicroscopeComponents:
     stage: BaseStage
     camera: BaseCamera
     extensions: List[BaseExtension]
+
 
 @dataclass
 class ExtensionLoadingResult:
@@ -46,10 +47,9 @@ class ExtensionLoadingResult:
                 val[k] = str(v)
         return val
 
+
 def load_extension(
-    config: SingleExtensionConfig, 
-    group_name: str,
-    base_class: Type[T]=BaseExtension,
+    config: SingleExtensionConfig, group_name: str, base_class: Type[T] = BaseExtension
 ) -> T:
     """Load an extension, returning an instance"""
     ep = find_entry_point(config.type, group_name)
@@ -62,6 +62,7 @@ def load_extension(
             f"Extension {config.type} should be an instance of "
             f"{base_class.__name__}, but it was not."
         )
+
 
 def load_legacy_extensions(extensions_folder):
     """Attempt to load old-style extensions"""
@@ -92,22 +93,15 @@ def load_components(config: MicroscopeConfig) -> MicroscopeComponents:
     The camera and stage classes are loaded here too.
     """
     with ExtensionLoader() as e:
-        camera = e.load_extension(
-            config.camera, CAMERA_ENTRY_POINT_GROUP, BaseCamera
-        )
-        stage = e.load_extension(
-            config.stage, STAGE_ENTRY_POINT_GROUP, BaseStage
-        )
+        camera = e.load_extension(config.camera, CAMERA_ENTRY_POINT_GROUP, BaseCamera)
+        stage = e.load_extension(config.stage, STAGE_ENTRY_POINT_GROUP, BaseStage)
         extensions = [
-            e.load_extension(
-                ext_config, EXTENSION_ENTRY_POINT_GROUP, BaseExtension
-            )
+            e.load_extension(ext_config, EXTENSION_ENTRY_POINT_GROUP, BaseExtension)
             for ext_config in config.extensions_enabled
         ]
         if config.legacy_extension_folder:
             extensions_folder = os.path.join(
-                config.openflexure_dir,
-                config.legacy_extension_folder
+                config.openflexure_dir, config.legacy_extension_folder
             )
             extensions += e.load_legacy_extensions(extensions_folder)
 
@@ -122,9 +116,7 @@ class ConfigurableComponentFailedToLoad(RuntimeError):
 
     results: List[ExtensionLoadingResult] = None
 
-    def __init__(
-        self, results: List[ExtensionLoadingResult]
-    ):
+    def __init__(self, results: List[ExtensionLoadingResult]):
         super().__init__(self)
         self.results = results
 
@@ -186,12 +178,7 @@ class ExtensionLoader:
         """
         try:
             yield
-            self.results.append(
-                ExtensionLoadingResult(
-                    type=config.type,
-                    loaded=True,
-                )
-            )
+            self.results.append(ExtensionLoadingResult(type=config.type, loaded=True))
         except Exception as e:  # pylint: disable=W0703
             logging.error(
                 f"Failed loading component: {config.type}\n"
@@ -200,18 +187,15 @@ class ExtensionLoader:
             logging.error(format_exc())
             self.results.append(
                 ExtensionLoadingResult(
-                    type=config.type,
-                    loaded=False,
-                    exception=e,
-                    traceback=format_exc(),
+                    type=config.type, loaded=False, exception=e, traceback=format_exc()
                 )
             )
 
     def load_extension(
-        self, 
-        config: SingleExtensionConfig, 
+        self,
+        config: SingleExtensionConfig,
         group_name: str,
-        base_class: Type[T]=BaseExtension,
+        base_class: Type[T] = BaseExtension,
     ) -> Optional[T]:
         """Load an extension, deferring any errors until later."""
         with self.suppress_error_and_save_result(config):
@@ -232,6 +216,4 @@ class ExtensionLoader:
         easily tell which one failed.
         """
         if any((v.loaded != True for v in self.results)):
-            raise ConfigurableComponentFailedToLoad(
-                self.results
-            )
+            raise ConfigurableComponentFailedToLoad(self.results)

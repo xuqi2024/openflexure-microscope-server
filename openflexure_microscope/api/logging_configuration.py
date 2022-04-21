@@ -51,7 +51,6 @@ def configure_logging(log_folder: str):
     else:
         log_level = logging.INFO
 
-
     # Set root logger level
     root_log: logging.Logger = logging.getLogger()
     root_log.setLevel(log_level)
@@ -78,14 +77,17 @@ def configure_logging(log_folder: str):
     root_log.addHandler(fh)
     access_log.addHandler(afh)
 
+
 def root_log_level():
     """The current level of the root logger"""
     root_log: logging.Logger = logging.getLogger()
     return root_log.getEffectiveLevel()
 
+
 def root_debug():
     """Returns True if the root logger is set to DEBUG"""
     return root_log_level() == logging.DEBUG
+
 
 # Add log file download view
 class LogFileView(View):

@@ -54,8 +54,7 @@ DETAILED_ERRORS_HTML_PAGE = """
 
 
 def create_fallback_app_and_labthing(
-    config: MicroscopeConfig,
-    e: ConfigurableComponentFailedToLoad,
+    config: MicroscopeConfig, e: ConfigurableComponentFailedToLoad
 ) -> Tuple[Flask, LabThing]:
     """Create a flask app and labthing"""
     # Create flask app
@@ -91,9 +90,7 @@ def create_fallback_app_and_labthing(
     @app.route("/details/")
     def details_page():
         return render_template_string(
-            DETAILED_ERRORS_HTML_PAGE,
-            results=e.results,
-            str=str,
+            DETAILED_ERRORS_HTML_PAGE, results=e.results, str=str
         )
 
     @app.route("/component_errors.json")

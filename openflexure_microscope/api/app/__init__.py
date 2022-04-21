@@ -18,10 +18,13 @@ import logging
 import os
 
 
-from openflexure_microscope.api.logging_configuration import configure_logging, root_debug
+from openflexure_microscope.api.logging_configuration import (
+    configure_logging,
+    root_debug,
+)
 from openflexure_microscope.config import (
     add_config_args,
-    load_config, 
+    load_config,
     default_config,
     MicroscopeConfig,
 )
@@ -30,7 +33,6 @@ from openflexure_microscope.extensions.load import (
     ConfigurableComponentFailedToLoad,
 )
 from openflexure_microscope.paths import initialise_paths, OpenFlexurePaths
-
 
 
 def create_app_and_labthing_with_fallback() -> Tuple[Flask, LabThing]:
@@ -47,6 +49,7 @@ def create_app_and_labthing_with_fallback() -> Tuple[Flask, LabThing]:
     try:
         components = load_components(config)
         from .implementation import create_app_and_labthing
+
         return create_app_and_labthing(components, paths)
     except ConfigurableComponentFailedToLoad as e:
         print("")
@@ -56,6 +59,7 @@ def create_app_and_labthing_with_fallback() -> Tuple[Flask, LabThing]:
         print("Errors are summarised below:")
         print(e.summary)
         from .fallback import create_fallback_app_and_labthing
+
         return create_fallback_app_and_labthing(config, e)
 
 
@@ -69,6 +73,7 @@ def initialise_and_configure() -> Tuple[MicroscopeConfig, OpenFlexurePaths]:
     configure_logging(paths.logs)
     return config, paths
 
+
 def ofm_serve():
     # Start a debug server
     from labthings import Server
@@ -76,14 +81,13 @@ def ofm_serve():
     app, labthing = create_app_and_labthing_with_fallback()
 
     server: Server = Server(app)
-    server.run(
-        host="0.0.0.0", port=5000, debug=root_debug(), zeroconf=True
-    )
+    server.run(host="0.0.0.0", port=5000, debug=root_debug(), zeroconf=True)
 
 
 def generate_openapi():
     """Generate an OpenAPI description and save as a file"""
     from openflexure_microscope.api import openapi
+
     openapi.generate_openapi_from_labthing(app.labthing)
 
 

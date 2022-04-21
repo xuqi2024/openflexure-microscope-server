@@ -9,9 +9,7 @@ from typing import List
 from openflexure_microscope.utilities import metadata
 
 
-def list_entry_points(
-    group_name: str
-) -> List[EntryPoint]:
+def list_entry_points(group_name: str) -> List[EntryPoint]:
     """Return a list of entry points in a particular group.
     
     This uses the importlib metadata mechanism to enumerate entry points
@@ -33,10 +31,7 @@ def list_entry_point_values(group_name: str):
     return [p.value for p in entry_points]
 
 
-def find_entry_point(
-    value: str, 
-    group_name: str
-) -> EntryPoint:
+def find_entry_point(value: str, group_name: str) -> EntryPoint:
     """Load an entry point, given its value.
     
     The argument is an entry point value, i.e. a string in

@@ -51,6 +51,7 @@ class SingleExtensionConfig:
        keyword arguments to the constructor of the class defined in `type`
        when the extension is loaded.
     """
+
     type: str
     init_kwargs: dict = dc.field(default_factory=dict)
 
@@ -59,6 +60,7 @@ class SingleExtensionConfig:
 class MicroscopeConfig:
     """Define all the entry points needed for a microscope
     """
+
     config_file_version: str
     camera: SingleExtensionConfig
     stage: SingleExtensionConfig
@@ -74,7 +76,9 @@ class MicroscopeConfig:
         also not be written to disk automatically, only this object is 
         affected.
         """
-        move_extension_between_lists(type, self.extensions_disabled, self.extensions_enabled)
+        move_extension_between_lists(
+            type, self.extensions_disabled, self.extensions_enabled
+        )
 
     def disable_extension(self, type: str):
         """Disable an extension by moving it to `extensions_disabled`
@@ -83,7 +87,9 @@ class MicroscopeConfig:
         also not be written to disk automatically, only this object is 
         affected.
         """
-        move_extension_between_lists(type, self.extensions_enabled, self.extensions_disabled)
+        move_extension_between_lists(
+            type, self.extensions_enabled, self.extensions_disabled
+        )
 
     @property
     def all_extensions(self):
@@ -102,7 +108,7 @@ class MicroscopeConfig:
                     if isinstance(SingleExtensionConfig):
                         extensions.append(v)
         return extensions
-        
+
     def find_extension(self, type: str) -> Optional[SingleExtensionConfig]:
         """Return the extension matching the given `type`, if it is in the config."""
         return find_extension_by_type(type, self.all_extensions)
@@ -111,14 +117,14 @@ class MicroscopeConfig:
         """Return the configuration as a simple dictionary"""
         return dc.asdict(self)
 
+
 def microscope_config_from_dict(value: dict) -> MicroscopeConfig:
     """Convert a dictionary to a microscope config object"""
     return dacite.from_dict(MicroscopeConfig, value)
 
 
 def find_extension_by_type(
-    type: str, 
-    extensions: List[SingleExtensionConfig]
+    type: str, extensions: List[SingleExtensionConfig]
 ) -> Optional[SingleExtensionConfig]:
     """Search a list of extension configurations for one matching the given type"""
     for e in extensions:
@@ -128,10 +134,10 @@ def find_extension_by_type(
 
 
 def move_extension_between_lists(
-    type: str, 
+    type: str,
     from_list: List[SingleExtensionConfig],
     to_list: List[SingleExtensionConfig],
-    ):
+):
     """Move the extension with a given type from one list to another.
 
     If the extension exists in `from_list`, it is moved over.  If not, a new
@@ -155,16 +161,13 @@ def move_extension_between_lists(
 
 def add_config_args(parser: argparse.ArgumentParser):
     """Add arguments relating to the configuration file."""
-    parser.add_argument(
-        "--config", "-c",
-        help="Set the configuration file to use."
-    )
+    parser.add_argument("--config", "-c", help="Set the configuration file to use.")
     parser.add_argument(
         "--config_literal",
         help=(
             "A JSON literal specifying the server configuration. "
             "This overrides the config file and the --config option."
-        )
+        ),
     )
 
 
@@ -185,7 +188,7 @@ def load_config(args: Optional[argparse.Namespace] = None):
                 )
     else:
         config_file = paths.first_path_that_exists(paths.CONFIG_FILE_SEARCH_PATH)
-        if(config_file):
+        if config_file:
             print(f"Loading configuration from '{config_file}'.")
             with open(config_file, "r") as f:
                 return microscope_config_from_dict(json.load(f))
@@ -207,18 +210,18 @@ def default_config():
     upon and may change in the future.
     """
     return MicroscopeConfig(
-        config_file_version = "v3.0.0-alpha0",
-        camera = SingleExtensionConfig("openflexure_microscope.camera.pi:PiCameraStreamer"),
-        stage = SingleExtensionConfig(
-            type = "openflexure_microscope.stage.sanga:SangaStage",
-            init_kwargs = {"port": None},
+        config_file_version="v3.0.0-alpha0",
+        camera=SingleExtensionConfig(
+            "openflexure_microscope.camera.pi:PiCameraStreamer"
         ),
-        extensions_enabled = [
+        stage=SingleExtensionConfig(
+            type="openflexure_microscope.stage.sanga:SangaStage",
+            init_kwargs={"port": None},
+        ),
+        extensions_enabled=[
             SingleExtensionConfig(name, {})
             for name in list_entry_point_values(EXTENSION_ENTRY_POINT_GROUP)
             if name.startswith("openflexure_microscope.api.default_extensions")
         ],
-        legacy_extension_folder="microscope_extensions"
+        legacy_extension_folder="microscope_extensions",
     )
-
-    

@@ -24,6 +24,7 @@ __all__ = [
 ]
 
 from logging import warning
+
 warning(
     "The openflexure_microscope.devel module is deprecated "
     "and will be removed in future versions."

@@ -173,4 +173,3 @@ def axes_to_array(
             base_array[axis] = value
 
     return base_array
-

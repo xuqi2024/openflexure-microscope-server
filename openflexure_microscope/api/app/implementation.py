@@ -32,8 +32,7 @@ from openflexure_microscope.settings import OpenflexureSettingsFile
 
 
 def create_app_and_labthing(
-    components: MicroscopeComponents,
-    paths: OpenFlexurePaths
+    components: MicroscopeComponents, paths: OpenFlexurePaths
 ) -> Tuple[Flask, LabThing]:
     """Create the labthing and flask application
     
@@ -43,9 +42,11 @@ def create_app_and_labthing(
     """
     logging.info("Creating microscope")
     api_microscope = Microscope(
-        components.camera, 
+        components.camera,
         components.stage,
-        OpenflexureSettingsFile(os.path.join(paths.settings, "microscope_settings.json")),
+        OpenflexureSettingsFile(
+            os.path.join(paths.settings, "microscope_settings.json")
+        ),
         CaptureManager(os.path.join(paths.data, "micrographs")),
     )
     logging.info("Creating app")

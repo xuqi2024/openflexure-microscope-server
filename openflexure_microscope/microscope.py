@@ -15,12 +15,9 @@ from labthings import CompositeLock
 from openflexure_microscope.camera.base import BaseCamera
 from openflexure_microscope.camera.mock import MissingCamera
 from openflexure_microscope.captures import THUMBNAIL_SIZE, CaptureManager
-from openflexure_microscope.settings import (
-    OpenflexureSettingsFile,
-)
+from openflexure_microscope.settings import OpenflexureSettingsFile
 from openflexure_microscope.stage.base import BaseStage
 from openflexure_microscope.stage.mock import MissingStage
-
 
 
 class Microscope:
@@ -31,7 +28,7 @@ class Microscope:
     """
 
     def __init__(
-        self, 
+        self,
         camera: BaseCamera,
         stage: BaseStage,
         settings: OpenflexureSettingsFile,
@@ -50,10 +47,14 @@ class Microscope:
         # Attach hardware and check its type
         self.camera: BaseCamera = camera  #: Currently connected camera object
         if not isinstance(self.camera, BaseCamera):
-            raise ValueError("The microscope requires a camera that is a BaseCamera instance.")
+            raise ValueError(
+                "The microscope requires a camera that is a BaseCamera instance."
+            )
         self.stage: BaseStage = stage  #: Currently connected stage object
         if not isinstance(self.stage, BaseStage):
-            raise ValueError("The microscope requires a stage that is a BaseStage instance.")
+            raise ValueError(
+                "The microscope requires a stage that is a BaseStage instance."
+            )
 
         # Ensure we lock the camera/stage when we lock the microscope
         self.lock: CompositeLock = CompositeLock([])

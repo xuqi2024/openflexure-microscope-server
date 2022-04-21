@@ -10,9 +10,7 @@ from labthings.marshalling import use_args
 from labthings.views import PropertyView, View
 
 from openflexure_microscope.api.utilities.gui import build_gui
-from openflexure_microscope.captures.capture_manager import (
-    CaptureManager,
-)
+from openflexure_microscope.captures.capture_manager import CaptureManager
 from openflexure_microscope.microscope import Microscope
 from openflexure_microscope.paths import check_rw, settings_file_path
 
