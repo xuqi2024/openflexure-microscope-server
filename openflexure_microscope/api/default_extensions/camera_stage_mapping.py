@@ -32,7 +32,7 @@ from labthings.find import find_component
 from labthings.utilities import create_from_path, get_by_path, set_by_path
 from labthings.views import ActionView, PropertyView
 
-from openflexure_microscope.config import JSONEncoder
+from openflexure_microscope.json import JSONEncoder
 from openflexure_microscope.microscope import Microscope
 from openflexure_microscope.paths import data_file_path
 
