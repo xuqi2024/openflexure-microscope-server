@@ -2,6 +2,7 @@ import inspect
 import logging
 import time
 from contextlib import contextmanager
+from flask import abort
 from typing import Callable, Dict, List, Optional, Tuple, cast
 
 import numpy as np
@@ -12,7 +13,6 @@ from labthings.views import ActionView, View
 from scipy import ndimage
 
 from openflexure_microscope.camera.base import BaseCamera
-from openflexure_microscope.devel import abort
 from openflexure_microscope.microscope import Microscope
 from openflexure_microscope.stage.base import BaseStage
 from openflexure_microscope.utilities import set_properties
