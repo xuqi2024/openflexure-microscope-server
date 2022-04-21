@@ -15,17 +15,13 @@ from labthings import CompositeLock
 from openflexure_microscope.camera.base import BaseCamera
 from openflexure_microscope.camera.mock import MissingCamera
 from openflexure_microscope.captures import THUMBNAIL_SIZE, CaptureManager
-from openflexure_microscope.config import (
+from openflexure_microscope.settings import (
     OpenflexureSettingsFile,
-    user_configuration,
     user_settings,
 )
 from openflexure_microscope.stage.base import BaseStage
 from openflexure_microscope.stage.mock import MissingStage
-from openflexure_microscope.utilities import TryMultipleComponents, load_entrypoint
 
-CAMERA_ENTRY_POINT_GROUP = "openflexure_microscope.cameras"
-STAGE_ENTRY_POINT_GROUP = "openflexure_microscope.stages"
 
 
 class Microscope:
@@ -35,7 +31,12 @@ class Microscope:
     The camera and stage objects may already be initialised, and can be passed as arguments.
     """
 
-    def __init__(self, settings=user_settings, configuration=user_configuration):
+    def __init__(
+        self, 
+        camera: BaseCamera,
+        stage: BaseStage,
+        settings=user_settings,
+    ):
         self.id: str = f"openflexure:microscope:{uuid.uuid4()}"
         self.name: str = self.id
 
@@ -43,18 +44,23 @@ class Microscope:
 
         # Store settings and configuration files
         self.settings_file: OpenflexureSettingsFile = settings
-        self.configuration_file: OpenflexureSettingsFile = configuration
 
         self.extension_settings: dict = {}
 
-        # Initialise with an empty composite lock
-        #: :py:class:`labthings.CompositeLock`: Composite lock for locking both camera and stage
+        # Attach hardware and check its type
+        self.camera: BaseCamera = camera  #: Currently connected camera object
+        if not isinstance(self.camera, BaseCamera):
+            raise ValueError("The microscope requires a camera that is a BaseCamera instance.")
+        self.stage: BaseStage = stage  #: Currently connected stage object
+        if not isinstance(self.stage, BaseStage):
+            raise ValueError("The microscope requires a stage that is a BaseStage instance.")
+
+        # Ensure we lock the camera/stage when we lock the microscope
         self.lock: CompositeLock = CompositeLock([])
-
-        self.camera: BaseCamera = None  #: Currently connected camera object
-        self.stage: BaseStage = None  #: Currently connected stage object
-
-        self.setup(self.configuration_file.load())  # Attach components
+        if hasattr(self.camera, "lock"):
+            self.lock.locks.append(self.camera.lock)
+        if hasattr(self.stage, "lock"):
+            self.lock.locks.append(self.stage.lock)
 
         # Apply settings loaded from file
         self.update_settings(self.settings_file.load())
@@ -105,43 +111,6 @@ class Microscope:
         time.sleep(0.5)
         self.close()
         logging.debug("Microscope shut down cleanly.")
-
-    @staticmethod
-    def load_camera(configuration: dict):
-        """Load the camera and return an instance"""
-        logging.info("Creating camera")
-        camera_type = configuration["camera"].get("type")
-        init_kwargs = configuration["camera"].get("init_kwargs", {})
-        camera_class = load_entrypoint(camera_type, CAMERA_ENTRY_POINT_GROUP)
-        return camera_class(**init_kwargs)
-
-    @staticmethod
-    def load_stage(configuration: dict):
-        """Load the camera and return an instance"""
-        logging.info("Creating stage")
-        stage_type = configuration["stage"].get("type")
-        init_kwargs = configuration["stage"].get("init_kwargs", {})
-        stage_class = load_entrypoint(stage_type, STAGE_ENTRY_POINT_GROUP)
-        return stage_class(**init_kwargs)
-
-    def setup(self, configuration: dict):
-        """
-        Attach microscope components based on initially passed configuration file
-        """
-        with TryMultipleComponents("microscope hardware") as handler:
-            # Attempt to load both the camera and the stage, and afterwards
-            # raise an exception if either (or both) did not load
-            with handler.try_component("camera"):
-                self.camera = self.load_camera(configuration)
-            with handler.try_component("stage"):
-                self.stage = self.load_stage(configuration)
-
-        ### Locks
-        logging.info("Creating locks")
-        if hasattr(self.camera, "lock"):
-            self.lock.locks.append(self.camera.lock)
-        if hasattr(self.stage, "lock"):
-            self.lock.locks.append(self.stage.lock)
 
     def has_real_stage(self) -> bool:
         """
