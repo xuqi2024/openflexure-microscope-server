@@ -11,7 +11,6 @@ from labthings.views import PropertyView, View
 
 from openflexure_microscope.api.utilities.gui import build_gui
 from openflexure_microscope.captures.capture_manager import (
-    BASE_CAPTURE_PATH,
     CaptureManager,
 )
 from openflexure_microscope.microscope import Microscope
@@ -37,8 +36,11 @@ def get_permissive_locations() -> List[Tuple[str, str]]:
 
 def get_current_location(capture_manager: Optional[CaptureManager]) -> str:
     if capture_manager:
-        return capture_manager.paths.get("default", BASE_CAPTURE_PATH)
-    return BASE_CAPTURE_PATH
+        return capture_manager.paths["default"]
+    else:
+        raise RuntimeError(
+            "Cannot get current capture location: there is no capture manager."
+        )
 
 
 def set_current_location(capture_manager: Optional[CaptureManager], location: str):
@@ -57,7 +59,7 @@ def set_current_location(capture_manager: Optional[CaptureManager], location: st
 
 
 def get_default_location() -> str:
-    return BASE_CAPTURE_PATH
+    return CaptureManager.paths["default"]
 
 
 def get_all_locations() -> Dict[str, str]:

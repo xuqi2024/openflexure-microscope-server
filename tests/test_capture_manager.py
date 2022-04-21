@@ -13,16 +13,14 @@ from openflexure_microscope.captures.capture_manager import (
 
 def test_new_manager():
     m = CaptureManager()
-    assert BASE_CAPTURE_PATH
-    assert TEMP_CAPTURE_PATH
-    assert m.paths["default"] == BASE_CAPTURE_PATH
-    assert m.paths["temp"] == TEMP_CAPTURE_PATH
+    assert m.paths["default"]
+    assert m.paths["temp"]
 
 
 def test_update_settings():
     m = CaptureManager()
-    assert m.paths["default"] == BASE_CAPTURE_PATH
-    assert m.paths["temp"] == TEMP_CAPTURE_PATH
+    assert m.paths["default"] != "BASE_CAPTURE_PATH"
+    assert m.paths["temp"] != "TEMP_CAPTURE_PATH"
 
     new_settings = {
         "paths": {"default": "BASE_CAPTURE_PATH", "temp": "TEMP_CAPTURE_PATH"}
