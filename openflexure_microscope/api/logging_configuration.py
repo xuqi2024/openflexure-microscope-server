@@ -9,23 +9,16 @@ set up.
 import datetime
 import logging
 import logging.handlers
+import os
 import sys
 
-from flask import send_file
+from flask import send_file, abort
 from labthings.views import View
 
-from openflexure_microscope.paths import logs_file_path
 
-# Look for debug flag
-if "-d" in sys.argv or "--debug" in sys.argv:
-    log_level = logging.DEBUG
-else:
-    log_level = logging.INFO
+ROOT_LOGFILE: str = None
+ACCESS_LOGFILE: str = None
 
-
-# Set root logger level
-root_log: logging.Logger = logging.getLogger()
-root_log.setLevel(log_level)
 
 # Custom RotatingFileHandler subclass
 class CustomRotatingFileHandler(logging.handlers.RotatingFileHandler):
@@ -51,26 +44,48 @@ class CustomRotatingFileHandler(logging.handlers.RotatingFileHandler):
             self.setLevel(logging.DEBUG)
 
 
-# Log files
-ROOT_LOGFILE: str = logs_file_path("openflexure_microscope.log")
-ACCESS_LOGFILE: str = logs_file_path("openflexure_microscope.access.log")
+def configure_logging(log_folder: str):
+    # Look for debug flag
+    if "-d" in sys.argv or "--debug" in sys.argv:
+        log_level = logging.DEBUG
+    else:
+        log_level = logging.INFO
 
-# Our WSGI server uses Werkzeug, so use that for the access log
-access_log: logging.Logger = logging.getLogger("werkzeug")
-# Block the access logs from propagating up to the root logger
-access_log.propagate = False
 
-# Create error log file handler
-fh: logging.Handler = CustomRotatingFileHandler(
-    ROOT_LOGFILE, debug=log_level == logging.DEBUG
-)
-# Create access log file handler
-afh: logging.Handler = CustomRotatingFileHandler(
-    ACCESS_LOGFILE, debug=log_level == logging.DEBUG
-)
-# Add file handler to root logger
-root_log.addHandler(fh)
-access_log.addHandler(afh)
+    # Set root logger level
+    root_log: logging.Logger = logging.getLogger()
+    root_log.setLevel(log_level)
+
+    # Log files
+    global ROOT_LOGFILE, ACCESS_LOGFILE
+    ROOT_LOGFILE = os.path.join(log_folder, "openflexure_microscope.log")
+    ACCESS_LOGFILE = os.path.join(log_folder, "openflexure_microscope.access.log")
+
+    # Our WSGI server uses Werkzeug, so use that for the access log
+    access_log: logging.Logger = logging.getLogger("werkzeug")
+    # Block the access logs from propagating up to the root logger
+    access_log.propagate = False
+
+    # Create error log file handler
+    fh: logging.Handler = CustomRotatingFileHandler(
+        ROOT_LOGFILE, debug=log_level == logging.DEBUG
+    )
+    # Create access log file handler
+    afh: logging.Handler = CustomRotatingFileHandler(
+        ACCESS_LOGFILE, debug=log_level == logging.DEBUG
+    )
+    # Add file handler to root logger
+    root_log.addHandler(fh)
+    access_log.addHandler(afh)
+
+def root_log_level():
+    """The current level of the root logger"""
+    root_log: logging.Logger = logging.getLogger()
+    return root_log.getEffectiveLevel()
+
+def root_debug():
+    """Returns True if the root logger is set to DEBUG"""
+    return root_log_level() == logging.DEBUG
 
 # Add log file download view
 class LogFileView(View):
@@ -79,6 +94,8 @@ class LogFileView(View):
         Most recent 1mb of log output
         """
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        if not ROOT_LOGFILE:
+            abort(500, "The log file has not been configured yet.")
         return send_file(
             ROOT_LOGFILE,
             as_attachment=True,
