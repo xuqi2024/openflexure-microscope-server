@@ -24,6 +24,7 @@ FALLBACK_HTML_PAGE = """
 <pre>
 {{error_summary}}
 </pre>
+<a href="/details/">Detailed error information.</a>
         <h2>Current configuration</h2>
 <pre>
 {{config}}
