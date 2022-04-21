@@ -8,14 +8,11 @@ from uuid import UUID
 
 from labthings import StrictLock
 
-from openflexure_microscope.paths import data_file_path
-
 from .capture import CaptureObject, build_captures_from_exif
 
 
 class CaptureManager:
-    def __init__(self):
-        default_data_path = data_file_path("micrographs")
+    def __init__(self, default_data_path: str):
         self.paths: Dict[str, str] = {
             "default": default_data_path,
             "temp": os.path.join(default_data_path, "tmp"),

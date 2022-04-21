@@ -1,43 +1,11 @@
+from dataclasses import dataclass
+import dacite
 import os
 from typing import List, Optional
 
 # UTILITIES
-
-
 def check_rw(path: str) -> bool:
     return os.access(path, os.W_OK) and os.access(path, os.R_OK)
-
-
-def settings_file_path(filename: str) -> str:
-    """Generate a full file path for a filename to be stored in server settings folder"""
-    settings_dir = os.path.join(OPENFLEXURE_DIR, "settings")
-    if not os.path.exists(settings_dir):
-        os.makedirs(settings_dir)
-    return os.path.join(settings_dir, filename)
-
-
-def data_file_path(filename: str) -> str:
-    """Generate a full file path for a filename to be stored in server data folder"""
-    data_dir = os.path.join(OPENFLEXURE_DIR, "data")
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
-    return os.path.join(data_dir, filename)
-
-
-def extensions_file_path(filename: str) -> str:
-    """Generate a full file path for a folder to be stored in server extensions"""
-    ext_dir = os.path.join(OPENFLEXURE_DIR, "extensions")
-    if not os.path.exists(ext_dir):
-        os.makedirs(ext_dir)
-    return os.path.join(ext_dir, filename)
-
-
-def logs_file_path(filename: str) -> str:
-    """Generate a full file path for a filename to be stored in server logs"""
-    logs_dir = os.path.join(OPENFLEXURE_DIR, "logs")
-    if not os.path.exists(logs_dir):
-        os.makedirs(logs_dir)
-    return os.path.join(logs_dir, filename)
 
 
 def first_path_that_exists(search_path: List[str]) -> Optional[str]:
@@ -46,6 +14,7 @@ def first_path_that_exists(search_path: List[str]) -> Optional[str]:
         if os.path.exists(path):
             return path
     return None
+
 
 def first_path_that_is_creatable(search_path: List[str]) -> Optional[str]:
     """Return the first path in a list that could be created
@@ -111,11 +80,15 @@ def default_openflexure_dir() -> str:
         )
 
 
-OPENFLEXURE_DIR = None  # Formerly OPENFLEXURE_VAR_PATH
-SETTINGS_FILE_PATH = None
+@dataclass
+class OpenFlexurePaths:
+    openflexure_dir: str
+    logs: str
+    data: str
+    settings: str
 
 
-def initialise_paths(openflexure_dir: Optional[str] = None):
+def initialise_paths(openflexure_dir: Optional[str] = None) -> OpenFlexurePaths:
     """Check the openflexure directory exists and create if needed.
     
     This function should be called **after** loading configuration
@@ -133,8 +106,11 @@ def initialise_paths(openflexure_dir: Optional[str] = None):
         openflexure_dir = default_openflexure_dir()
     assert openflexure_dir is not None  # primarily for type-checking
 
-    if not os.path.isdir(openflexure_dir):
-        os.makedirs(openflexure_dir)
+    paths = {"openflexure_dir": openflexure_dir}
+    for subfolder in ["logs", "settings", "data"]:
+        paths[subfolder] = os.path.join(openflexure_dir, subfolder)
+    for fpath in paths.values():
+        if not os.path.isdir(fpath):
+            os.makedirs(fpath)
 
-    global OPENFLEXURE_DIR
-    OPENFLEXURE_DIR = openflexure_dir
+    return dacite.from_dict(OpenFlexurePaths, paths)

@@ -29,7 +29,7 @@ from openflexure_microscope.extensions.load import (
     load_components,
     ConfigurableComponentFailedToLoad,
 )
-from openflexure_microscope.paths import initialise_paths
+from openflexure_microscope.paths import initialise_paths, OpenFlexurePaths
 
 
 
@@ -42,12 +42,12 @@ def create_app_and_labthing_with_fallback() -> Tuple[Flask, LabThing]:
     which will make it clear what's wrong to anyone looking at the HTTP
     API.
     """
-    config = initialise_and_configure()
+    config, paths = initialise_and_configure()
 
     try:
         components = load_components(config)
         from .implementation import create_app_and_labthing
-        return create_app_and_labthing(components)
+        return create_app_and_labthing(components, paths)
     except ConfigurableComponentFailedToLoad as e:
         print("")
         print("****** The OpenFlexure Microscope cannot start *****")
@@ -59,15 +59,15 @@ def create_app_and_labthing_with_fallback() -> Tuple[Flask, LabThing]:
         return create_fallback_app_and_labthing(config, e)
 
 
-def initialise_and_configure() -> MicroscopeConfig:
+def initialise_and_configure() -> Tuple[MicroscopeConfig, OpenFlexurePaths]:
     try:
         config: MicroscopeConfig = load_config()
     except FileNotFoundError:
         logging.warning("No config file found, using defaults")
         config: MicroscopeConfig = default_config()
-    initialise_paths(openflexure_dir=config.openflexure_dir)
-    configure_logging(os.path.join(config.openflexure_dir, "logs"))
-    return config
+    paths = initialise_paths(openflexure_dir=config.openflexure_dir)
+    configure_logging(paths.logs)
+    return config, paths
 
 def ofm_serve():
     # Start a debug server

@@ -17,7 +17,6 @@ from openflexure_microscope.camera.mock import MissingCamera
 from openflexure_microscope.captures import THUMBNAIL_SIZE, CaptureManager
 from openflexure_microscope.settings import (
     OpenflexureSettingsFile,
-    user_settings,
 )
 from openflexure_microscope.stage.base import BaseStage
 from openflexure_microscope.stage.mock import MissingStage
@@ -35,12 +34,13 @@ class Microscope:
         self, 
         camera: BaseCamera,
         stage: BaseStage,
-        settings=user_settings,
+        settings: OpenflexureSettingsFile,
+        capture_manager: CaptureManager,
     ):
         self.id: str = f"openflexure:microscope:{uuid.uuid4()}"
         self.name: str = self.id
 
-        self.captures: CaptureManager = CaptureManager()
+        self.captures: CaptureManager = capture_manager
 
         # Store settings and configuration files
         self.settings_file: OpenflexureSettingsFile = settings

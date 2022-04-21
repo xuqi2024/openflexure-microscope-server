@@ -9,6 +9,7 @@ This module should not have import-time side-effects.
 
 #!/usr/bin/env python
 import logging
+import os
 from typing import List, Tuple
 
 import pkg_resources
@@ -22,13 +23,17 @@ from openflexure_microscope.api import openapi
 # `logging_configuration` performs log file setup as an import side-effect
 from openflexure_microscope.api.utilities import list_routes
 from openflexure_microscope.api.v2 import views
+from openflexure_microscope.captures import CaptureManager
 from openflexure_microscope.extensions.load import MicroscopeComponents
 from openflexure_microscope.json import JSONEncoder
 from openflexure_microscope.microscope import Microscope
+from openflexure_microscope.paths import OpenFlexurePaths
+from openflexure_microscope.settings import OpenflexureSettingsFile
 
 
 def create_app_and_labthing(
-    components: MicroscopeComponents
+    components: MicroscopeComponents,
+    paths: OpenFlexurePaths
 ) -> Tuple[Flask, LabThing]:
     """Create the labthing and flask application
     
@@ -37,7 +42,12 @@ def create_app_and_labthing(
     application.
     """
     logging.info("Creating microscope")
-    api_microscope = Microscope(components.camera, components.stage)
+    api_microscope = Microscope(
+        components.camera, 
+        components.stage,
+        OpenflexureSettingsFile(os.path.join(paths.settings, "microscope_settings.json")),
+        CaptureManager(os.path.join(paths.data, "micrographs")),
+    )
     logging.info("Creating app")
     application, labthing = create_app(
         __name__,

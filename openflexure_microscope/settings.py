@@ -151,8 +151,3 @@ def initialise_file(config_path, populate: str = "{}\n"):
         logging.info("Populating %s...", (config_path))
         with open(config_path, "w") as outfile:
             outfile.write(populate)
-
-#: Default user settings object 
-# TODO: lazy-load this or otherwise make it obey the path initialisation...
-raise NotImplementedError("Need to find a better way to manage settings!")
-user_settings = OpenflexureSettingsFile(path="")
