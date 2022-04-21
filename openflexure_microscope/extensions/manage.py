@@ -10,7 +10,7 @@ import subprocess
 import traceback
 
 from ..utilities import ensure_root_privileges
-from . import config
+from .. import config
 from .find import entry_points_from_list, extension_entry_points
 
 

@@ -22,33 +22,13 @@ from openflexure_microscope.api import openapi
 # `logging_configuration` performs log file setup as an import side-effect
 from openflexure_microscope.api.utilities import list_routes
 from openflexure_microscope.api.v2 import views
-from openflexure_microscope.extensions.load import load_extensions
+from openflexure_microscope.extensions.load import MicroscopeComponents
 from openflexure_microscope.json import JSONEncoder
 from openflexure_microscope.microscope import Microscope
 
 
-def load_hardware_and_extensions() -> Tuple[Flask, List[BaseExtension]]:
-    """ Load the camera, stage, and extensions.
-    
-    This function will create the microscope object, which includes 
-    registering the camera
-    and stage hardware.  Hardware classes and extensions can be 
-    reconfigured with microscope_configuration.json.
-    If the server fails to start because of hardware/dependencies/config,
-    it will most likely fail in this function.
-    """
-    api_microscope: Microscope = Microscope()
-    logging.debug("Microscope successfully instantiated")
-    logging.debug("Restoring captures...")
-    api_microscope.captures.rebuild_captures()
-
-    # Load and instantiate the extensions (but don't register them yet)
-    extensions = load_extensions(api_microscope.configuration)
-    return api_microscope, extensions
-
-
 def create_app_and_labthing(
-    api_microscope: Microscope, extensions: List[BaseExtension]
+    components: MicroscopeComponents
 ) -> Tuple[Flask, LabThing]:
     """Create the labthing and flask application
     
@@ -56,6 +36,8 @@ def create_app_and_labthing(
     to the configuration file, this function will set up the 
     application.
     """
+    logging.info("Creating microscope")
+    api_microscope = Microscope(components.camera, components.stage)
     logging.info("Creating app")
     application, labthing = create_app(
         __name__,
@@ -78,7 +60,7 @@ def create_app_and_labthing(
     labthing.add_component(api_microscope, "org.openflexure.microscope")
 
     # Attach extensions
-    for extension in extensions:
+    for extension in components.extensions:
         labthing.register_extension(extension)
 
     # Add all the built-in (i.e. not extension) views to the labthing

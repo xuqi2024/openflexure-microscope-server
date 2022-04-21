@@ -1,17 +1,17 @@
 #!/usr/bin/env python
+from dataclasses import asdict
 import json
 import logging
 from typing import Tuple
-
 import pkg_resources
-from flask import Flask, abort, render_template_string
+from flask import Flask, abort, render_template_string, Response
 from flask_cors import CORS
 from labthings import LabThing, create_app
 
 from openflexure_microscope.api.v2.views import LogFileView
-from openflexure_microscope.config import user_configuration
 from openflexure_microscope.json import JSONEncoder
-from openflexure_microscope.utilities import ConfigurableComponentFailedToLoad
+from openflexure_microscope.config import MicroscopeConfig
+from openflexure_microscope.extensions.load import ConfigurableComponentFailedToLoad
 
 FALLBACK_HTML_PAGE = """
 <html>
@@ -32,9 +32,29 @@ FALLBACK_HTML_PAGE = """
 </html>
 """
 
+DETAILED_ERRORS_HTML_PAGE = """
+<html>
+<body>
+<h1>Detailed error information</h1>
+{% for result in results %}
+<h2>{{result.type}}</h2>
+{% if result.loaded %}
+<b>SUCCESS</b>
+{% else %}
+<b>ERROR:</b> {{str(result.exception)}}
+<pre>
+{{result.traceback}}
+</pre>
+{% endif %}
+{%endfor%}
+</body>
+</html>
+"""
+
 
 def create_fallback_app_and_labthing(
-    e: ConfigurableComponentFailedToLoad
+    config: MicroscopeConfig,
+    e: ConfigurableComponentFailedToLoad,
 ) -> Tuple[Flask, LabThing]:
     """Create a flask app and labthing"""
     # Create flask app
@@ -56,26 +76,32 @@ def create_fallback_app_and_labthing(
     labthing.json_encoder = JSONEncoder
     app.json_encoder = JSONEncoder
 
-    config_dict = user_configuration.load()
-
     labthing.add_view(LogFileView, "/log")
 
-    # Serve the built-in web app at the root of the webserver
+    # Serve the error page at the root of the webserver
     @app.route("/")
-    def openflexure_ev():
+    def root_page():
         return render_template_string(
             FALLBACK_HTML_PAGE,
             error_summary=e.summary,
-            config=json.dumps(config_dict, indent=2),
+            config=json.dumps(asdict(config), indent=2),
+        )
+
+    @app.route("/details/")
+    def details_page():
+        return render_template_string(
+            DETAILED_ERRORS_HTML_PAGE,
+            results=e.results,
+            str=str,
         )
 
     @app.route("/component_errors.json")
     def error_as_json():
-        return e.json_safe_dict
+        return Response(json.dumps(e.json_safe_list), mimetype="application/json")
 
     @app.route("/config.json")
     def config_endpoint():
-        return config_dict
+        return asdict(config)
 
     @app.route("/api/v1/", defaults={"path": ""})
     @app.route("/api/<path:path>")

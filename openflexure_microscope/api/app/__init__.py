@@ -1,24 +1,36 @@
 #!/usr/bin/env python
+"""
+This is, for the moment, the top-level OFM server file.  Its imports are
+deliberately spartan, because we're now explicitly configuring things like
+logging and paths, and we need to do that before importing the rest of
+the server.
+
+Improving this so modules are less interdependent is a work in progress.
+For now, we must simply make sure to call `initialise_paths` and
+`configure_logging` before importing any modules that depend on
+paths being set at import-time.
+"""
 from typing import List, Optional, Tuple
 
 from flask import Flask
 from labthings import LabThing
+import logging
+import os
 
-from openflexure_microscope.api import openapi
-from openflexure_microscope.api.app.fallback import create_fallback_app_and_labthing
 
-# `logging_configuration` performs log file setup as an import side-effect
-# The `logging` module is the one from the standard library
-from openflexure_microscope.api.logging_configuration import log_level, logging
-from openflexure_microscope.paths import OPENFLEXURE_VAR_PATH
-from openflexure_microscope.utilities import ConfigurableComponentFailedToLoad
+from openflexure_microscope.api.logging_configuration import configure_logging, root_debug
+from openflexure_microscope.config import (
+    add_config_args,
+    load_config, 
+    default_config,
+    MicroscopeConfig,
+)
+from openflexure_microscope.extensions.load import (
+    load_components,
+    ConfigurableComponentFailedToLoad,
+)
+from openflexure_microscope.paths import initialise_paths
 
-from .fallback import create_fallback_app_and_labthing
-from .implementation import create_app_and_labthing, load_hardware_and_extensions
-from .reloader import AppReloader
-
-# Log server paths being used
-logging.info("Running with data path %s", OPENFLEXURE_VAR_PATH)
 
 
 def create_app_and_labthing_with_fallback() -> Tuple[Flask, LabThing]:
@@ -30,9 +42,12 @@ def create_app_and_labthing_with_fallback() -> Tuple[Flask, LabThing]:
     which will make it clear what's wrong to anyone looking at the HTTP
     API.
     """
+    config = initialise_and_configure()
+
     try:
-        api_microscope, extensions = load_hardware_and_extensions()
-        return create_app_and_labthing(api_microscope, extensions)
+        components = load_components(config)
+        from .implementation import create_app_and_labthing
+        return create_app_and_labthing(components)
     except ConfigurableComponentFailedToLoad as e:
         print("")
         print("****** The OpenFlexure Microscope cannot start *****")
@@ -40,32 +55,35 @@ def create_app_and_labthing_with_fallback() -> Tuple[Flask, LabThing]:
         print("This may be fixable by altering your configuration.")
         print("Errors are summarised below:")
         print(e.summary)
-        print("Starting fallback server to display the error...")
-        return create_fallback_app_and_labthing(e)
+        from .fallback import create_fallback_app_and_labthing
+        return create_fallback_app_and_labthing(config, e)
 
 
-# This object will work like an application, but it's wrapped in a hook
-# that allows us to reload the app without restarting Python.
-app = AppReloader(create_app_and_labthing_with_fallback)
-
-
-# Expose a function at module level that triggers a reload.
-restart = app.request_reload
-
+def initialise_and_configure() -> MicroscopeConfig:
+    try:
+        config: MicroscopeConfig = load_config()
+    except FileNotFoundError:
+        logging.warning("No config file found, using defaults")
+        config: MicroscopeConfig = default_config()
+    initialise_paths(openflexure_dir=config.openflexure_dir)
+    configure_logging(os.path.join(config.openflexure_dir, "logs"))
+    return config
 
 def ofm_serve():
     # Start a debug server
     from labthings import Server
 
-    logging.info("Starting OpenFlexure Microscope Server...")
+    app, labthing = create_app_and_labthing_with_fallback()
+
     server: Server = Server(app)
     server.run(
-        host="0.0.0.0", port=5000, debug=log_level == logging.DEBUG, zeroconf=True
+        host="0.0.0.0", port=5000, debug=root_debug(), zeroconf=True
     )
 
 
 def generate_openapi():
     """Generate an OpenAPI description and save as a file"""
+    from openflexure_microscope.api import openapi
     openapi.generate_openapi_from_labthing(app.labthing)
 
 

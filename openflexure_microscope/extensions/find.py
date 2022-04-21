@@ -2,14 +2,16 @@
 
 import logging
 
-from openflexure_microscope.utilities import (  # this is importlib.metadata, with a workaround for python<3.8
-    metadata,
-)
+from pkg_resources import EntryPoint
+from typing import List
 
-EXTENSION_GROUP_NAME = "labthings.extensions"
+# this is importlib.metadata, with a workaround for python<3.8
+from openflexure_microscope.utilities import metadata
 
 
-def extension_entry_points(group_name=EXTENSION_GROUP_NAME):
+def list_entry_points(
+    group_name: str
+) -> List[EntryPoint]:
     """Return a list of entry points in a particular group.
     
     This uses the importlib metadata mechanism to enumerate entry points
@@ -21,34 +23,47 @@ def extension_entry_points(group_name=EXTENSION_GROUP_NAME):
     try:
         return metadata.entry_points()[group_name]
     except KeyError:
+        # A KeyError means there are no entry points in the specified group
         return []
 
 
-def entry_points_from_list(entry_point_values, fail_on_missing=False):
-    """Load a list of entry points for extensions
+def list_entry_point_values(group_name: str):
+    """A list of entry point values, as strings, for the given group."""
+    entry_points = list_entry_points(group_name)
+    return [p.value for p in entry_points]
+
+
+def find_entry_point(
+    value: str, 
+    group_name: str
+) -> EntryPoint:
+    """Load an entry point, given its value.
     
-    The argument is a list of entry point values, i.e. specified in
+    The argument is an entry point value, i.e. a string in
     `module.submodule:ClassName` form.  If the value corresponds to an
     available entry point, that entry point will be included
-    in the returned list.
+    in the returned list.  The entry point must be found in the
+    group specified by `group_name`, by default the group for LabThings
+    extensions.
 
-    Specifying `fail_on_missing=True` will raise an exception if a
-    value is not matched.  The default logs an error but continues
-    with other entry points.
+    The list of entry points is retrieved fresh every time this function
+    is run.  That costs a few milliseconds, but as it's only run a few
+    times at start-up, we are prioritising simple, reliable code over 
+    super high performance.
     """
-    # TODO: deduplicate with utilities:load_entrypoint
-    available_eps = extension_entry_points()
-    entry_points = []
-    for v in entry_point_values:
-        matching_eps = [p for p in available_eps if p.value == v]
-        if len(matching_eps) == 0:
-            logging.error(f"No extension could be found matching '{v}'")
-            if fail_on_missing:
-                raise ValueError(f"No extension could be found matching '{v}'")
-        if len(matching_eps) > 1:
-            logging.warning(f"There was more than one entry point for {v}")
-        if len(matching_eps) > 0:
-            # If the "value" specified corresponds to an installed entry point, load it.
-            # NB this will cause the server to fail if an enabled extension can't load
-            entry_points.append(matching_eps[0])
-    return entry_points
+    available_eps = list_entry_points(group_name=group_name)
+    matching_eps = [p for p in available_eps if p.value == value]
+    if len(matching_eps) == 0:
+        raise ValueError(
+            f"Tried to load entry point {value} from group "
+            f"{group_name}, but it does not appear to be present. "
+            "If the module exists on your system, it may not be "
+            "installed correctly, or may not declare the entry point."
+        )
+    if len(matching_eps) > 1:
+        logging.warning(
+            f"{value} appears more than once in the list of entry "
+            f"points for group {group_name}.  This may indicate "
+            "something is wrong with your Python environment"
+        )
+    return matching_eps[0]
