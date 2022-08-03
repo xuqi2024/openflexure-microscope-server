@@ -31,7 +31,7 @@ def first_path_that_is_creatable(search_path: List[str]) -> Optional[str]:
 if os.name == "nt":
     SYSTEM_VAR_PATH: str = os.getenv("PROGRAMDATA") or "C:\\ProgramData"
 else:
-    SYSTEM_VAR_PATH: str = "/var"
+    SYSTEM_VAR_PATH: str = "/var"  # type: ignore[no-redef]
 
 OPENFLEXURE_DIR_SEARCH_PATH = [
     os.path.join(SYSTEM_VAR_PATH, "openflexure"),

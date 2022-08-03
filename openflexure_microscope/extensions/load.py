@@ -49,7 +49,7 @@ class ExtensionLoadingResult:
 
 
 def load_extension(
-    config: SingleExtensionConfig, group_name: str, base_class: Type[T] = BaseExtension
+    config: SingleExtensionConfig, group_name: str, base_class: Type[T]
 ) -> T:
     """Load an extension, returning an instance"""
     ep = find_entry_point(config.type, group_name)
@@ -104,6 +104,11 @@ def load_components(config: MicroscopeConfig) -> MicroscopeComponents:
                 config.openflexure_dir, config.legacy_extension_folder
             )
             extensions += e.load_legacy_extensions(extensions_folder)
+    return MicroscopeComponents(
+        camera = camera,
+        stage = stage,
+        extensions = extensions,
+    )
 
 
 class ConfigurableComponentFailedToLoad(RuntimeError):
@@ -114,7 +119,7 @@ class ConfigurableComponentFailedToLoad(RuntimeError):
     and we want to know which one(s) failed.
     """
 
-    results: List[ExtensionLoadingResult] = None
+    results: List[ExtensionLoadingResult] = None  # type: ignore[assignment]
 
     def __init__(self, results: List[ExtensionLoadingResult]):
         super().__init__(self)
@@ -157,7 +162,7 @@ class ExtensionLoader:
     Any errors will only be raised at the end of the `with` block.
     """
 
-    results: List[ExtensionLoadingResult] = None
+    results: List[ExtensionLoadingResult] = None  # type: ignore[assignment]
 
     def __init__(self):
         self.results = []
@@ -195,7 +200,7 @@ class ExtensionLoader:
         self,
         config: SingleExtensionConfig,
         group_name: str,
-        base_class: Type[T] = BaseExtension,
+        base_class: Type[T],
     ) -> Optional[T]:
         """Load an extension, deferring any errors until later."""
         with self.suppress_error_and_save_result(config):

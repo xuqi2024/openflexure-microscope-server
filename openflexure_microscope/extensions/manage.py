@@ -10,11 +10,18 @@ import subprocess
 import traceback
 
 from ..utilities import ensure_root_privileges
-from .. import config
-from .find import entry_points_from_list, extension_entry_points
+from openflexure_microscope.config import (
+    EXTENSION_ENTRY_POINT_GROUP,
+    STAGE_ENTRY_POINT_GROUP,
+    CAMERA_ENTRY_POINT_GROUP,
+    MicroscopeConfig, 
+    SingleExtensionConfig,
+)
+from .load import load_extension
+from .find import list_entry_points
 
 
-def load_extension_dict(entry_point):
+def load_extension_dict(entry_point, config: MicroscopeConfig):
     """Attempt to load an extension from an entry point, returning a dict"""
     p = entry_point
     ext = {
@@ -193,7 +200,7 @@ def check_extensions_cmd():
         entry_points = entry_points_from_list(
             config.extensions_enabled(), fail_on_missing=True
         )
-    extensions = [load_extension_dict(p) for p in entry_points]
+    extensions = [load_extension_dict(p, config) for p in entry_points]
 
     print("The following extensions were found:")
     print_extension_list(extensions)

@@ -220,9 +220,7 @@ class Microscope:
         self.settings_file.save(current_config, backup=True)
 
     def force_get_configuration(self) -> dict:
-        initial_configuration = self.configuration_file.load()
-
-        current_configuration = {
+        return {
             "application": {
                 "name": "openflexure-microscope-server",
                 "version": pkg_resources.get_distribution(
@@ -238,9 +236,6 @@ class Microscope:
                 **self.camera.configuration,
             },
         }
-
-        initial_configuration.update(current_configuration)
-        return initial_configuration
 
     def get_configuration(self, cache_key: Optional[str] = None) -> dict:
         if cache_key:

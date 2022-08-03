@@ -14,10 +14,11 @@ import sys
 
 from flask import send_file, abort
 from labthings.views import View
+from typing import Optional
 
 
-ROOT_LOGFILE: str = None
-ACCESS_LOGFILE: str = None
+ROOT_LOGFILE: Optional[str] = None
+ACCESS_LOGFILE: Optional[str] = None
 
 
 # Custom RotatingFileHandler subclass

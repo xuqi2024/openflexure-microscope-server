@@ -19,7 +19,7 @@ def list_entry_points(group_name: str) -> List[EntryPoint]:
     A list of EntryPoint objects is returned, which may be empty.
     """
     try:
-        return metadata.entry_points()[group_name]
+        return metadata.entry_points()[group_name]  # type: ignore[attr-defined]
     except KeyError:
         # A KeyError means there are no entry points in the specified group
         return []
@@ -28,7 +28,7 @@ def list_entry_points(group_name: str) -> List[EntryPoint]:
 def list_entry_point_values(group_name: str):
     """A list of entry point values, as strings, for the given group."""
     entry_points = list_entry_points(group_name)
-    return [p.value for p in entry_points]
+    return [p.value for p in entry_points]  # type: ignore[attr-defined]
 
 
 def find_entry_point(value: str, group_name: str) -> EntryPoint:
@@ -47,7 +47,7 @@ def find_entry_point(value: str, group_name: str) -> EntryPoint:
     super high performance.
     """
     available_eps = list_entry_points(group_name=group_name)
-    matching_eps = [p for p in available_eps if p.value == value]
+    matching_eps = [p for p in available_eps if p.value == value]  # type: ignore[attr-defined]
     if len(matching_eps) == 0:
         raise ValueError(
             f"Tried to load entry point {value} from group "
