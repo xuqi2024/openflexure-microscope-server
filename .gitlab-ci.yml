@@ -12,6 +12,8 @@ stages:
     - source .venv/bin/activate
     - pip install pipenv           # Should be cached after first run
     - pipenv install --dev --deploy        # Should be cached after first run - will just check packages are present
+    - mkdir -p /var/openflexure/settings/  # We need to explicitly specify plugins and hardware now.
+    - cp tests/microscope_configuration.json /var/openflexure/settings/
   cache:
     key: "${CI_COMMIT_REF_SLUG}"
     paths:

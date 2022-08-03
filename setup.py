@@ -60,6 +60,7 @@ setup(
         "pytest-cov ~= 2.10.1",
         "piexif ~= 1.1.3",
         "labthings ~= 1.3.0",
+        "dacite ~= 1.6",
         "typing-extensions ~= 3.7.4",  # Needed for some type-hints in Python < 3.8 (e.g. Literal)
         "RPi.GPIO ~= 0.7.0; platform_machine == 'armv7l'",
     ],
@@ -93,7 +94,28 @@ setup(
             "ofm-serve=openflexure_microscope.api.app:ofm_serve",
             "ofm-rescue=openflexure_microscope.rescue.auto:main",
             "ofm-generate-openapi=openflexure_microscope.api.app:generate_openapi",
-        ]
+            "ofm-install-extension=openflexure_microscope.extensions.manage:install_extension_cmd",
+            "ofm-enable-extension=openflexure_microscope.extensions.manage:enable_extension_cmd",
+            "ofm-disable-extension=openflexure_microscope.extensions.manage:disable_extension_cmd",
+            "ofm-check-extensions=openflexure_microscope.extensions.manage:check_extensions_cmd",
+        ],
+        "openflexure_microscope.stages": [
+            "ofm-missing-stage=openflexure_microscope.stage.mock:MissingStage",
+            "ofm-sanga-stage=openflexure_microscope.stage.sanga:SangaStage",
+            "ofm-sanga-delta-stage=openflexure_microscope.stage.sanga:SangaDeltaStage",
+        ],
+        "openflexure_microscope.cameras": [
+            "ofm-missing-camera=openflexure_microscope.camera.mock:MissingCamera",
+            "ofm-pi-camera=openflexure_microscope.camera.pi:PiCameraStreamer",
+        ],
+        "labthings.extensions": [
+            "ofm-autofocus=openflexure_microscope.api.default_extensions.autofocus:AutofocusExtension",
+            "ofm-scan=openflexure_microscope.api.default_extensions.scan:ScanExtension",
+            "ofm-zipbuilder=openflexure_microscope.api.default_extensions.zip_builder:ZipBuilderExtension",
+            "ofm-autostorage=openflexure_microscope.api.default_extensions.autostorage:AutostorageExtension",
+            "ofm-picamera-autocalibrate=openflexure_microscope.api.default_extensions.picamera_autocalibrate:LSTExtension",
+            "ofm-camera-stage-mapping=openflexure_microscope.api.default_extensions.camera_stage_mapping:CSMExtension",
+        ],
     },
     project_urls={
         "Source": "https://gitlab.com/openflexure/openflexure-microscope-server"

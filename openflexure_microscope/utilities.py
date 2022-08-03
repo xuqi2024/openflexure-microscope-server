@@ -1,10 +1,19 @@
 import base64
 import copy
 import logging
+import os
 import sys
 import time
 from contextlib import contextmanager
+from traceback import format_exc
 from typing import Dict, List, Optional, Sequence, Tuple, Type, Union
+
+# We need to work around importlib.metadata not being present in Python < 3.8
+try:
+    from importlib import metadata
+except ImportError:
+    logging.info("importlib.metadata not present, using importlib_metadata")
+    import importlib_metadata as metadata  # type: ignore
 
 import numpy as np
 
@@ -13,6 +22,23 @@ if sys.version_info >= (3, 8):
     from typing import TypedDict  # pylint: disable=no-name-in-module
 else:
     from typing_extensions import TypedDict
+
+
+def running_as_root():
+    """Return true if we are currently running as root."""
+    # The linter directive below is because getuid() is missing on Windows.
+    # This function is only relevant to commands that are primarily for
+    # Linux.
+    return os.getuid() == 0  # pylint: disable=E1101
+
+
+def ensure_root_privileges():
+    """Check if we are running as root, and fail with an error if we are not."""
+    if not running_as_root():
+        print(
+            "Error: this command must be run as root.  You may need to prefix this command with 'sudo'."
+        )
+        exit(-1)
 
 
 class Timer(object):

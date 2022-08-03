@@ -4,6 +4,7 @@ import time
 import uuid
 from typing import Callable, Dict, List, Optional, Tuple
 
+from flask import abort
 import marshmallow
 import numpy as np
 from labthings import (
@@ -19,7 +20,6 @@ from typing_extensions import Literal
 
 from openflexure_microscope.api.v2.views.actions.camera import FullCaptureArgs
 from openflexure_microscope.captures.capture_manager import generate_basename
-from openflexure_microscope.devel import abort
 from openflexure_microscope.microscope import Microscope
 
 # Type alias for convenience

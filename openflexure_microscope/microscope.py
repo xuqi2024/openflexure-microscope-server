@@ -2,29 +2,22 @@
 """
 Defines a microscope object, binding a camera and stage with basic functionality.
 """
+import atexit
 import logging
+import time
 import uuid
 from typing import Dict, List, Optional, Tuple, Union
 
 import pkg_resources
 from expiringdict import ExpiringDict
+from labthings import CompositeLock
 
 from openflexure_microscope.camera.base import BaseCamera
 from openflexure_microscope.camera.mock import MissingCamera
 from openflexure_microscope.captures import THUMBNAIL_SIZE, CaptureManager
-from openflexure_microscope.config import OpenflexureSettingsFile
+from openflexure_microscope.settings import OpenflexureSettingsFile
 from openflexure_microscope.stage.base import BaseStage
 from openflexure_microscope.stage.mock import MissingStage
-from openflexure_microscope.stage.sanga import SangaDeltaStage, SangaStage
-
-try:
-    from openflexure_microscope.camera.pi import PiCameraStreamer
-except Exception as exc:  # pylint: disable=W0703
-    logging.error(exc)
-    logging.warning("Unable to import PiCameraStreamer")
-from labthings import CompositeLock
-
-from openflexure_microscope.config import user_configuration, user_settings
 
 
 class Microscope:
@@ -34,26 +27,41 @@ class Microscope:
     The camera and stage objects may already be initialised, and can be passed as arguments.
     """
 
-    def __init__(self, settings=user_settings, configuration=user_configuration):
+    def __init__(
+        self,
+        camera: BaseCamera,
+        stage: BaseStage,
+        settings: OpenflexureSettingsFile,
+        capture_manager: CaptureManager,
+    ):
         self.id: str = f"openflexure:microscope:{uuid.uuid4()}"
         self.name: str = self.id
 
-        self.captures: CaptureManager = CaptureManager()
+        self.captures: CaptureManager = capture_manager
 
         # Store settings and configuration files
         self.settings_file: OpenflexureSettingsFile = settings
-        self.configuration_file: OpenflexureSettingsFile = configuration
 
         self.extension_settings: dict = {}
 
-        # Initialise with an empty composite lock
-        #: :py:class:`labthings.CompositeLock`: Composite lock for locking both camera and stage
+        # Attach hardware and check its type
+        self.camera: BaseCamera = camera  #: Currently connected camera object
+        if not isinstance(self.camera, BaseCamera):
+            raise ValueError(
+                "The microscope requires a camera that is a BaseCamera instance."
+            )
+        self.stage: BaseStage = stage  #: Currently connected stage object
+        if not isinstance(self.stage, BaseStage):
+            raise ValueError(
+                "The microscope requires a stage that is a BaseStage instance."
+            )
+
+        # Ensure we lock the camera/stage when we lock the microscope
         self.lock: CompositeLock = CompositeLock([])
-
-        self.camera: BaseCamera = None  #: Currently connected camera object
-        self.stage: BaseStage = None  #: Currently connected stage object
-
-        self.setup(self.configuration_file.load())  # Attach components
+        if hasattr(self.camera, "lock"):
+            self.lock.locks.append(self.camera.lock)
+        if hasattr(self.stage, "lock"):
+            self.lock.locks.append(self.stage.lock)
 
         # Apply settings loaded from file
         self.update_settings(self.settings_file.load())
@@ -68,6 +76,7 @@ class Microscope:
         self.metadata_cache: Union[dict, ExpiringDict] = ExpiringDict(
             max_len=100, max_age_seconds=3600
         )
+        atexit.register(self.handle_app_exit)
 
     def __enter__(self):
         """Create microscope on context enter."""
@@ -91,94 +100,18 @@ class Microscope:
             except TimeoutError as e:
                 logging.error(e)
         self.captures.close()
+        # Once the hardware is closed, no need to close it again when we exit.
+        atexit.unregister(self.handle_app_exit)
         logging.info("Closed %s", (self))
 
-    def setup(self, configuration: dict):
-        """
-        Attach microscope components based on initially passed configuration file
-        """
-
-        ### Detector
-        logging.info("Creating camera")
-        if configuration.get("camera"):
-            camera_type = configuration["camera"].get("type")
-            if camera_type in ("PiCamera", "PiCameraStreamer"):
-                try:
-                    self.camera = PiCameraStreamer()
-                except Exception as e:  # pylint: disable=W0703
-                    logging.error(e)
-                    logging.warning("No compatible camera hardware found.")
-
-        ### Stage
-        self.set_stage(configuration=configuration)
-
-        logging.info("Handling fallbacks")
-        ### Fallbacks
-        if not self.camera:
-            self.camera = MissingCamera()
-        if not self.stage:
-            self.stage = MissingStage()
-
-        ### Locks
-        logging.info("Creating locks")
-        if hasattr(self.camera, "lock"):
-            self.lock.locks.append(self.camera.lock)
-        if hasattr(self.stage, "lock"):
-            self.lock.locks.append(self.stage.lock)
-
-    def set_stage(
-        self, configuration: Optional[dict] = None, stage_type: Optional[str] = None
-    ):
-        """
-        Set or change the stage geometry
-        """
-        configuration = configuration or self.configuration
-
-        if stage_type:
-            if stage_type == configuration["stage"].get("type"):
-                logging.info("Stage already set to that stage type")
-                return
-        else:
-            stage_type = configuration["stage"].get("type")
-
-        ### Close any existing stages
-        if self.stage:
-            stage_port = getattr(self.stage, "port")
-            self.stage.close()
-
-        logging.info("Setting stage")
-        stage_port = configuration["stage"].get("port")
-
-        if stage_type in ("SangaBoard", "SangaStage"):
-            try:
-                logging.info("Trying SangaStage")
-                self.stage = SangaStage(port=stage_port)
-                logging.info("Saving new SangaStage type configuration")
-                configuration["stage"]["type"] = stage_type
-                self.configuration_file.save(configuration)
-            except Exception as e:  # pylint: disable=W0703
-                logging.error(e)
-                logging.warning("No compatible Sangaboard hardware found.")
-        elif stage_type in ("SangaDeltaStage",):
-            try:
-                logging.info("Trying SangaDeltaStage")
-                self.stage = SangaDeltaStage(port=stage_port)
-                logging.info("Saving new SangaDeltaStage type configuration")
-                configuration["stage"]["type"] = stage_type
-                self.configuration_file.save(configuration)
-            except Exception as e:  # pylint: disable=W0703
-                logging.error(e)
-                logging.warning("No compatible Sangaboard hardware found.")
-        elif stage_type in ("MissingStage",):
-            logging.warning(
-                "The stage is set to MissingStage in "
-                "configuration, which disables any physical stage."
-            )
-            self.stage = MissingStage()
-            configuration["stage"]["type"] = "MissingStage"
-            self.configuration_file.save(configuration)
-        else:
-            logging.warning("The stage type is incorrectly defined.")
+    def handle_app_exit(self):
+        # Automatically clean up microscope at exit
+        logging.debug("Microscope saving settings and shutting down hardware...")
+        time.sleep(0.5)
+        self.save_settings()
+        time.sleep(0.5)
+        self.close()
+        logging.debug("Microscope shut down cleanly.")
 
     def has_real_stage(self) -> bool:
         """
@@ -287,9 +220,7 @@ class Microscope:
         self.settings_file.save(current_config, backup=True)
 
     def force_get_configuration(self) -> dict:
-        initial_configuration = self.configuration_file.load()
-
-        current_configuration = {
+        return {
             "application": {
                 "name": "openflexure-microscope-server",
                 "version": pkg_resources.get_distribution(
@@ -305,9 +236,6 @@ class Microscope:
                 **self.camera.configuration,
             },
         }
-
-        initial_configuration.update(current_configuration)
-        return initial_configuration
 
     def get_configuration(self, cache_key: Optional[str] = None) -> dict:
         if cache_key:
