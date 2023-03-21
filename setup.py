@@ -34,7 +34,7 @@ setup(
     classifiers=["License :: OSI Approved :: GNU General Public License v3 (GPLv3)"],
     keywords="raspberry pi arduino microscope",  # Optional
     packages=find_packages(exclude=["contrib", "docs", "tests", "*node_modules*"]),
-    python_requires="== 3.7.*",
+    python_requires=">=3.7, <3.10",
     # This field lists other packages that your project depends on to run.
     # Any package you put here will be installed by pip when your project is
     # installed, so they must be valid existing projects.
@@ -44,23 +44,22 @@ setup(
     # set up the project for development, you use those specific packages, rather than
     # the looser specifications given here.
     install_requires=[
-        "apispec[validation]",  # We need the extra to validate the spec
-        "Flask ~= 1.0",
+        "apispec",  # We need the extra to validate the spec
         "Pillow ~= 7.2.0",
         "numpy ~= 1.20",
         "scipy ~= 1.6.1",
-        "python-dateutil ~= 2.8",
-        "psutil ~= 5.6.7",  # Autostorage extension
-        "opencv-python-headless ~= 4.5.1",
-        "sangaboard ~= 0.2",
-        "expiringdict ~= 1.2.1",
+        "python-dateutil",
+        "psutil",  # Autostorage extension
+        "opencv-python-headless",
+        "sangaboard ~= 0.3.3",
+        "expiringdict",
         "camera-stage-mapping == 0.1.4",
         "picamerax ~= 20.9.1",
-        "pyyaml ~= 5.4.0",
-        "pytest-cov ~= 2.10.1",
-        "piexif ~= 1.1.3",
+        "pyyaml",
+        "pytest-cov",
+        "piexif",
         "labthings ~= 1.3.0",
-        "typing-extensions ~= 3.7.4",  # Needed for some type-hints in Python < 3.8 (e.g. Literal)
+        "typing-extensions >= 3.7.4",  # Needed for some type-hints in Python < 3.8 (e.g. Literal)
         "RPi.GPIO ~= 0.7.0; platform_machine == 'armv7l'",
     ],
     # "dev" specifies extra packages used for development (linting, testing, etc.)
@@ -68,18 +67,16 @@ setup(
     # them to specific versions to enable consistent builds and testing.
     extras_require={
         "dev": [
-            "sphinx < 4.0",  # Currently httpdomain isn't ready for 4.0
-            "sphinxcontrib-openapi ~= 0.7",
-            "sphinx_rtd_theme ~=0.5.2",
-            "rope ~= 0.14.0",
-            "pylint ~= 2.8.0",  # 2.9.2 crashes and I've not yet figured out why.
-            "pytest ~= 6.1.2",
-            "mypy ~= 0.790",
+            "sphinx",  # Currently httpdomain isn't ready for 4.0
+            "sphinx_rtd_theme",
+            "pylint",  # 2.9.2 crashes and I've not yet figured out why.
+            "pytest",
+            "mypy",
             "types-python-dateutil",
             "types-setuptools",
-            "poethepoet ~= 0.10.0",
-            "freezegun ~= 1.0.0",
-            "lxml ~= 4.6",
+            "poethepoet",
+            "freezegun",
+            "lxml",
             "black == 18.9b0",  # Because black is in prerelease, giving a flexible version
             # specifier causes all manner of problems.  A fixed version
             # avoids issues with prereleases (which are normally not
