@@ -120,7 +120,8 @@ class CaptureObject(object):
         logging.debug("Finished writing to disk %s", self.file)
 
     def open(self, mode):
-        return open(self.file, mode)
+        # We don't specify an encoding because this will be a binary file.
+        return open(self.file, mode)  # pylint: disable=unspecified-encoding
 
     def split_file_path(self, filepath: str):
         """

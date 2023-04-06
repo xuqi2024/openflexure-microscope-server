@@ -10,23 +10,28 @@ from openflexure_microscope.api.v2.views.captures import CaptureSchema
 
 
 class CaptureResizeSchema(Schema):
-    width = fields.Integer(example=640, required=True)
-    height = fields.Integer(example=480, required=True)
+    width = fields.Integer(metadata={"example": 640}, required=True)
+    height = fields.Integer(metadata={"example": 480}, required=True)
 
 
 class BasicCaptureArgs(Schema):
-    use_video_port = fields.Boolean(missing=False)
+    use_video_port = fields.Boolean(load_default=False)
     bayer = fields.Boolean(
-        missing=False, description="Include raw bayer data in capture"
+        load_default=False,
+        metadata={"description": "Include raw bayer data in capture"},
     )
     resize = fields.Nested(CaptureResizeSchema(), required=False)
 
 
 class FullCaptureArgs(BasicCaptureArgs):
-    filename = fields.String(example="MyFileName")
-    temporary = fields.Boolean(missing=False, description="Delete capture on shutdown")
-    annotations = fields.Dict(missing={}, example={"Client": "SwaggerUI"})
-    tags = fields.List(fields.String, missing=[], example=["docs"])
+    filename = fields.String(metadata={"example": "MyFileName"})
+    temporary = fields.Boolean(
+        load_default=False, metadata={"description": "Delete capture on shutdown"}
+    )
+    annotations = fields.Dict(
+        load_default={}, metadata={"example": {"Client": "SwaggerUI"}}
+    )
+    tags = fields.List(fields.String, load_default=[], metadata={"example": ["docs"]})
 
 
 class CaptureAPI(ActionView):
@@ -113,7 +118,11 @@ class GPUPreviewStartAPI(ActionView):
     in the format ``[x, y, width, height]``.
     """
 
-    args = {"window": fields.List(fields.Integer, missing=[], example=[0, 0, 640, 480])}
+    args = {
+        "window": fields.List(
+            fields.Integer, load_default=[], metadata={"example": [0, 0, 640, 480]}
+        )
+    }
 
     def post(self, args):
         """

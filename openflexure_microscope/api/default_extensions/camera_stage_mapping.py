@@ -200,7 +200,7 @@ class CSMExtension(BaseExtension):
             "linear_calibration_y": cal_y,
         }
 
-        with open(CSM_DATAFILE_PATH, "w") as f:
+        with open(CSM_DATAFILE_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, cls=JSONEncoder)
 
         return data
@@ -279,7 +279,11 @@ class CSMExtension(BaseExtension):
 
 
 class Calibrate1DView(ActionView):
-    args = {"direction": fields.List(fields.Float(), required=True, example=[1, 0, 0])}
+    args = {
+        "direction": fields.List(
+            fields.Float(), required=True, metadata={"example": [1, 0, 0]}
+        )
+    }
 
     def post(self, args):
         """Calibrate one axis of the microscope stage against the camera."""
@@ -298,10 +302,18 @@ class CalibrateXYView(ActionView):
 class MoveInImageCoordinatesView(ActionView):
     args = {
         "x": fields.Float(
-            description="The number of pixels to move in X", required=True, example=100
+            metadata={
+                "description": "The number of pixels to move in X",
+                "example": 100,
+            },
+            required=True,
         ),
         "y": fields.Float(
-            description="The number of pixels to move in Y", required=True, example=100
+            metadata={
+                "description": "The number of pixels to move in Y",
+                "example": 100,
+            },
+            required=True,
         ),
     }
 
@@ -316,10 +328,18 @@ class MoveInImageCoordinatesView(ActionView):
 class ClosedLoopMoveInImageCoordinatesView(ActionView):
     args = {
         "x": fields.Float(
-            description="The number of pixels to move in X", required=True, example=100
+            metadata={
+                "description": "The number of pixels to move in X",
+                "example": 100,
+            },
+            required=True,
         ),
         "y": fields.Float(
-            description="The number of pixels to move in Y", required=True, example=100
+            metadata={
+                "description": "The number of pixels to move in Y",
+                "example": 100,
+            },
+            required=True,
         ),
     }
 
@@ -336,15 +356,25 @@ class ClosedLoopMoveInImageCoordinatesView(ActionView):
 class TestClosedLoopSpiralScanView(ActionView):
     args = {
         "x_step": fields.Float(
-            description="The number of pixels to move in X", required=True, example=100
+            metadata={
+                "description": "The number of pixels to move in X",
+                "example": 100,
+            },
+            required=True,
         ),
         "y_step": fields.Float(
-            description="The number of pixels to move in Y", required=True, example=100
+            metadata={
+                "description": "The number of pixels to move in Y",
+                "example": 100,
+            },
+            required=True,
         ),
         "N": fields.Int(
-            description="The number of rings in the spiral scan",
+            metadata={
+                "description": "The number of rings in the spiral scan",
+                "example": 100,
+            },
             required=True,
-            example=3,
         ),
     }
 

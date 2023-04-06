@@ -49,7 +49,11 @@ class ExampleRenameView(View):
     # Format our returned object using MicroscopeIdentifySchema
     schema = MicroscopeIdentifySchema()
     # Expect a request parameter called "name", which is a string. Pass to argument "args".
-    args = {"name": fields.String(required=True, example="My Example Microscope")}
+    args = {
+        "name": fields.String(
+            required=True, metadata={"example": "My Example Microscope"}
+        )
+    }
 
     def post(self, args):
         # Look for our "name" parameter in the request arguments

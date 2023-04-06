@@ -245,7 +245,9 @@ def extension_action(args=None):
                 # Run the action
                 return func(self.extension, **arguments)
 
-            def get(self, *args, **kwargs):  # pylint: disable=useless-super-delegation
+            def get(
+                self, *args, **kwargs
+            ):  # pylint: disable=useless-super-delegation,arguments-differ
                 # Explicitly wrap the `get` method to allow us to add a docstring
                 return super().get(*args, **kwargs)
 
@@ -347,8 +349,10 @@ class AutofocusExtension(BaseExtension):
         args={
             "dz": fields.List(
                 fields.Int(),
-                description="An ascending list of relative z positions",
-                example=[int(x) for x in np.linspace(-300, 300, 7)],
+                metadata={
+                    "description": "An ascending list of relative z positions",
+                    "example": [int(x) for x in np.linspace(-300, 300, 7)],
+                },
             )
         }
     )
@@ -408,7 +412,9 @@ class AutofocusExtension(BaseExtension):
 
     @extension_action(
         args={
-            "dz": fields.Int(required=True, description="The relative Z move to make")
+            "dz": fields.Int(
+                required=True, metadata={"description": "The relative Z move to make"}
+            )
         }
     )
     def move_and_measure(
@@ -430,9 +436,11 @@ class AutofocusExtension(BaseExtension):
     @extension_action(
         args={
             "dz": fields.Int(
-                missing=2000,
-                example=2000,
-                description="Total Z range to search over (in stage steps)",
+                load_default=2000,
+                metadata={
+                    "description": "Total Z range to search over (in stage steps)",
+                    "example": 2000,
+                },
             )
         }
     )
@@ -526,14 +534,18 @@ class AutofocusExtension(BaseExtension):
     @extension_action(
         args={
             "dz": fields.Int(
-                missing=500,
-                example=500,
-                description="Total Z range to move down, then up (in stage steps)",
+                load_default=500,
+                metadata={
+                    "description": "Total Z range to move down, then up (in stage steps)",
+                    "example": 500,
+                },
             ),
             "delay": fields.Int(
-                missing=5,
-                example=5,
-                description="How long to measure sharpness for after the move",
+                load_default=5,
+                metadata={
+                    "description": "How long to measure sharpness for after the move, in seconds",
+                    "example": 5,
+                },
             ),
         }
     )
@@ -554,23 +566,31 @@ class AutofocusExtension(BaseExtension):
     @extension_action(
         args={
             "dz": fields.Int(
-                missing=2000,
-                example=2000,
-                description="Total Z range to search over (in stage steps)",
+                load_default=2000,
+                metadata={
+                    "description": "Total Z range to search over (in stage steps)",
+                    "example": 2000,
+                },
             ),
             "target_z": fields.Int(
-                missing=0,
-                example=-100,
-                description="Target finishing position, relative to the focus.",
+                load_default=0,
+                metadata={
+                    "description": "Target finishing position, relative to the focus.",
+                    "example": -100,
+                },
             ),
             "initial_move_up": fields.Bool(
-                missing=True,
-                description="Set to Flase to disable the initial move upwards",
+                load_default=True,
+                metadata={
+                    "description": "Set to False to disable the initial move upwards"
+                },
             ),
             "backlash": fields.Int(
-                missing=25,
-                minimum=0,
-                description="Distance to undershoot, before correction move.",
+                load_default=25,
+                metadata={
+                    "description": "Distance to undershoot, before correction move.",
+                    "minimum": 0,
+                },
             ),
         }
     )

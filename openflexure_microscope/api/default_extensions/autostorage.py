@@ -242,7 +242,7 @@ class GetLocationsView(PropertyView):
 
 
 class PreferredLocationView(PropertyView):
-    schema = fields.String(required=True, example="Default")
+    schema = fields.String(required=True, metadata={"example": "Default"})
 
     def get(self):
         self.extension.check_location()

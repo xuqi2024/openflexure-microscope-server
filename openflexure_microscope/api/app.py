@@ -261,10 +261,10 @@ def generate_openapi():
     if fname.endswith(".json"):
         import json
 
-        with open(fname, "w") as fd:
+        with open(fname, "w", encoding="utf-8") as fd:
             json.dump(labthing.spec.to_dict(), fd)
     else:
-        with open(fname, "w") as fd:
+        with open(fname, "w", encoding="utf-8") as fd:
             fd.write(labthing.spec.to_yaml())
 
 

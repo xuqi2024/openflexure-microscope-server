@@ -30,7 +30,7 @@ import logging
 import time
 
 # Type hinting
-from typing import BinaryIO, Tuple, Union
+from typing import BinaryIO, Optional, Tuple, Union
 
 import numpy as np
 
@@ -307,7 +307,9 @@ class PiCameraStreamer(BaseCamera):
             self.picamera.zoom = new_fov
 
     def start_preview(
-        self, fullscreen: bool = True, window: Tuple[int, int, int, int] = None
+        self,
+        fullscreen: bool = True,
+        window: Optional[Tuple[int, int, int, int]] = None,
     ):
         """Start the on board GPU camera preview."""
         with self.lock(timeout=1):
@@ -462,9 +464,9 @@ class PiCameraStreamer(BaseCamera):
         output: Union[str, BinaryIO],
         fmt: str = "jpeg",
         use_video_port: bool = False,
-        resize: Tuple[int, int] = None,
+        resize: Optional[Tuple[int, int]] = None,
         bayer: bool = True,
-        thumbnail: Tuple[int, int, int] = None,
+        thumbnail: Optional[Tuple[int, int, int]] = None,
     ):
         """
         Capture a still image to a StreamObject.

@@ -28,7 +28,7 @@ def test_thing_description_valid():
     # TODO: it would be nice to put this into LabThings
     # First load the schema from file and check it validates
     schema_fname = os.path.join(os.path.dirname(__file__), "w3c_td_schema.json")
-    schema = json.load(open(schema_fname, "r"))
+    schema = json.load(open(schema_fname, "r"), encoding="utf-8")
     jsonschema.Draft7Validator.check_schema(schema)
 
     # Build a TD dictionary

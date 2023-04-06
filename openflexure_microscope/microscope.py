@@ -370,7 +370,7 @@ class Microscope:
         folder: str = "",
         temporary: bool = False,
         use_video_port: bool = False,
-        resize: Tuple[int, int] = None,
+        resize: Optional[Tuple[int, int]] = None,
         bayer: bool = True,
         fmt: str = "jpeg",
         annotations: Optional[Dict[str, str]] = None,

@@ -24,7 +24,7 @@ class InstrumentSchema(Schema):
 
 class ImageSchema(Schema):
     id = fields.UUID()
-    time = fields.String(format="date")
+    time = fields.String(metadata={"format": "date"})
     format = fields.String()
     name = fields.String()
     tags = fields.List(fields.String())
@@ -59,7 +59,7 @@ class CaptureSchema(ImageSchema):
     # without the server having to do a tonne of file IO
     dataset = fields.Nested(BasicDatasetSchema())
     file = fields.String(
-        data_key="path", description="Path of file on microscope device"
+        data_key="path", metadata={"description": "Path of file on microscope device"}
     )
     # No need to make a schema for links as we only ever
     # create the dictionary right here in `generate_links`

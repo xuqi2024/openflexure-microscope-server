@@ -31,7 +31,7 @@ def script_directory(path):
 
 
 def get_meta():
-    with open(script_directory("metadata.yaml")) as f:
+    with open(script_directory("metadata.yaml"), encoding="utf-8") as f:
         metadata = f.read()
 
     return yaml.safe_load(metadata)
@@ -51,7 +51,7 @@ def main():
         zenodo.upload_file(deposit["id"], path)
 
     link = deposit["links"]["latest_draft_html"]
-    with open("zenodo-link.html", "w") as f:
+    with open("zenodo-link.html", "w", encoding="utf-8") as f:
         f.write(f'<a href="{link}">{link}</a>')
 
 

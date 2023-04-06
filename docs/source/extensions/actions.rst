@@ -18,7 +18,7 @@ Like properties, we use a special view class to identify a view as an action: ``
         Take an image capture and return it without saving
         """
         # Expect a "use_video_port" boolean, which defaults to True if none is given
-        args = {"use_video_port": fields.Boolean(missing=True)}
+        args = {"use_video_port": fields.Boolean(load_default=True)}
 
         # Our success response (200) returns an image (image/jpeg mimetype)
         responses = {

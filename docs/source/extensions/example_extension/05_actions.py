@@ -56,7 +56,11 @@ class ExampleIdentifyView(PropertyView):
 # We can use a single schema as the input and output will be formatted identically
 # Eg. We always expect a "name" string argument, and always return a "name" string attribute
 class ExampleRenameView(PropertyView):
-    schema = {"name": fields.String(required=True, example="My Example Microscope")}
+    schema = {
+        "name": fields.String(
+            required=True, metadata={"example": "My Example Microscope"}
+        )
+    }
 
     def get(self):
         """
@@ -91,7 +95,7 @@ class QuickCaptureAPI(ActionView):
     """
 
     # Expect a "use_video_port" boolean, which defaults to True if none is given
-    args = {"use_video_port": fields.Boolean(missing=True)}
+    args = {"use_video_port": fields.Boolean(load_default=True)}
 
     # Our success response (200) returns an image (image/jpeg mimetype)
     responses = {200: {"content": {"image/jpeg": {}}}}

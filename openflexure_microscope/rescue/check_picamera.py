@@ -26,11 +26,11 @@ def main():
 
     try:
         import picamerax
-    except Exception as e:  # pylint: disable=W0703
+    except Exception as _e:  # pylint: disable=W0703
         error_sources.append(PICAMERA_IMPORT_ERROR)
     else:
         try:
-            _ = picamerax.PiCamera()
+            _cam = picamerax.PiCamera()
         except picamerax.PiCameraError as e:
             msg = e.args[0]
             if msg in PICAMERA_ERROR_MAP:

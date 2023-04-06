@@ -24,7 +24,11 @@ class RaiseException(ActionView):
 
 class SleepFor(ActionView):
     schema = {"TimeAsleep": fields.Float()}
-    args = {"time": fields.Float(description="Time to sleep, in seconds", example=0.5)}
+    args = {
+        "time": fields.Float(
+            metadata={"description": "Time to sleep, in seconds", "example": 0.5}
+        )
+    }
 
     def post(self, args):
         sleep_time: int = args.get("time", 0)

@@ -81,7 +81,7 @@ def init_default_extensions(extension_dir: str):
         create_file(default_ext_path)
 
         logging.info("Populating %s...", (default_ext_path))
-        with open(default_ext_path, "w") as outfile:
+        with open(default_ext_path, "w", encoding="utf-8") as outfile:
             outfile.write(_DEFAULT_EXTENSION_INIT)
 
 

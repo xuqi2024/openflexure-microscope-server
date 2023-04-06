@@ -23,7 +23,7 @@ A **field** describes the data type of a single parameter, as well as any other 
 
 .. code-block:: python
 
-    fields.String(required=False, missing="Default value", example="Example value")
+    fields.String(required=False, load_default="Default value", metadata={"example: "Example value"})
 
 A **schema** is a collection of keys and fields describing how an object should be serialized/deserialized. Schemas can be created in several ways, either by creating a ``Schema`` class, or by passing a dictionary of key-field pairs. Both methods will be discussed in the following examples.
 
@@ -43,7 +43,7 @@ For example, if you are creating an API route, in which you expect parameters ``
     class UserSchema(Schema):
         name = fields.String(required=True)
         age = fields.Integer(required=True)
-        job = fields.String(required=False, missing="Unknown")
+        job = fields.String(required=False, load_default="Unknown")
 
 To inform your POST method to expect these arguments, use the ``args`` class attribute:
 
@@ -63,7 +63,7 @@ Alternatively, if your schema is only used in a single location, it may be simpl
         args = {
             "name": fields.String(required=True),
             "age": fields.Integer(required=True),
-            "job": fields.String(required=False, missing="Unknown")
+            "job": fields.String(required=False, load_default="Unknown")
         }
 
         def post(self, args):
@@ -88,7 +88,7 @@ This JSON data is the parsed, converted into a Python dictionary, and passed as 
         args = {
             "name": fields.String(required=True),
             "age": fields.Integer(required=True),
-            "job": fields.String(required=False, missing="Unknown")
+            "job": fields.String(required=False, load_default="Unknown")
         }
 
         def post(self, args):
@@ -146,7 +146,7 @@ Our ``rename`` view class may now look like:
         # Format our returned object using MicroscopeIdentifySchema
         schema = MicroscopeIdentifySchema()
         # Expect a request parameter called "name", which is a string. Pass to argument "args".
-        args = {"name": fields.String(required=True, example="My Example Microscope")}
+        args = {"name": fields.String(required=True, metadata={"example": "My Example Microscope"})}
 
         def post(self, args):
             # Look for our "name" parameter in the request arguments

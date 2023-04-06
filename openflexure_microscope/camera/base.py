@@ -54,7 +54,7 @@ class FrameStream(io.BytesIO):
         t: Optional[Type[BaseException]],
         value: Optional[BaseException],
         traceback: Optional[TracebackType],
-    ) -> Optional[bool]:
+    ) -> None:
         self.stop_tracking()
         return super().__exit__(t, value, traceback)
 

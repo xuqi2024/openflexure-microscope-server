@@ -66,10 +66,10 @@
         "thing-context": {
             "oneOf": [{
                     "type": "array",
-                    "items": [{
+                    "prefixItems": [{
                         "$ref": "#/definitions/thing-context-w3c-uri"
                     }],
-                    "additionalItems": {
+                    "items": {
                         "anyOf": [{
                                 "$ref": "#/definitions/anyUri"
                             },

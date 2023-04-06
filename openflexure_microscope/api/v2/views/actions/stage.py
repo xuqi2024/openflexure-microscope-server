@@ -7,11 +7,12 @@ from labthings.views import ActionView
 class MoveStageAPI(ActionView):
     args = {
         "absolute": fields.Boolean(
-            missing=False, example=False, description="Move to an absolute position"
+            load_default=False,
+            metadata={"description": "Move to an absolute position", "example": False},
         ),
-        "x": fields.Int(missing=None, example=100, allow_none=False),
-        "y": fields.Int(missing=None, example=100, allow_none=False),
-        "z": fields.Int(missing=None, example=20, allow_none=False),
+        "x": fields.Int(load_default=None, metadata={"example": 100}, allow_none=True),
+        "y": fields.Int(load_default=None, metadata={"example": 100}, allow_none=True),
+        "z": fields.Int(load_default=None, metadata={"example": 20}, allow_none=True),
     }
 
     def post(self, args):

@@ -46,7 +46,7 @@ class ExampleIdentifyView(View):
 class ExampleRenameView(View):
     # Expect a request parameter called "name", which is a string.
     # Passed to the argument "args".
-    args = fields.String(required=True, example="My Example Microscope")
+    args = fields.String(required=True, metadata={"example": "My Example Microscope"})
 
     def post(self, args):
         # Look for our new name in the request body

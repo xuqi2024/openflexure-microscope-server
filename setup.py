@@ -22,7 +22,7 @@ with open(path.join(here, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="openflexure-microscope-server",
-    version="2.10.1",
+    version="2.11.0",
     description="Python module, and Flask-based web API, to run the OpenFlexure Microscope.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -51,8 +51,9 @@ setup(
         "scipy ~= 1.6.1",
         "python-dateutil ~= 2.8",
         "psutil ~= 5.6.7",  # Autostorage extension
+        "markupsafe ~= 2.0.0",  # 2.1.x breaks jinja2
         "opencv-python-headless ~= 4.5.1",
-        "sangaboard ~= 0.2",
+        "sangaboard ~= 0.3.3",
         "expiringdict ~= 1.2.1",
         "camera-stage-mapping == 0.1.4",
         "picamerax ~= 20.9.1",
@@ -60,7 +61,7 @@ setup(
         "pytest-cov ~= 2.10.1",
         "piexif ~= 1.1.3",
         "labthings ~= 1.3.0",
-        "typing-extensions ~= 3.7.4",  # Needed for some type-hints in Python < 3.8 (e.g. Literal)
+        "typing-extensions ~= 4.3.0",  # Needed for some type-hints in Python < 3.8 (e.g. Literal)
         "RPi.GPIO ~= 0.7.0; platform_machine == 'armv7l'",
     ],
     # "dev" specifies extra packages used for development (linting, testing, etc.)
@@ -71,19 +72,15 @@ setup(
             "sphinx < 4.0",  # Currently httpdomain isn't ready for 4.0
             "sphinxcontrib-openapi ~= 0.7",
             "sphinx_rtd_theme ~=0.5.2",
-            "rope ~= 0.14.0",
-            "pylint ~= 2.8.0",  # 2.9.2 crashes and I've not yet figured out why.
-            "pytest ~= 6.1.2",
-            "mypy ~= 0.790",
+            "pylint ~= 2.14.0",  # 2.9.2 crashes and I've not yet figured out why.
+            "pytest ~= 7.1.2",
+            "mypy ~= 0.971",
             "types-python-dateutil",
             "types-setuptools",
-            "poethepoet ~= 0.10.0",
-            "freezegun ~= 1.0.0",
-            "lxml ~= 4.6",
-            "black == 18.9b0",  # Because black is in prerelease, giving a flexible version
-            # specifier causes all manner of problems.  A fixed version
-            # avoids issues with prereleases (which are normally not
-            # allowed by pipenv) but can be a bit of a pain sometimes!
+            "poethepoet ~= 0.16.0",
+            "freezegun ~= 1.2.1",
+            "lxml ~= 4.9",
+            "black == 18.9b0",
         ]
     },
     dependency_links=[],

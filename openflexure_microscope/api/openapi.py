@@ -8,8 +8,8 @@ API_TAGS = [
             "embedded in the JSON action description."
         ),
         "externalDocs": {
-            "url": "https://iot.mozilla.org/wot/#action-resource",
-            "description": "Mozilla's description of Web of Things 'Action' resources.",
+            "url": "https://www.w3.org/TR/wot-thing-description/#actionaffordance",
+            "description": "W3C's description of Web of Things 'Action' resources.",
         },
     },
     {
@@ -19,8 +19,8 @@ API_TAGS = [
             "state of the microscope."
         ),
         "externalDocs": {
-            "url": "https://iot.mozilla.org/wot/#property-resource",
-            "description": "Mozilla's description of Web of Things 'Property' resources.",
+            "url": "https://www.w3.org/TR/wot-thing-description/#propertyaffordance",
+            "description": "W3C's description of Web of Things 'Property' resources.",
         },
     },
     {"name": "captures", "description": ""},

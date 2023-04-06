@@ -20,7 +20,7 @@ def main():
             # Try connecting on the specified port
             try:
                 stage = Sangaboard(stage_port)
-            except FileNotFoundError as e:
+            except FileNotFoundError as _:
                 if stage_port:
                     error_sources.append(
                         ErrorSource(
