@@ -1,5 +1,5 @@
 stages:
-  - dependencies
+  - environment
   - analysis
   - testing
   - build
@@ -7,28 +7,21 @@ stages:
   - deploy
 
 # Re-usable block to install (and cache) pipenv and openflexure-microscope-server
-.python:
+.python-base:
   image: registry.gitlab.com/openflexure/openflexure-pi-os/openflexure-pi-os:latest
   retry: 1
-  before_script:
-    - python3 -m venv .venv        # NB this does not overwrite an existing cached venv
-    - source .venv/bin/activate
-    - python -m pip install --upgrade pip wheel pipenv           # Should be cached after first run
-    - pipenv install --dev --deploy        # Should be cached after first run - will just check packages are present
-  cache:
-    key:
-      prefix: python_dependencies_
-      files:
-        - Pipfile
-        - Pipfile.lock
-    paths:
-      - .cache/pip
-      - .venv
   only:
     - branches
     - merge_requests
     - tags
     - web
+
+.python:
+  extends: .python-base
+  dependencies:
+    - install-python-environment
+  before_script:
+    - source .venv/scripts/activate
 
 .javascript:
   image: node:15
@@ -45,11 +38,29 @@ stages:
     - tags
     - web
 
-install-python-dependencies:
-  stage: dependencies
-  extends: .python
+install-python-environment:
+  stage: environment
+  extends: .python-base
   script:
-    - echo "Python dependencies should now be cached."
+    - python3 -m venv .venv        # NB this does not overwrite an existing cached venv
+    - source .venv/bin/activate
+    - python -m pip install --upgrade pip wheel pipenv           # Should be cached after first run
+    - pipenv install --dev --deploy        # Should be cached after first run - will just check packages are present
+  cache:
+    key:
+      prefix: python_dependencies_
+      files:
+        - Pipfile
+        - Pipfile.lock
+    paths:
+      - .cache/pip
+      - .venv
+  artifacts:
+    name: "python-virtual-environment"
+    expire_in: 1 week
+    paths:
+      - ".venv/"
+
 
 # Python static analysis with PyLint
 pylint:
