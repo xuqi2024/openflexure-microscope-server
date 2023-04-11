@@ -1,21 +1,26 @@
 stages:
+  - dependencies
   - analysis
   - testing
   - build
   - package
   - deploy
 
-# Re-usable block to install (and cache) Poetry and openflexure-microscope-server
+# Re-usable block to install (and cache) pipenv and openflexure-microscope-server
 .python:
   image: registry.gitlab.com/openflexure/openflexure-pi-os/openflexure-pi-os:latest
   retry: 1
   before_script:
     - python3 -m venv .venv        # NB this does not overwrite an existing cached venv
     - source .venv/bin/activate
-    - pip install pipenv           # Should be cached after first run
+    - python -m pip install --upgrade pip wheel pipenv           # Should be cached after first run
     - pipenv install --dev --deploy        # Should be cached after first run - will just check packages are present
   cache:
-    key: "${CI_COMMIT_REF_SLUG}"
+    key:
+      prefix: python_dependencies_
+      files:
+        - Pipfile
+        - Pipfile.lock
     paths:
       - .cache/pip
       - .venv
@@ -31,7 +36,7 @@ stages:
     - cd webapp
     - npm install
   cache:
-    key: "${CI_COMMIT_REF_SLUG}"
+    key: "node_modules_${CI_COMMIT_REF_SLUG}"
     paths:
       - webapp/node_modules
   only:
@@ -39,6 +44,12 @@ stages:
     - merge_requests
     - tags
     - web
+
+install-python-dependencies:
+  stage: dependencies
+  extends: .python
+  script:
+    - echo "Python dependencies should now be cached."
 
 # Python static analysis with PyLint
 pylint:
