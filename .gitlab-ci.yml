@@ -41,6 +41,8 @@ stages:
 install-python-environment:
   stage: environment
   extends: .python-base
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   script:
     - rm -rf .venv                          # Ensure there's no old venv hanging around from cache
     - python3 -m venv --copies .venv        # NB this does not overwrite an existing cached venv
