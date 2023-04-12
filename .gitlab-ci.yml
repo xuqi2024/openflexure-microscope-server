@@ -42,20 +42,19 @@ install-python-environment:
   stage: environment
   extends: .python-base
   script:
+    - rm -rf .venv                          # Ensure there's no old venv hanging around from cache
     - python3 -m venv --copies .venv        # NB this does not overwrite an existing cached venv
     - source .venv/bin/activate
-    - python -m pip install --upgrade pip wheel pipenv           # Should be cached after first run
-    - pipenv install --dev --deploy        # Should be cached after first run - will just check packages are present
+    - python -m pip install --upgrade pip wheel pipenv   # If nothing's changed, everything will be cached
+    - pipenv install --dev --deploy         # Roughly equivalent to sync, i.e. install from Pipfile.lock.
   cache:
     key:
-      prefix: python_dependencies_
+      prefix: ${CI_PROJECT_NAME}-pip-cache
       files:
-        - Pipfile
         - Pipfile.lock
     paths:
       - .cache/pip
-      - .venv
-  artifacts:
+  artifacts:                                # Pass the populated virtual environment to other Python jobs
     name: "python-virtual-environment"
     expire_in: 1 week
     paths:
