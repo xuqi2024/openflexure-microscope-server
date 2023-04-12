@@ -21,7 +21,7 @@ stages:
   dependencies:
     - install-python-environment
   before_script:
-    - source .venv/scripts/activate
+    - source .venv/bin/activate
 
 .javascript:
   image: node:15
