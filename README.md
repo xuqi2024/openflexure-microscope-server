@@ -1,5 +1,26 @@
 # OpenFlexure Microscope Software
 
+## PICAMERA2 DEVELOPMENT BRANCH
+
+This is an early-stage attempt at supporting newer cameras using the picamera2 interface.
+
+### Current status:
+ - [x] MJPEG stream
+ - [x] Capturing images
+ - [x] Raw captures to dng
+ - [] Recording videos (implemented but not tested)
+ - [] Direct rendered preview
+ - [] Camera configuration
+ - [] Automatic calibration
+ - [] Lens shading
+ - [] Fast autofocus (probably)
+ - [] Building the venv
+ - [] Switching between picamera and picamera2
+
+There's likely more things broken, the main goal was to get an idea of the complexity involved in supporting new cameras.
+
+## OpenFlexure Microscope Server
+
 The "server" is the main component of the OpenFlexure Microscope's software.  It is responsible for controlling microscope hardware, data management, and allowing it to be controlled locally and over a network.
 This repository now includes the web client, which is served from the root of the Python web server.
 This software runs on [Python-LabThings](https://github.com/labthings/python-labthings/), and so most non-microscope functionality is handled by that library.

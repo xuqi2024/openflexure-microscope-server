@@ -17,8 +17,8 @@ from openflexure_microscope.stage.base import BaseStage
 from openflexure_microscope.stage.mock import MissingStage
 from openflexure_microscope.stage.sanga import SangaDeltaStage, SangaStage
 
-try:
-    from openflexure_microscope.camera.pi import PiCameraStreamer
+try:#TODO default to PiCameraStreamer?
+    from openflexure_microscope.camera.pi2 import PiCamera2Streamer
 except Exception as exc:  # pylint: disable=W0703
     logging.error(exc)
     logging.warning("Unable to import PiCameraStreamer")
@@ -102,9 +102,10 @@ class Microscope:
         logging.info("Creating camera")
         if configuration.get("camera"):
             camera_type = configuration["camera"].get("type")
+            #TODO: make this configurable/fallback style
             if camera_type in ("PiCamera", "PiCameraStreamer"):
                 try:
-                    self.camera = PiCameraStreamer()
+                    self.camera = PiCamera2Streamer()
                 except Exception as e:  # pylint: disable=W0703
                     logging.error(e)
                     logging.warning("No compatible camera hardware found.")
