@@ -8,14 +8,14 @@ This is an early-stage attempt at supporting newer cameras using the picamera2 i
  - [x] MJPEG stream
  - [x] Capturing images
  - [x] Raw captures to dng
- - [] Recording videos (implemented but not tested)
- - [] Direct rendered preview
- - [] Camera configuration
- - [] Automatic calibration
- - [] Lens shading
- - [] Fast autofocus (probably)
- - [] Building the venv
- - [] Switching between picamera and picamera2
+ - [ ] Recording videos (implemented but not tested)
+ - [ ] Direct rendered preview
+ - [ ] Camera configuration
+ - [ ] Automatic calibration
+ - [ ] Lens shading
+ - [ ] Fast autofocus (probably)
+ - [ ] Building the venv
+ - [ ] Switching between picamera and picamera2
 
 There's likely more things broken, the main goal was to get an idea of the complexity involved in supporting new cameras.
 
