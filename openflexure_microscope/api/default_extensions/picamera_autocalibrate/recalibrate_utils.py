@@ -36,62 +36,60 @@ import time
 from typing import List, NamedTuple, Optional, Tuple
 
 import numpy as np
-from picamerax import PiCamera
-from picamerax.array import PiBayerArray, PiRGBArray
+
+from libcamera import controls
+from picamera2 import Picamera2
+#from picamerax import PiCamera
+#from picamerax.array import PiBayerArray, PiRGBArray
 
 
 def rgb_image(
-    camera: PiCamera, resize: Optional[Tuple[int, int]] = None, **kwargs
-) -> PiRGBArray:
+    camera: Picamera2, resize: Optional[Tuple[int, int]] = None, **kwargs
+) -> np.array:
     """Capture an image and return an RGB numpy array"""
-    with PiRGBArray(camera, size=resize) as output:
-        camera.capture(output, format="rgb", resize=resize, **kwargs)
-        return output.array
+    return camera.capture_array()
 
-
-def flat_lens_shading_table(camera: PiCamera) -> np.ndarray:
+def flat_lens_shading_table(camera: Picamera2) -> np.ndarray:
     """Return a flat (i.e. unity gain) lens shading table.
-    
+
     This is mostly useful because it makes it easy to get the size
     of the array correct.  NB if you are not using the forked picamera
     library (with lens shading table support) it will raise an error.
     """
-    if not hasattr(PiCamera, "lens_shading_table"):
-        raise ImportError(
-            "This program requires the forked picamera library with lens shading support"
-        )
-    # pylint: disable=protected-access
-    return np.zeros(camera._lens_shading_table_shape(), dtype=np.uint8) + 32
+    return np.ones((16,12)) #TODO actually implement this
 
-
-def adjust_exposure_to_setpoint(camera: PiCamera, setpoint: int):
+def adjust_exposure_to_setpoint(camera: Picamera2, setpoint: int):
     """Adjust the camera's exposure time until the maximum pixel value is <setpoint>.
-    
+
     NB this method uses RGB images (i.e. processed ones) not raw images.
     """
     logging.info(f"Adjusting shutter speed to hit setpoint {setpoint}")
     for _ in range(3):
-        camera.shutter_speed = int(
-            camera.shutter_speed * setpoint / np.max(rgb_image(camera))
+        camera.controls.ExposureTime = int(
+            camera.controls.ExposureTime * setpoint / np.max(rgb_image(camera))
         )
         time.sleep(1)
 
 
-def set_minimum_exposure(camera: PiCamera):
+def set_minimum_exposure(camera: Picamera2):
     """Enable manual exposure, with low gain and shutter speed
-    
+
     We set exposure mode to manual, analog and digital gain
     to 1, and shutter speed to the minimum (8us for Pi Camera v2)
     NB ISO is left at auto, because this is needed for the gains
     to be set correctly.
     """
-    camera.exposure_mode = "off"
-    camera.iso = 0  # We must set ISO=0 (auto) or we can't set gain
-    camera.analog_gain = 1
-    camera.digital_gain = 1
+    camera.set_controls({
+        "AeEnable": False,
+        "AnalogueGain": 1,
+        "ExposureTime": 1
+    })
+   # camera.iso = 0  # We must set ISO=0 (auto) or we can't set gain
+  #  camera.analog_gain = 1
+   # camera.digital_gain = 1 (not configurable)
     # Setting the shutter speed to 1us will result in it being set
     # to the minimum possible, which is probably 8us for PiCamera v2
-    camera.shutter_speed = 1
+    #camera.shutter_speed = 1
     time.sleep(0.5)
 
 
@@ -103,7 +101,7 @@ class ExposureTest(NamedTuple):
     analog_gain: float
 
 
-def test_exposure_settings(camera: PiCamera, percentile: float) -> ExposureTest:
+def test_exposure_settings(camera: Picamera2, percentile: float) -> ExposureTest:
     """Evaluate current exposure settings using a raw image
 
     We will acquire a raw image and calculate the given percentile
@@ -122,8 +120,8 @@ def test_exposure_settings(camera: PiCamera, percentile: float) -> ExposureTest:
             "camera's black level compensation has gone wrong."
         )
         max_brightness = 1
-    shutter_speed = int(camera.shutter_speed)
-    analog_gain = float(camera.analog_gain)
+    shutter_speed = int(camera.controls.ExposureTime)
+    analog_gain = float(camera.controls.AnalogueGain)
     logging.info(
         f"Brightness: {max_brightness: >5.0f}, "
         f"Gain: {analog_gain: >4.1f}, "
@@ -139,27 +137,27 @@ def check_convergence(test: ExposureTest, target: int, tolerance: float):
 
 
 def adjust_shutter_and_gain_from_raw(
-    camera: PiCamera,
+    camera: Picamera2,
     target_white_level: int = 700,
     max_iterations: int = 20,
     tolerance: float = 0.05,
     percentile: float = 99.9,
 ) -> float:
     """Adjust exposure and analog gain based on raw images.
-    
+
     This routine is slow but effective.  It uses raw images, so we
     are not affected by white balance or digital gain.
 
-    
+
     Arguments:
-        target_white_level: 
-            The raw, 10-bit value we aim for.  The brightest pixels 
-            should be approximately this bright.  Maximum possible 
+        target_white_level:
+            The raw, 10-bit value we aim for.  The brightest pixels
+            should be approximately this bright.  Maximum possible
             is about 900, 700 is reasonable.
         max_iterations:
             We will terminate once we perform this many iterations,
             whether or not we converge.  More than 10 shouldn't happen.
-        tolerance: 
+        tolerance:
             How close to the target value we consider "done".  Expressed
             as a fraction of the ``target_white_level`` so 0.05 means
             +/- 5%
@@ -192,13 +190,13 @@ def adjust_shutter_and_gain_from_raw(
 
         # Adjust shutter speed so that the brightness approximates the target
         # NB we put a maximum of 32 on this, to stop it increasing too quickly.
-        camera.shutter_speed = int(
+        camera.controls.ExposureTime = int(
             test.shutter_speed * min(target_white_level / test.level, 32)
         )
         time.sleep(0.5)
 
         # Check whether the shutter speed is still going up - if not, we've hit a maximum
-        if camera.shutter_speed == test.shutter_speed:
+        if camera.controls.ExposureTime == test.shutter_speed:
             logging.info("Shutter speed has maxed out.")
             break
 
@@ -210,11 +208,11 @@ def adjust_shutter_and_gain_from_raw(
         iterations += 1
 
         # Adjust gain to make the white level hit the target, again with a maximum
-        camera.analog_gain *= min(target_white_level / test.level, 2)
+        camera.controls.AnalogueGain *= min(target_white_level / test.level, 2)
         time.sleep(0.5)
 
         # Check the gain is still changing - if not, we have probably hit the maximum
-        if camera.analog_gain == test.analog_gain:
+        if camera.controls.AnalogueGain == test.analog_gain:
             logging.info("Gain has maxed out.")
             break
 
@@ -230,10 +228,10 @@ def adjust_shutter_and_gain_from_raw(
 
 
 def adjust_white_balance_from_raw(
-    camera: PiCamera, percentile: float = 99
+    camera: Picamera2, percentile: float = 99
 ) -> Tuple[float, float]:
     """Adjust the white balance in a single shot, based on the raw image.
-    
+
     NB if ``channels_from_raw_image`` is broken, this will go haywire.
     We should probably have better logic to verify the channels really
     are BGGR...
@@ -246,13 +244,14 @@ def adjust_white_balance_from_raw(
         f"setting AWB gains to ({new_awb_gains[0]:.2f}, "
         f"{new_awb_gains[1]:.2f})."
     )
-    camera.awb_mode = "off"
-    camera.awb_gains = new_awb_gains
+    camera.controls.AwbEnable = False
+    camera.controls.ColourGains = new_awb_gains
     return new_awb_gains
 
 
 def channels_from_bayer_array(bayer_array: np.ndarray) -> np.ndarray:
     """Given the 'array' from a PiBayerArray, return the 4 channels."""
+    #TODO: does this work with the new raw data?
     bayer_pattern: List[Tuple[int, int]] = [(0, 0), (0, 1), (1, 0), (1, 1)]
     channels_shape: Tuple[int, ...] = (
         4,
@@ -269,19 +268,22 @@ def channels_from_bayer_array(bayer_array: np.ndarray) -> np.ndarray:
     return channels
 
 
-def get_channel_percentiles(camera: PiCamera, percentile: float) -> np.ndarray:
+def get_channel_percentiles(camera: Picamera2, percentile: float) -> np.ndarray:
     """Calculate the brightness percentile of the pixels in each channel
-    
+
     This is a number between -64 and 959 for each channel, because the
     camera takes 10-bit images (maximum=1023) and its zero level is set
     at 64 for denoising purposes (there's black level compensation built
     in, and to avoid skewing the noise, the black level is set as 64 to
     leave some room for negative values.
     """
-    with PiBayerArray(camera) as output:
-        camera.capture(output, format="jpeg", bayer=True)
-        channels = channels_from_bayer_array(output.array)
-        return np.percentile(channels, percentile, axis=(1, 2)) - 64
+    if camera.started:
+        camera.stop_recording()
+    config = camera.create_still_configuration(raw={"format": "SBGGR10"})
+    camera.configure(config)
+    camera.start()
+    channels = channels_from_bayer_array(camera.capture_array("raw")) #TODO: check this returns correct data
+    return np.percentile(channels, percentile, axis=(1, 2)) - 64
 
 
 def lst_from_channels(channels: np.ndarray) -> np.ndarray:
@@ -354,11 +356,13 @@ def lst_from_channels(channels: np.ndarray) -> np.ndarray:
     return lens_shading_table[::-1, :, :].copy()
 
 
-def lst_from_camera(camera: PiCamera) -> np.ndarray:
+def lst_from_camera(camera: Picamera2) -> np.ndarray:
     """Acquire a raw image and use it to calculate a lens shading table."""
-    with PiBayerArray(camera) as a:
-        camera.capture(a, format="jpeg", bayer=True)
-        raw_image = a.array.copy()
+    if camera.started:
+        camera.stop_recording()
+    config = camera.create_still_configuration(raw={"format": "SBGGR10"})
+    camera.configure(config)
+    raw_image = camera.capture_array("raw")
 
     # Now we need to calculate a lens shading table that would make this flat.
     # raw_image is a 3D array, with full resolution and 3 colour channels.  No
@@ -368,7 +372,7 @@ def lst_from_camera(camera: PiCamera) -> np.ndarray:
     return lst_from_channels(channels)
 
 
-def recalibrate_camera(camera: PiCamera):
+def recalibrate_camera(camera: Picamera2):
     """Reset the lens shading table and exposure settings.
 
     This method first resets to a flat lens shading table, then auto-exposes,
@@ -378,18 +382,19 @@ def recalibrate_camera(camera: PiCamera):
     NB the only parameter ``camera`` is a ``PiCamera`` instance and **not** a
     ``StreamingCamera``.
     """
-    camera.lens_shading_table = flat_lens_shading_table(camera)
-    _ = rgb_image(camera)  # for some reason the camera won't work unless I do this!
+    #TODO
+    #camera.lens_shading_table = flat_lens_shading_table(camera)
+    #_ = rgb_image(camera)  # for some reason the camera won't work unless I do this!
 
-    lens_shading_table = lst_from_camera(camera)
+    #lens_shading_table = lst_from_camera(camera)
 
-    camera.lens_shading_table = lens_shading_table
-    _ = rgb_image(camera)
+    #camera.lens_shading_table = lens_shading_table
+    #_ = rgb_image(camera)
 
     # Fix the AWB gains so the image is neutral
     channel_means = np.mean(np.mean(rgb_image(camera), axis=0, dtype=float), axis=0)
-    old_gains = camera.awb_gains
-    camera.awb_gains = (
+    old_gains = camera.controls.ColourGains
+    camera.controls.ColourGains = (
         channel_means[1] / channel_means[0] * old_gains[0],
         channel_means[1] / channel_means[2] * old_gains[1],
     )
@@ -399,7 +404,7 @@ def recalibrate_camera(camera: PiCamera):
 
 
 if __name__ == "__main__":
-    with PiCamera() as main_camera:
+    with Picamera2() as main_camera:
         main_camera.start_preview()
         time.sleep(3)
         logging.info("Recalibrating...")

@@ -7,7 +7,7 @@ from flask import abort
 from labthings import find_component
 from labthings.extensions import BaseExtension
 from labthings.views import ActionView
-from picamerax import PiCamera
+from picamera2 import Picamera2
 
 from openflexure_microscope.camera.base import BaseCamera
 from openflexure_microscope.microscope import Microscope
@@ -88,7 +88,7 @@ class LSTExtension(BaseExtension):
 
 
 @contextmanager
-def find_picamera() -> Iterator[Tuple[PiCamera, BaseCamera, Microscope]]:
+def find_picamera() -> Iterator[Tuple[Picamera2, BaseCamera, Microscope]]:
     """Locate the microscope and raise a sensible error if it's missing."""
     microscope = find_component("org.openflexure.microscope")
 
@@ -130,7 +130,9 @@ class RecalibrateView(ActionView):
             adjust_white_balance_from_raw(picamera)
             lst = lst_from_camera(picamera)
             with pause_stream(scamera):
-                picamera.lens_shading_table = lst
+                #TODO: implement this using camera tuning
+                pass
+                #picamera.lens_shading_table = lst
             microscope.save_settings()
 
 
@@ -148,7 +150,8 @@ class AutoLensShadingTableView(ActionView):
             logging.info("Generating lens shading table")
             lst = lst_from_camera(picamera)
             with pause_stream(scamera):
-                picamera.lens_shading_table = lst
+                #TODO: implement this using camera tuning
+                pass
             microscope.save_settings()
 
 
@@ -156,8 +159,9 @@ class FlattenLSTView(ActionView):
     def post(self):
         with find_picamera() as (picamera, scamera, microscope):
             with pause_stream(scamera):
-                flat_lst = flat_lens_shading_table(picamera)
-                picamera.lens_shading_table = flat_lst
+                #flat_lst = flat_lens_shading_table(picamera)
+                #TODO: implement this using camera tuning
+                pass
             microscope.save_settings()
 
 
@@ -165,7 +169,9 @@ class DeleteLSTView(ActionView):
     def post(self):
         with find_picamera() as (picamera, scamera, microscope):
             with pause_stream(scamera):
-                picamera.lens_shading_table = None
+                #TODO: implement this using camera tuning
+                pass
+                #picamera.lens_shading_table = None
             microscope.save_settings()
 
 
