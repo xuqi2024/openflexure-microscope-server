@@ -106,6 +106,7 @@ def find_picamera() -> Iterator[Tuple[Picamera2, BaseCamera, Microscope]]:
         yield scamera.picamera, scamera, microscope
 
 
+
 class RecalibrateView(ActionView):
     def post(self):
         """Reset the camera's settings.
@@ -126,14 +127,14 @@ class RecalibrateView(ActionView):
         """
         with find_picamera() as (picamera, scamera, microscope):
             logging.info("Starting microscope recalibration...")
-            adjust_shutter_and_gain_from_raw(picamera)
-            adjust_white_balance_from_raw(picamera)
-            lst = lst_from_camera(picamera)
             with pause_stream(scamera):
+                adjust_shutter_and_gain_from_raw(picamera)
+                adjust_white_balance_from_raw(picamera)
+                lst = lst_from_camera(picamera)
                 #TODO: implement this using camera tuning
                 pass
                 #picamera.lens_shading_table = lst
-            microscope.save_settings()
+                microscope.save_settings()
 
 
 class AutoLensShadingTableView(ActionView):
@@ -222,16 +223,18 @@ class AutoExposureFromRawView(ActionView):
     }
 
     def post(self, args):
-        with find_picamera() as (picamera, _, _):
-            adjust_shutter_and_gain_from_raw(picamera, **args)
+        with find_picamera() as (picamera, scamera, _):
+            with pause_stream(scamera):
+                adjust_shutter_and_gain_from_raw(picamera, **args)
 
 
 class AutoWhiteBalanceFromRawView(ActionView):
     args = {"percentile": percentile_field}
 
     def post(self, args):
-        with find_picamera() as (picamera, _, _):
-            adjust_white_balance_from_raw(picamera, **args)
+        with find_picamera() as (picamera, scamera, _):
+            with pause_stream(scamera):
+                adjust_white_balance_from_raw(picamera, **args)
 
 
 class GetRawChannelPercentilesView(ActionView):
@@ -246,5 +249,6 @@ class GetRawChannelPercentilesView(ActionView):
     schema = fields.List(fields.Integer)
 
     def post(self, args):
-        with find_picamera() as (picamera, _, _):
-            return get_channel_percentiles(picamera, args["percentile"])
+        with find_picamera() as (picamera, scamera, _):
+            with pause_stream(scamera):
+                return get_channel_percentiles(picamera, args["percentile"])

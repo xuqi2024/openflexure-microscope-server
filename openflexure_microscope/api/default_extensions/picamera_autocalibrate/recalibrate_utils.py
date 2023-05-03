@@ -104,15 +104,18 @@ class ExposureTest(NamedTuple):
 def test_exposure_settings(camera: Picamera2, percentile: float) -> ExposureTest:
     """Evaluate current exposure settings using a raw image
 
+    CAMERA SHOULD BE STARTED!
+
     We will acquire a raw image and calculate the given percentile
     of the pixel values.  We return a dictionary containing the
     percentile (which will be compared to the target), as well as
     the camera's shutter and gain values.
     """
-    max_brightness = np.max(get_channel_percentiles(camera, percentile))
+    max_brightness = np.max(get_channel_percentiles(camera, percentile,))
     # The reported brightness can, theoretically, be negative or zero
     # because of black level compensation.  The line below forces a
     # minimum value of 1 which will keep things well-behaved!
+    print(max_brightness)
     if max_brightness < 1:
         logging.warning(
             f"Measured brightness of {max_brightness}. "
@@ -120,8 +123,11 @@ def test_exposure_settings(camera: Picamera2, percentile: float) -> ExposureTest
             "camera's black level compensation has gone wrong."
         )
         max_brightness = 1
-    shutter_speed = int(camera.controls.ExposureTime)
-    analog_gain = float(camera.controls.AnalogueGain)
+    metadata = camera.capture_metadata()
+    print(metadata)
+
+    shutter_speed = int(metadata["ExposureTime"])
+    analog_gain = float(metadata["AnalogueGain"])
     logging.info(
         f"Brightness: {max_brightness: >5.0f}, "
         f"Gain: {analog_gain: >4.1f}, "
@@ -175,6 +181,10 @@ def adjust_shutter_and_gain_from_raw(
             "must be less than 959."
         )
 
+    config = camera.create_still_configuration(raw={"format": "SBGGR10"})
+    camera.configure(config)
+    camera.start()
+    print("Here")
     set_minimum_exposure(camera)
 
     # We start with very low exposure settings and work up
@@ -183,22 +193,25 @@ def adjust_shutter_and_gain_from_raw(
     iterations = 0
     while iterations < max_iterations:
         test = test_exposure_settings(camera, percentile)
-
+        print(test)
         if check_convergence(test, target_white_level, tolerance):
             break
         iterations += 1
 
         # Adjust shutter speed so that the brightness approximates the target
         # NB we put a maximum of 32 on this, to stop it increasing too quickly.
-        camera.controls.ExposureTime = int(
-            test.shutter_speed * min(target_white_level / test.level, 32)
+        new_time = int(
+            test.shutter_speed * min(target_white_level / test.level,
+            8)
         )
+        camera.controls.ExposureTime = new_time
+        print(f"New shutter time: {new_time}")
         time.sleep(0.5)
 
         # Check whether the shutter speed is still going up - if not, we've hit a maximum
-        if camera.controls.ExposureTime == test.shutter_speed:
-            logging.info("Shutter speed has maxed out.")
-            break
+        #if camera.controls.ExposureTime == test.shutter_speed:
+        #    logging.info("Shutter speed has maxed out.")
+        #    break
 
     # Now, if we've not converged, increase gain until we converge or run out of options.
     while iterations < max_iterations:
@@ -208,13 +221,13 @@ def adjust_shutter_and_gain_from_raw(
         iterations += 1
 
         # Adjust gain to make the white level hit the target, again with a maximum
-        camera.controls.AnalogueGain *= min(target_white_level / test.level, 2)
+        camera.controls.AnalogueGain = test.analog_gain * min(target_white_level / test.level, 2)
         time.sleep(0.5)
 
         # Check the gain is still changing - if not, we have probably hit the maximum
-        if camera.controls.AnalogueGain == test.analog_gain:
-            logging.info("Gain has maxed out.")
-            break
+        #if camera.controls.AnalogueGain == test.analog_gain:
+        #    logging.info("Gain has maxed out.")
+        #    break
 
     if check_convergence(test, target_white_level, tolerance):
         logging.info(f"Brightness has converged to within {tolerance * 100 :.0f}%.")
@@ -223,6 +236,8 @@ def adjust_shutter_and_gain_from_raw(
             f"Failed to reach target brightness of {target_white_level}."
             f"Brightness reached {test.level} after {iterations} iterations."
         )
+
+    camera.stop()
 
     return test.level
 
@@ -236,6 +251,9 @@ def adjust_white_balance_from_raw(
     We should probably have better logic to verify the channels really
     are BGGR...
     """
+    config = camera.create_still_configuration(raw={"format": "SBGGR10"})
+    camera.configure(config)
+    camera.start()
     blue, g1, g2, red = get_channel_percentiles(camera, percentile)
     green = (g1 + g2) / 2.0
     new_awb_gains = (green / red, green / blue)
@@ -246,6 +264,7 @@ def adjust_white_balance_from_raw(
     )
     camera.controls.AwbEnable = False
     camera.controls.ColourGains = new_awb_gains
+    camera.stop()
     return new_awb_gains
 
 
@@ -253,6 +272,7 @@ def channels_from_bayer_array(bayer_array: np.ndarray) -> np.ndarray:
     """Given the 'array' from a PiBayerArray, return the 4 channels."""
     #TODO: does this work with the new raw data?
     bayer_pattern: List[Tuple[int, int]] = [(0, 0), (0, 1), (1, 0), (1, 1)]
+    bayer_array = bayer_array.view(np.uint16)
     channels_shape: Tuple[int, ...] = (
         4,
         bayer_array.shape[0] // 2,
@@ -261,15 +281,15 @@ def channels_from_bayer_array(bayer_array: np.ndarray) -> np.ndarray:
     channels: np.ndarray = np.zeros(channels_shape, dtype=bayer_array.dtype)
     for i, offset in enumerate(bayer_pattern):
         # We simplify life by dealing with only one channel at a time.
-        channels[i, :, :] = np.sum(
-            bayer_array[offset[0] :: 2, offset[1] :: 2, :], axis=2
-        )
+        channels[i, :, :] = bayer_array[offset[0] :: 2, offset[1] :: 2]
 
     return channels
 
 
-def get_channel_percentiles(camera: Picamera2, percentile: float) -> np.ndarray:
+def get_channel_percentiles(camera: Picamera2, percentile: float, reconfigure = True) -> np.ndarray:
     """Calculate the brightness percentile of the pixels in each channel
+
+    Camera should be started and configured for raw frames
 
     This is a number between -64 and 959 for each channel, because the
     camera takes 10-bit images (maximum=1023) and its zero level is set
@@ -277,12 +297,9 @@ def get_channel_percentiles(camera: Picamera2, percentile: float) -> np.ndarray:
     in, and to avoid skewing the noise, the black level is set as 64 to
     leave some room for negative values.
     """
-    if camera.started:
-        camera.stop_recording()
-    config = camera.create_still_configuration(raw={"format": "SBGGR10"})
-    camera.configure(config)
-    camera.start()
+
     channels = channels_from_bayer_array(camera.capture_array("raw")) #TODO: check this returns correct data
+
     return np.percentile(channels, percentile, axis=(1, 2)) - 64
 
 
