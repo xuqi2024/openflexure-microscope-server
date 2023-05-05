@@ -70,3 +70,4 @@ SETTINGS_FILE_PATH: str = settings_file_path("microscope_settings.json")
 CONFIGURATION_FILE_PATH: str = settings_file_path("microscope_configuration.json")
 #: Path of microscope extensions directory
 OPENFLEXURE_EXTENSIONS_PATH: str = extensions_file_path("microscope_extensions")
+CAMERA_TUNING_FILE_PATH: str = settings_file_path("camera_tuning.json")

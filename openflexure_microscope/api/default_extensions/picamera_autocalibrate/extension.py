@@ -128,12 +128,9 @@ class RecalibrateView(ActionView):
         with find_picamera() as (picamera, scamera, microscope):
             logging.info("Starting microscope recalibration...")
             with pause_stream(scamera):
-                adjust_shutter_and_gain_from_raw(picamera)
-                adjust_white_balance_from_raw(picamera)
-                lst = lst_from_camera(picamera)
-                #TODO: implement this using camera tuning
-                pass
-                #picamera.lens_shading_table = lst
+                adjust_shutter_and_gain_from_raw(picamera, scamera)
+                adjust_white_balance_from_raw(picamera, scamera)
+                lst = lst_from_camera(picamera, scamera)
                 microscope.save_settings()
 
 
@@ -148,11 +145,9 @@ class AutoLensShadingTableView(ActionView):
         be corrected for vignetting.
         """
         with find_picamera() as (picamera, scamera, microscope):
-            logging.info("Generating lens shading table")
-            lst = lst_from_camera(picamera)
             with pause_stream(scamera):
-                #TODO: implement this using camera tuning
-                pass
+                logging.info("Generating lens shading table")
+                lst = lst_from_camera(picamera, scamera)
             microscope.save_settings()
 
 
@@ -160,9 +155,8 @@ class FlattenLSTView(ActionView):
     def post(self):
         with find_picamera() as (picamera, scamera, microscope):
             with pause_stream(scamera):
-                #flat_lst = flat_lens_shading_table(picamera)
+                flat_lst = flat_lens_shading_table(picamera, scamera)
                 #TODO: implement this using camera tuning
-                pass
             microscope.save_settings()
 
 
@@ -225,7 +219,7 @@ class AutoExposureFromRawView(ActionView):
     def post(self, args):
         with find_picamera() as (picamera, scamera, _):
             with pause_stream(scamera):
-                adjust_shutter_and_gain_from_raw(picamera, **args)
+                adjust_shutter_and_gain_from_raw(picamera, scamera, **args)
 
 
 class AutoWhiteBalanceFromRawView(ActionView):
@@ -234,7 +228,7 @@ class AutoWhiteBalanceFromRawView(ActionView):
     def post(self, args):
         with find_picamera() as (picamera, scamera, _):
             with pause_stream(scamera):
-                adjust_white_balance_from_raw(picamera, **args)
+                adjust_white_balance_from_raw(picamera, scamera, **args)
 
 
 class GetRawChannelPercentilesView(ActionView):

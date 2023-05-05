@@ -7,6 +7,7 @@ Raspberry Pi camera implementation of the PiCameraStreamer class.
 
 import logging
 import time
+import json
 
 # Type hinting
 from typing import BinaryIO, Optional, Tuple, Union
@@ -23,6 +24,7 @@ from picamera2.outputs import FileOutput
 
 from openflexure_microscope.camera.base import BaseCamera
 from openflexure_microscope.utilities import json_to_ndarray, ndarray_to_json
+from openflexure_microscope.paths import CAMERA_TUNING_FILE_PATH
 
 # Richard's fix gain
 #from .set_picamera_gain import set_analog_gain, set_digital_gain
@@ -71,9 +73,16 @@ class PiCamera2Streamer(BaseCamera):
     def __init__(self):
         # Run BaseCamera init
         BaseCamera.__init__(self)
+        self.tuning = Picamera2.load_tuning_file(CAMERA_TUNING_FILE_PATH)
 
         #: :py:class:`picamerax.PiCamera`: Attached Picamera object
-        self.picamera: Picamera2 = Picamera2()
+        self.picamera: Picamera2 = Picamera2(tuning = self.tuning)
+
+        self.camera_configs = {
+            "stream": self.picamera.create_video_configuration(main={"size": self.stream_resolution}),
+            "still": self.picamera.create_still_configuration(main={"size":  self.image_resolution}, raw={})
+        }
+
 
         # Store state of PiCameraStreamer
         self.preview_active: bool = False
@@ -105,6 +114,19 @@ class PiCamera2Streamer(BaseCamera):
         logging.debug("Waiting for frames...")
         self.stream.new_frame.wait()
         logging.debug("Camera initialised")
+
+    def update_tuning(self):
+        """
+        Save new tuning json and reload camera
+        """
+        with open(CAMERA_TUNING_FILE_PATH, 'w') as f:
+            json.dump(self.tuning, f)
+
+        self.picamera.close()
+
+        self.picamera = Picamera2(tuning = self.tuning)
+        if self.stream_active:
+            self.start_stream()
 
     @property
     def camera(self):
@@ -150,12 +172,25 @@ class PiCamera2Streamer(BaseCamera):
 
         # Include a subset of picamera properties. Excludes lens shading table
         for key in PiCamera2Streamer.picamera_settings_keys:
-            try:
-                value = self.picamera.camera_controls[key]
-                logging.debug("Reading PiCamera().%s: %s", key, value)
+                #camera must be running at this point!
+            stop_after = False
+            if not self.picamera.started:
+                self.picamera.start()
+                stop_after = True
+            metadata = self.picamera.capture_metadata()
+            if stop_after:
+                self.picamera.stop()
+            #if key in self.picamera.camera_controls:
+            #    value = self.picamera.camera_controls[key][2]
+            #    logging.info("Reading PiCamera().%s: %s", key, value)
+            #    conf_dict["picamera"][key] = value
+            #camera controls only contain only default values, metadata should be correct
+            if key in metadata: #this override the results from above
+                value = metadata[key]
+                logging.info("Reading PiCamera metadata.%s: %s", key, value)
                 conf_dict["picamera"][key] = value
-            except AttributeError:
-                logging.debug("Unable to read PiCamera attribute %s", (key))
+            elif key:
+                logging.info("Unable to read PiCamera attribute %s", (key))
 
         # Include a serialised lens shading table
         if (
@@ -236,14 +271,15 @@ class PiCamera2Streamer(BaseCamera):
             settings_dict (dict): Dictionary of properties to apply to the :py:class:`picamerax.PiCamera`: object
             pause_for_effect (bool): Pause tactically to reduce risk of timing issues
         """
-        for key, value in settings_dict.items():
-            if not key in self.picamera.camera_controls:
-                logging.warning(f"Unknown camera setting {key} skipped")
-                continue
-
-            self.picamera.camera_controls[key] = value
+        for _,config in self.camera_configs.items():
+            for key, value in settings_dict.items():
+                config["controls"][key] = value
+                logging.info(f"Setting {key}={value}")
+            config["controls"]["AeEnable"] = False #disable autoexposure
+            config["controls"]["AwbEnable"] = False #disable auto white balance
 
         return
+
         #TODO: should we implement a translation layer for compatibility?
 
         # Set exposure mode
@@ -379,7 +415,7 @@ class PiCamera2Streamer(BaseCamera):
                     encoder = Encoder() #raw
 
                 self.stop_stream() #TODO: do we need this?
-                stream_config = self.picamera.create_video_configuration(main={"size": self.stream_resolution})
+                stream_config = self.camera_configs["stream"]
                 self.picamera.configure(stream_config)
 
                 self.picamera.start_recording(
@@ -410,18 +446,21 @@ class PiCamera2Streamer(BaseCamera):
             # Update state
             self.record_active = False
 
+
     def start_stream(self) -> None:
         """
         Sets the camera resolution to the video/stream resolution, and starts recording if the stream should be active.
         """
         with self.lock(timeout=None):
-            #TODO: keep this configuration
             #TODO: can we use the lores output to keep preview stream going
             #while recording? According to picamera2 docs 4.2.1.6 this should work
             try:
-                stream_config = self.picamera.create_video_configuration(main={"size": self.stream_resolution})
+                stream_config = self.camera_configs["stream"]
                 if self.picamera.started:
                     self.picamera.stop()
+                if self.picamera.encoder is not None and self.picamera.encoder.running:
+                    self.picamera.encoder.stop()
+
                 self.picamera.configure(stream_config)
                 logging.info(f"stream_resolution:{self.stream_resolution}")
                 # Start recording on stream port
@@ -505,7 +544,7 @@ class PiCamera2Streamer(BaseCamera):
                 else:
                     target = output
                     filename = output
-                config = self.picamera.create_still_configuration(main={"size": resize if resize is not None else self.image_resolution}, raw={})
+                config = self.camera_configs["still"]
                 self.picamera.configure(config)
                 self.picamera.start()
                 buffers, metadata = self.picamera.capture_buffers(["main", "raw"])
@@ -513,7 +552,7 @@ class PiCamera2Streamer(BaseCamera):
                 self.picamera.helpers.save_dng(buffers[1], metadata, config["raw"], filename + ".dng")
                 #this is different to the picamera format
             else:#TODO: configure jpeg quality
-                config = self.picamera.create_still_configuration(main={"size": resize if resize is not None else self.image_resolution})
+                config = self.camera_configs["still"]
                 if self.picamera.started:
                     self.picamera.stop()
 
@@ -539,5 +578,6 @@ class PiCamera2Streamer(BaseCamera):
         Returns:
             output_array (np.ndarray): Output array of capture
         """
+        #TODO: implement video/still port switching
         with self.lock:
             return self.picamera.capture_array()

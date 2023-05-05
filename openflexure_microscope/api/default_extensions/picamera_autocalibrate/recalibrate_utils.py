@@ -41,6 +41,8 @@ from libcamera import controls
 from picamera2 import Picamera2
 #from picamerax import PiCamera
 #from picamerax.array import PiBayerArray, PiRGBArray
+from openflexure_microscope.camera.base import BaseCamera
+from openflexure_microscope.camera.pi2 import PiCamera2Streamer
 
 
 def rgb_image(
@@ -49,20 +51,22 @@ def rgb_image(
     """Capture an image and return an RGB numpy array"""
     return camera.capture_array()
 
-def flat_lens_shading_table(camera: Picamera2) -> np.ndarray:
+def flat_lens_shading_table(camera: Picamera2, scamera: PiCamera2Streamer) -> np.ndarray:
     """Return a flat (i.e. unity gain) lens shading table.
 
     This is mostly useful because it makes it easy to get the size
     of the array correct.  NB if you are not using the forked picamera
     library (with lens shading table support) it will raise an error.
     """
-    return np.ones((16,12)) #TODO actually implement this
+    set_lst_values(np.ones((4,16,12)), scamera)
+    return np.ones((4,16,12))
 
 def adjust_exposure_to_setpoint(camera: Picamera2, setpoint: int):
     """Adjust the camera's exposure time until the maximum pixel value is <setpoint>.
 
     NB this method uses RGB images (i.e. processed ones) not raw images.
     """
+
     logging.info(f"Adjusting shutter speed to hit setpoint {setpoint}")
     for _ in range(3):
         camera.controls.ExposureTime = int(
@@ -111,11 +115,11 @@ def test_exposure_settings(camera: Picamera2, percentile: float) -> ExposureTest
     percentile (which will be compared to the target), as well as
     the camera's shutter and gain values.
     """
+    camera.capture_array("raw") #controls might not be updated for the first frame?
     max_brightness = np.max(get_channel_percentiles(camera, percentile,))
     # The reported brightness can, theoretically, be negative or zero
     # because of black level compensation.  The line below forces a
     # minimum value of 1 which will keep things well-behaved!
-    print(max_brightness)
     if max_brightness < 1:
         logging.warning(
             f"Measured brightness of {max_brightness}. "
@@ -124,7 +128,6 @@ def test_exposure_settings(camera: Picamera2, percentile: float) -> ExposureTest
         )
         max_brightness = 1
     metadata = camera.capture_metadata()
-    print(metadata)
 
     shutter_speed = int(metadata["ExposureTime"])
     analog_gain = float(metadata["AnalogueGain"])
@@ -144,6 +147,7 @@ def check_convergence(test: ExposureTest, target: int, tolerance: float):
 
 def adjust_shutter_and_gain_from_raw(
     camera: Picamera2,
+    scamera: BaseCamera,
     target_white_level: int = 700,
     max_iterations: int = 20,
     tolerance: float = 0.05,
@@ -184,7 +188,6 @@ def adjust_shutter_and_gain_from_raw(
     config = camera.create_still_configuration(raw={"format": "SBGGR10"})
     camera.configure(config)
     camera.start()
-    print("Here")
     set_minimum_exposure(camera)
 
     # We start with very low exposure settings and work up
@@ -193,7 +196,6 @@ def adjust_shutter_and_gain_from_raw(
     iterations = 0
     while iterations < max_iterations:
         test = test_exposure_settings(camera, percentile)
-        print(test)
         if check_convergence(test, target_white_level, tolerance):
             break
         iterations += 1
@@ -205,7 +207,7 @@ def adjust_shutter_and_gain_from_raw(
             8)
         )
         camera.controls.ExposureTime = new_time
-        print(f"New shutter time: {new_time}")
+        camera.controls.AeEnable = False
         time.sleep(0.5)
 
         # Check whether the shutter speed is still going up - if not, we've hit a maximum
@@ -237,13 +239,18 @@ def adjust_shutter_and_gain_from_raw(
             f"Brightness reached {test.level} after {iterations} iterations."
         )
 
+    scamera.update_settings({"picamera": {
+        "ExposureTime": test.shutter_speed,
+        "AnalogueGain": test.analog_gain
+    }})
+
     camera.stop()
 
     return test.level
 
 
 def adjust_white_balance_from_raw(
-    camera: Picamera2, percentile: float = 99
+    camera: Picamera2, scamera: BaseCamera, percentile: float = 99
 ) -> Tuple[float, float]:
     """Adjust the white balance in a single shot, based on the raw image.
 
@@ -264,13 +271,15 @@ def adjust_white_balance_from_raw(
     )
     camera.controls.AwbEnable = False
     camera.controls.ColourGains = new_awb_gains
+    scamera.update_settings({"picamera": {
+        "ColourGains": new_awb_gains
+    }})
     camera.stop()
     return new_awb_gains
 
 
 def channels_from_bayer_array(bayer_array: np.ndarray) -> np.ndarray:
     """Given the 'array' from a PiBayerArray, return the 4 channels."""
-    #TODO: does this work with the new raw data?
     bayer_pattern: List[Tuple[int, int]] = [(0, 0), (0, 1), (1, 0), (1, 1)]
     bayer_array = bayer_array.view(np.uint16)
     channels_shape: Tuple[int, ...] = (
@@ -298,23 +307,24 @@ def get_channel_percentiles(camera: Picamera2, percentile: float, reconfigure = 
     leave some room for negative values.
     """
 
-    channels = channels_from_bayer_array(camera.capture_array("raw")) #TODO: check this returns correct data
+    channels = channels_from_bayer_array(camera.capture_array("raw"))
 
     return np.percentile(channels, percentile, axis=(1, 2)) - 64
 
 
-def lst_from_channels(channels: np.ndarray) -> np.ndarray:
+def lst_from_channels(channels: np.ndarray, scamera: PiCamera2Streamer) -> np.ndarray:
     """Given the 4 Bayer colour channels from a white image, generate a LST."""
     full_resolution: np.ndarray = np.array(
         channels.shape[1:]
     ) * 2  # channels have been binned
 
     # NOTE: the size of the LST is 1/64th of the image, but rounded UP.
-    lst_resolution: List[int] = [(r // 64) + 1 for r in full_resolution]
-
+    #lst_resolution: List[int] = [(r // 64) + 1 for r in full_resolution]
+    lst_resolution = np.array([16, 12])
+    ratios = np.ceil(full_resolution/lst_resolution).astype(int) #pixels per section
     logging.info("Generating a lens shading table at %sx%s", *lst_resolution)
     lens_shading: np.ndarray = np.zeros(
-        [channels.shape[0]] + lst_resolution, dtype=float
+        [channels.shape[0]] + list(lst_resolution), dtype=float
     )
     for i in range(lens_shading.shape[0]):
         image_channel: np.ndarray = channels[i, :, :]
@@ -333,25 +343,26 @@ def lst_from_channels(channels: np.ndarray) -> np.ndarray:
         # should give results very close to 6by9's solution, albeit considerably
         # less computationally efficient!
         padded_image_channel: np.ndarray = np.pad(
-            image_channel, [(0, lw * 32 - iw), (0, lh * 32 - ih)], mode="edge"
+            image_channel, [(0, lw * ratios[0] - iw), (0, lh * ratios[1] - ih)], mode="edge"
         )  # Pad image to the right and bottom
         logging.info(
             "Channel shape: %sx%s, shading table shape: %sx%s, after padding %s",
             iw,
             ih,
-            lw * 32,
-            lh * 32,
+            lw * ratios[0],
+            lh * ratios[1],
             padded_image_channel.shape,
         )
         # Next, fill the shading table (except edge pixels).  Please excuse the
         # for loop - I know it's not fast but this code needn't be!
-        box: int = 3  # We average together a square of this side length for each pixel.
+        box: int = 9  # We average together a square of this side length for each pixel.
         # NB this isn't quite what 6by9's program does - it averages 3 pixels
         # horizontally, but not vertically.
         for dx in np.arange(box) - box // 2:
             for dy in np.arange(box) - box // 2:
                 ls_channel[:, :] += (
-                    padded_image_channel[16 + dx :: 32, 16 + dy :: 32] - 64
+                    padded_image_channel[ratios[0]//2 + dx :: ratios[0], ratios[1]//2 + dy :: ratios[1]] - 64
+                    #TODO why -64?
                 )
         ls_channel /= box ** 2
         # The original C code written by 6by9 normalises to the central 64 pixels in each channel.
@@ -366,27 +377,51 @@ def lst_from_channels(channels: np.ndarray) -> np.ndarray:
 
     # What we actually want to calculate is the gains needed to compensate for the
     # lens shading - that's 1/lens_shading_table_float as we currently have it.
-    gains: np.ndarray = 32.0 / lens_shading  # 32 is unity gain
-    gains[gains > 255] = 255  # clip at 255, maximum gain is 255/32
-    gains[gains < 32] = 32  # clip at 32, minimum gain is 1 (is this necessary?)
-    lens_shading_table: np.ndarray = gains.astype(np.uint8)
-    return lens_shading_table[::-1, :, :].copy()
+    gains: np.ndarray = 1.0 / lens_shading  # 32 is unity gain
+    #gains[gains > 255] = 255  # clip at 255, maximum gain is 255/32
+    #gains[gains < 32] = 32  # clip at 32, minimum gain is 1 (is this necessary?)
+    #lens_shading_table: np.ndarray = gains.astype(np.uint8)
+    set_lst_values(gains, scamera)
 
+    return gains[::-1, :, :].copy()
 
-def lst_from_camera(camera: Picamera2) -> np.ndarray:
+def set_lst_values(gains: np.ndarray, scamera: PiCamera2Streamer):
+    luminance = gains.mean(axis = 0)
+    gains = gains/luminance
+    green = (gains[1] + gains[2])/2.0
+    red = gains[2]/green
+    blue = gains[0]/green
+    alsc = Picamera2.find_tuning_algo(scamera.tuning, "rpi.alsc")
+    alsc["n_iter"] = 0 #disable the adaptive part
+    alsc["luminance_strength"] = 1.0
+    alsc["calibrations_Cr"] = [{
+        "ct": 4500,
+        "table": np.reshape(red, (-1)).tolist()
+    }]
+    alsc["calibrations_Cb"] = [{
+        "ct": 4500,
+        "table": np.reshape(blue, (-1)).tolist()
+    }]
+
+    alsc["luminance_lut"] = np.reshape(luminance, (-1)).tolist()
+
+    scamera.update_tuning()
+
+def lst_from_camera(camera: Picamera2, scamera: PiCamera2Streamer) -> np.ndarray:
     """Acquire a raw image and use it to calculate a lens shading table."""
     if camera.started:
         camera.stop_recording()
     config = camera.create_still_configuration(raw={"format": "SBGGR10"})
     camera.configure(config)
+    camera.start()
     raw_image = camera.capture_array("raw")
-
+    camera.stop()
     # Now we need to calculate a lens shading table that would make this flat.
     # raw_image is a 3D array, with full resolution and 3 colour channels.  No
     # de-mosaicing has been done, so 2/3 of the values are zero (3/4 for R and B
     # channels, 1/2 for green because there's twice as many green pixels).
     channels = channels_from_bayer_array(raw_image)
-    return lst_from_channels(channels)
+    return lst_from_channels(channels, scamera)
 
 
 def recalibrate_camera(camera: Picamera2):
@@ -409,8 +444,13 @@ def recalibrate_camera(camera: Picamera2):
     #_ = rgb_image(camera)
 
     # Fix the AWB gains so the image is neutral
+    stop_after = False
+    if not camera.started:
+        camera.start()
+        stop_after = True
+
     channel_means = np.mean(np.mean(rgb_image(camera), axis=0, dtype=float), axis=0)
-    old_gains = camera.controls.ColourGains
+    old_gains = camera.controls.ColourGains #TODO: this won't work
     camera.controls.ColourGains = (
         channel_means[1] / channel_means[0] * old_gains[0],
         channel_means[1] / channel_means[2] * old_gains[1],
@@ -418,7 +458,8 @@ def recalibrate_camera(camera: Picamera2):
     time.sleep(1)
     # Ensure the background is bright but not saturated
     adjust_exposure_to_setpoint(camera, 230)
-
+    if stop_after:
+        camera.stop()
 
 if __name__ == "__main__":
     with Picamera2() as main_camera:
