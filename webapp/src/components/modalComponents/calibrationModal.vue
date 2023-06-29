@@ -125,12 +125,20 @@
           Restart
         </button>
         <button
-          v-show="stepValue < 3"
+          v-show="stepValue == 0 || isLSTCalibrated && stepValue == 1 || isCSMCalibrated && stepValue == 2"
           class="uk-button uk-button-primary uk-margin-left"
           type="button"
           @click="increment()"
         >
           Next
+        </button>
+        <button
+          v-show="!isLSTCalibrated && stepValue == 1 || !isCSMCalibrated && stepValue == 2"
+          class="uk-button uk-button-primary uk-margin-left"
+          type="button"
+          @click="increment()"
+        >
+          Skip
         </button>
         <button
           v-show="stepValue == 3"
