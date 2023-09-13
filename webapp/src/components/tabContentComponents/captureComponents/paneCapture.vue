@@ -221,17 +221,6 @@
               </select>
             </div>
 
-            <div class="uk-margin-small uk-margin-remove-bottom" v-if="backgroundDetectUri">
-              <label class="uk-form-label" for="form-stacked-text">
-                <input
-                  v-model="detectEmptyFieldsAndSkipAutofocus"
-                  class="uk-checkbox"
-                  type="checkbox"
-                />
-                Skip autofocus for empty fields of view
-              </label>
-            </div>
-
             <div class="uk-margin-small uk-margin-remove-bottom">
               <label class="uk-form-label" for="form-stacked-text"
                 >Scan Style</label
@@ -240,6 +229,16 @@
                 <option>Raster</option>
                 <option>Snake</option>
                 <option>Spiral</option>
+              </select>
+            </div>
+
+            <div class="uk-margin-small uk-margin-remove-bottom">
+              <label class="uk-form-label" for="form-stacked-text"
+                >z-stack Start Point</label
+              >
+              <select v-model="stackLoc" class="uk-select" :disabled="scanDeltaZ !== 'Off'">
+                <option>Centre</option>
+                <option>Base</option>
               </select>
             </div>
 
@@ -360,6 +359,7 @@ function defaultCaptureSettings() {
     captureNotes: "",
     scanDeltaZ: "Fast",
     scanStyle: "Raster",
+    stackLoc: "Centre",
     namingStyle: "Coordinates",
     scanStepSize: {
       x: 800,
@@ -376,7 +376,6 @@ function defaultCaptureSettings() {
     annotations: {
       Client: "openflexure-microscope-jsclient:builtin"
     },
-    detectEmptyFieldsAndSkipAutofocus: false,
     smartStack: false,
     smartStackThreshold: 0.9,
     smartStackPeakWidth: 200,
@@ -403,8 +402,7 @@ export default {
       ...defaultCaptureSettings(),
       scanCapture: false, // Don't remember the "scan" tickbox in local storage.
       scanUri: null,
-      smartScanUri: null,
-      backgroundDetectUri: null
+      smartScanUri: null
     };
   },
 
@@ -472,10 +470,10 @@ export default {
           this.scanStepSize.z
         ],
         style: this.scanStyle.toLowerCase(),
+        stackLoc: this.stackLoc.toLowerCase(),
         namemode: this.namingStyle.toLowerCase(),
         autofocus_dz: afDeltas[this.scanDeltaZ],
-        fast_autofocus: this.scanDeltaZ == "Fast",
-        detect_empty_fields_and_skip_autofocus: this.detectEmptyFieldsAndSkipAutofocus
+        fast_autofocus: this.scanDeltaZ == "Fast"
       };
     },
     smartScanPayload: function() {
@@ -522,10 +520,6 @@ export default {
     },
 
     updateScanUri: function() {
-      // Update URIs for the various functions in plugins.
-      // This will only work if the plugins are present, so
-      // checking if the URIs is null will determine which
-      // extensions are available.
       axios
         .get(this.pluginsUri) // Get a list of plugins
         .then(response => {
@@ -553,22 +547,6 @@ export default {
           if (foundExtension) {
             // Get plugin action link
             this.smartScanUri = foundExtension.links.tile.href;
-          }
-        })
-        .catch(error => {
-          this.modalError(error); // Let mixin handle error
-        });
-
-      axios
-        .get(this.pluginsUri) // Get a list of plugins
-        .then(response => {
-          var plugins = response.data;
-          var foundExtension = plugins.find(
-            e => e.title === "org.openflexure.background-detect"
-          );
-          if (foundExtension) {
-            // Get plugin action link
-            this.backgroundDetectUri = foundExtension.links.grab_and_classify_image.href;
           }
         })
         .catch(error => {

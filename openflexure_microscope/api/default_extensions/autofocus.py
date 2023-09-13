@@ -3,6 +3,7 @@ import logging
 import time
 from contextlib import contextmanager
 from typing import Callable, Dict, List, Optional, Tuple, cast
+from PIL import Image, ImageStat
 
 import numpy as np
 from labthings import current_action, fields, find_component
@@ -149,6 +150,134 @@ class JPEGSharpnessMonitor:
             data[k] = getattr(self, k)
         return data
 
+class STDSharpnessMonitor:
+    """Monitor greyscale image standard deviation in a background thread
+    
+    This class starts a background thread """
+
+    def __init__(self, microscope: Microscope):
+        self.microscope: Microscope = microscope
+        self.camera: BaseCamera = microscope.camera
+        self.stage: BaseStage = microscope.stage
+
+        self.recording_start_time: Optional[float] = None
+
+        self.stage_positions: List[Tuple[int, int, int]] = []
+        self.stage_times: List[float] = []
+        self.img_times: List[float] = []
+        self.img_std: List[int] = []
+
+    def start(self):
+        # Log the recording start time
+        self.recording_start_time = time.time()
+
+    def stop(self):
+        self.camera.stream.stop_tracking()
+        self.camera.stream.reset_tracking()
+
+    def hold(self, delay: int = 5):
+        """Run time.sleep for delay seconds, 
+        while monitoring the image STD of the stream"""
+        self.camera.stream.start_tracking()
+        self.stage_times.append(time.time())
+        self.stage_positions.append(self.stage.position)
+
+        time.sleep(delay)
+
+        self.camera.stream.stop_tracking()
+        self.stage_times.append(time.time())
+        self.stage_positions.append(self.stage.position)
+
+        # Retrieve frame data
+        for frame in self.camera.stream.frames:
+            # Make timestamp absolute Unix time
+            self.img_times.append(frame.time)
+            self.img_std.append(frame.std)
+        # Clear frame data for this move from the stream
+        self.camera.stream.reset_tracking()
+
+        # Index of the data for this movement
+        data_index: int = len(self.stage_positions) - 2
+        # Final z position after move
+        final_z_position: int = self.stage_positions[-1][2]
+        return data_index, final_z_position
+
+    def focus_rel(self, dz: int, backlash: bool = False, **kwargs) -> Tuple[int, int]:
+        # Store the start time and position
+        self.camera.stream.start_tracking()
+        self.stage_times.append(time.time())
+        self.stage_positions.append(self.stage.position)
+
+        # Main move
+        self.stage.move_rel((0, 0, dz), backlash=backlash, **kwargs)
+
+        # Store the end time and position
+        self.camera.stream.stop_tracking()
+        self.stage_times.append(time.time())
+        self.stage_positions.append(self.stage.position)
+
+        # Retrieve frame data
+        for frame in self.camera.stream.frames:
+            # Make timestamp absolute Unix time
+            self.img_times.append(frame.time)
+            self.img_std.append(frame.std)
+        # Clear frame data for this move from the stream
+        self.camera.stream.reset_tracking()
+
+        # Index of the data for this movement
+        data_index: int = len(self.stage_positions) - 2
+        # Final z position after move
+        final_z_position: int = self.stage_positions[-1][2]
+        return data_index, final_z_position
+
+    def move_data(
+        self, istart: int, istop: Optional[int] = None
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Extract sharpness as a function of (interpolated) z"""
+        if istop is None:
+            istop = istart + 2
+        img_times: np.ndarray = np.array(self.img_times)  # np.ndarray[float]
+        img_std: np.ndarray = np.array(self.img_std)  # np.ndarray[int]
+        stage_times: np.ndarray = np.array(self.stage_times)[
+            istart:istop
+        ]  # np.ndarray[float]
+        stage_zs: np.ndarray = np.array(self.stage_positions)[
+            istart:istop, 2
+        ]  # np.ndarray[int]
+        try:
+            start: int = int(np.argmax(img_times > stage_times[0]))
+            stop: int = int(np.argmax(img_times > stage_times[1]))
+        except ValueError as e:
+            if np.sum(img_times > stage_times[0]) == 0:
+                raise ValueError(
+                    "No images were captured during the move of the stage.  Perhaps the camera is not streaming images?"
+                ) from e
+            else:
+                raise e
+        if stop < 1:
+            stop = len(img_times)
+            logging.debug("changing stop to %s", (stop))
+        img_times = img_times[start:stop]
+        jpeg_zs: np.ndarray = np.interp(
+            img_times, stage_times, stage_zs
+        )  # np.ndarray[float]
+        return img_times, jpeg_zs, img_std[start:stop]
+
+    def sharpest_z_on_move(self, index: int) -> int:
+        """Return the z position of the sharpest image on a given move"""
+        _, jz, js = self.move_data(index)
+        if len(js) == 0:
+            raise ValueError(
+                "No images were captured during the move of the stage.  Perhaps the camera is not streaming images?"
+            )
+        return jz[np.argmax(js)]
+
+    def data_dict(self) -> Dict[str, np.ndarray]:
+        """Return the gathered data as a single convenient dictionary"""
+        data = {}
+        for k in ["img_times", "img_std", "stage_times", "stage_positions"]:
+            data[k] = getattr(self, k)
+        return data
 
 @contextmanager
 def monitor_sharpness(microscope: Microscope):
@@ -159,6 +288,14 @@ def monitor_sharpness(microscope: Microscope):
     finally:
         m.stop()
 
+@contextmanager
+def monitor_std(microscope: Microscope):
+    m: STDSharpnessMonitor = STDSharpnessMonitor(microscope)
+    m.start()
+    try:
+        yield m
+    finally:
+        m.stop()
 
 def sharpness_sum_lap2(rgb_image: np.ndarray) -> float:
     """Return an image sharpness metric: sum(laplacian(image)**")"""
@@ -191,7 +328,6 @@ def find_microscope() -> Microscope:
         abort(503, "No microscope connected. Unable to autofocus.")
 
     return microscope
-
 
 def find_microscope_with_real_stage() -> Microscope:
     """Find the microscope and ensure it has a real stage.
@@ -245,9 +381,7 @@ def extension_action(args=None):
                 # Run the action
                 return func(self.extension, **arguments)
 
-            def get(
-                self, *args, **kwargs
-            ):  # pylint: disable=useless-super-delegation,arguments-differ
+            def get(self, *args, **kwargs):  # pylint: disable=useless-super-delegation
                 # Explicitly wrap the `get` method to allow us to add a docstring
                 return super().get(*args, **kwargs)
 
@@ -349,10 +483,8 @@ class AutofocusExtension(BaseExtension):
         args={
             "dz": fields.List(
                 fields.Int(),
-                metadata={
-                    "description": "An ascending list of relative z positions",
-                    "example": [int(x) for x in np.linspace(-300, 300, 7)],
-                },
+                description="An ascending list of relative z positions",
+                example=[int(x) for x in np.linspace(-300, 300, 7)],
             )
         }
     )
@@ -412,9 +544,28 @@ class AutofocusExtension(BaseExtension):
 
     @extension_action(
         args={
-            "dz": fields.Int(
-                required=True, metadata={"description": "The relative Z move to make"}
-            )
+            "dz": fields.Int(required=True, description="The relative Z move to make")
+        }
+    )
+    def move_and_measure_std(
+        self, microscope: Optional[Microscope] = None, dz: int = 0
+    ) -> Dict[str, np.ndarray]:
+        """Make a relative move in Z and measure dynamic sharpness
+
+        This accesses the underlying method used by the fast autofocus routines, to
+        move the stage while monitoring the sharpness, as reported by the size of
+        each JPEG frame in the preview stream.  It returns a dictionary with
+        stage position vs time and image size (i.e. sharpness) vs time.
+        """
+        if not microscope:
+            microscope = find_microscope_with_real_stage()
+        with monitor_std(microscope) as m:
+            m.focus_rel(dz)
+            return m.data_dict()
+
+    @extension_action(
+        args={
+            "dz": fields.Int(required=True, description="The relative Z move to make")
         }
     )
     def move_and_measure(
@@ -436,15 +587,113 @@ class AutofocusExtension(BaseExtension):
     @extension_action(
         args={
             "dz": fields.Int(
-                load_default=2000,
-                metadata={
-                    "description": "Total Z range to search over (in stage steps)",
-                    "example": 2000,
-                },
+                missing=2000,
+                example=2000,
+                description="Total Z range to search over (in stage steps)",
             )
         }
     )
     def fast_autofocus(
+        self, microscope: Optional[Microscope] = None, dz: int = 2000, undershoot: Optional[int] = 0, backlash_correction: Optional[int] = 200
+    ) -> Dict[str, np.ndarray]:
+        """Perform a fast down-up-down-up autofocus
+        
+        This "fast" autofocus method moves the stage continuously in Z, while
+        following the sharpness using the MJPEG stream.  This version is the
+        simplest "fast" autofocus method, and performs the following sequence 
+        of moves:
+
+        1. Move to `-dz/2`, i.e. the bottom of the range
+        2. Move up by `dz`, i.e. to the top of the range, while recording the
+           sharpness of the image as a function of time.  Record the estimated
+           position of the stage when the sharpness was maximised, `fz`.
+        3. Move back to the bottom (by `-dz`)
+        4. Move up to the position where it was sharpest.
+
+        ## Backlash correction
+        This routine should cancel out backlash: the stage is moving upwards as
+        we record the sharpnes vs z data, and it is also moving upwards when
+        we make the final move to the sharpest point.  Mechanical backlash should
+        therefore be the same in both cases.
+
+        This does not account for lag between the sharpness measurements and the
+        stage's motion; that has been tested for and seems not to be a big issue
+        most of the time, but may need to be accounted for in the future, if
+        hardware or software changes increase the latency.
+
+        ## Sharpness metric
+        This method uses the MJPEG preview stream to estimate the sharpness of
+        the image.  MJPEG streams consist of a series of independent JPEG images,
+        so each frame can be looked at in isolation (though see later for an 
+        important caveat).  JPEG images are compressed lossily, by taking the 
+        discrete cosine transform (DCT) of each 8x8 block in the image.  A very
+        rough precis of how this works is that after the DCT, cosine components 
+        that are deemed unimportant (i.e. smaller than a threshold) are discarded.
+        The effect is that images with lots of high-frequency information have a
+        larger file size.
+
+        We look only at the size of each JPEG frame in the stream, so we get a
+        remarkably robust estimate of image sharpness without even opening the 
+        images!  That's what lets us analyse 30 images/second even on the very
+        limited processing power available to the Raspberry Pi 3.
+
+        ## Warning: frame independence
+        We assume that JPEG frames are independent.  This is only true if the
+        MJPEG stream is encoded at *constant quality* without any additional
+        bit rate control.  By default, many streams will reduce the quality
+        factor if they exceed a target bit rate, which badly affects this
+        method.  We turn off bit rate limiting for the Raspberry Pi camera,
+        which fixes the problem, at the expense of sometimes failing if
+        particularly sharp images appear in the stream, as there is a fairly
+        small maximum size for each JPEG frame beyond which empty images are 
+        returned.
+
+        ## Estimation of sharpness vs z
+        What we record during an autofocus is two time series, from two parallel
+        threads.  One thread monitors the camera, and records the size of each
+        JPEG frame as a function of time.  NB this is time from `time.time()`
+        in Python, so will not be microsecond-accurate.  The other thread is
+        responsible for moving the stage, and records its current Z position 
+        before and after each move.  Interpolating between these `(t, z)` points
+        gives us a `z` value for each JPEG size, and so we can estimate the 
+        JPEG size as a function of `z` and hence determine the `z` value at 
+        which sharpness is maximised.
+        """
+        logging.warning(f'{undershoot}')
+        if not microscope:
+            microscope = find_microscope_with_real_stage()
+        with microscope.lock(timeout=1), microscope.camera.lock, microscope.stage.lock:
+            with monitor_sharpness(microscope) as m:
+                # Move to (-dz / 2)
+                m.focus_rel(-dz / 2)
+                # Move to dz while monitoring sharpness
+                # i: Sharpness monitor index for this move
+                # z: Final z position after move
+                i, z = m.focus_rel(dz)
+                # Get the z position with highest sharpness from the previous move (index i)
+                fz: int = m.sharpest_z_on_move(i)
+                # Move all the way to the start so it's consistent
+                # Store final absolute z position from this return move
+                i, z = m.focus_rel(-dz)
+                # Move to the target position fz
+                # Can't do absolute move here yet so move by (fz - z)
+                m.focus_rel(fz - (z + undershoot))
+                if undershoot > dz / 2:
+                    m.focus_rel(-backlash_correction)
+                    m.focus_rel(backlash_correction)
+                # Return all focus data
+                return m.data_dict()
+
+    @extension_action(
+        args={
+            "dz": fields.Int(
+                missing=2000,
+                example=2000,
+                description="Total Z range to search over (in stage steps)",
+            )
+        }
+    )
+    def fast_autofocus_std(
         self, microscope: Optional[Microscope] = None, dz: int = 2000
     ) -> Dict[str, np.ndarray]:
         """Perform a fast down-up-down-up autofocus
@@ -513,7 +762,7 @@ class AutofocusExtension(BaseExtension):
         if not microscope:
             microscope = find_microscope_with_real_stage()
         with microscope.lock(timeout=1), microscope.camera.lock, microscope.stage.lock:
-            with monitor_sharpness(microscope) as m:
+            with monitor_std(microscope) as m:
                 # Move to (-dz / 2)
                 m.focus_rel(-dz / 2)
                 # Move to dz while monitoring sharpness
@@ -534,18 +783,14 @@ class AutofocusExtension(BaseExtension):
     @extension_action(
         args={
             "dz": fields.Int(
-                load_default=500,
-                metadata={
-                    "description": "Total Z range to move down, then up (in stage steps)",
-                    "example": 500,
-                },
+                missing=500,
+                example=500,
+                description="Total Z range to move down, then up (in stage steps)",
             ),
             "delay": fields.Int(
-                load_default=5,
-                metadata={
-                    "description": "How long to measure sharpness for after the move, in seconds",
-                    "example": 5,
-                },
+                missing=5,
+                example=5,
+                description="How long to measure sharpness for after the move",
             ),
         }
     )
@@ -566,31 +811,23 @@ class AutofocusExtension(BaseExtension):
     @extension_action(
         args={
             "dz": fields.Int(
-                load_default=2000,
-                metadata={
-                    "description": "Total Z range to search over (in stage steps)",
-                    "example": 2000,
-                },
+                missing=2000,
+                example=2000,
+                description="Total Z range to search over (in stage steps)",
             ),
             "target_z": fields.Int(
-                load_default=0,
-                metadata={
-                    "description": "Target finishing position, relative to the focus.",
-                    "example": -100,
-                },
+                missing=0,
+                example=-100,
+                description="Target finishing position, relative to the focus.",
             ),
             "initial_move_up": fields.Bool(
-                load_default=True,
-                metadata={
-                    "description": "Set to False to disable the initial move upwards"
-                },
+                missing=True,
+                description="Set to Flase to disable the initial move upwards",
             ),
             "backlash": fields.Int(
-                load_default=25,
-                metadata={
-                    "description": "Distance to undershoot, before correction move.",
-                    "minimum": 0,
-                },
+                missing=25,
+                minimum=0,
+                description="Distance to undershoot, before correction move.",
             ),
         }
     )
@@ -708,3 +945,4 @@ class MeasureSharpnessAPI(View):
 
     def post(self):
         return {"sharpness": self.extension.measure_sharpness()}
+

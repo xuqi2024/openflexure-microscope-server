@@ -2,10 +2,10 @@ import datetime
 import logging
 import time
 import uuid
-from typing import Callable, Dict, List, Optional, Tuple
+from functools import reduce
+from typing import Dict, List, Optional, Tuple
 
 import marshmallow
-import numpy as np
 from labthings import (
     current_action,
     fields,
@@ -30,146 +30,13 @@ XyzCoordinate = Tuple[int, int, int]
 ### Grid construction
 
 
-class FocusManager:
-    """Manage axial motion during a series of XY moves
-
-    This class keeps track of the focus position as we move around.
-    It currently uses the regular autofocus method, and has support
-    for background detection.
-    """
-
-    initial_position: XyzCoordinate = None  # type: ignore[assignment]
-    focused_positions: List[XyzCoordinate] = None  # type: ignore[assignment]
-    microscope: Microscope = None  # type: ignore[assignment]
-    current_image_is_background_function: Optional[Callable] = None
-    autofocus_function: Optional[Callable] = None
-    axial_jump_threshold: Optional[float] = None
-
-    def __init__(
-        self,
-        microscope: Microscope,
-        initial_position: XyzCoordinate,
-        autofocus_function: Optional[Callable],
-        current_image_is_background_function: Optional[Callable] = None,
-        axial_jump_threshold: Optional[float] = 0.4,
-    ):
-        """Set up management of axial motion.
-
-        The `FocusManager` keeps track of previous positions where the
-        microscope was in focus, and will estimate the best Z value for
-        future XY positions.
-
-        Arguments:
-        * microscope: The microscope object.
-        * initial_position: the XYZ position of the start of the scan
-        * autofocus: A function that performs an autofocus.
-        * current_image_is_background: a function that returns `True`
-        if the microscope is currently looking at an empty field.
-        * axial_jump_threshold: the maximum ratio between axial and
-        lateral moves.  If this is not None, it will not count the 
-        autofocus routine as successful if the focus moves more than
-        this ratio times the lateral move between two points.  This can
-        help avoid focus drift due to accidentally focusing on the coverslip.
-
-        If either of the `autofocus` or `current_image_is_background`
-        functions are None, we will neither perform an autofocus, nor 
-        use background estimation.
-        """
-        self.initial_position = initial_position
-        self.focused_positions = []
-        self.microscope = microscope
-        self.autofocus_function = autofocus_function
-        if not autofocus_function:
-            logging.info("Setting up FocusManager with autofocus disabled.")
-        self.current_image_is_background_function = current_image_is_background_function
-        self.axial_jump_threshold = axial_jump_threshold
-
-    def record_focused_point(self, position: XyzCoordinate):
-        """Add a position to the list of successfully-focused points"""
-        self.focused_positions.append(position)
-
-    def closest_focused_point(self, position: XyCoordinate) -> Optional[XyzCoordinate]:
-        """The closest point in our list of focused points to a given XY position."""
-        return closest_point_in_xy(position, self.focused_positions)
-
-    def estimate_z(self, position: XyCoordinate) -> int:
-        """Estimate the z position most likely to be in focus at an XY point
-        
-        The next z position is estimated based on the closest point that was in focus.
-        For a snake/spiral scan, this should always be the last point, unless
-        it's skipped for some reason.  In a raster scan, this should be the last
-        point, except when we're at the start of a row when it will be the first
-        point of the preceding row.
-        
-        It is possible that for some scan geometries, we won't be using the most
-        recent point (e.g. if X and Y spacing in a raster scan are very different).
-        This does not happen with the default settings used for raster scanning
-        clinical samples.
-        """
-        closest_focused_point = self.closest_focused_point(position)
-        if closest_focused_point:
-            return closest_focused_point[2]
-        else:
-            return self.initial_position[2]
-
-    def check_for_axial_jumps(self, position: XyzCoordinate) -> bool:
-        """Check if a position is inconsistent with previous positions.
-
-        This function returns `True` if the specified position is not consistent
-        with the list of previously-visited positions, i.e. it's made a big axial
-        move but a small lateral move.
-
-        The threshold is set by `self.axial_jump_threshold`, and if that is `None`
-        no check is performed.  Sensible values are probably between 0.1 and 0.5.
-        """
-        if not self.axial_jump_threshold:
-            return False
-        closest_focused_point = self.closest_focused_point(position[:2])
-        if not closest_focused_point:
-            return False
-        move = np.array(position) - np.array(closest_focused_point)
-        lateral_move = np.sqrt(np.sum(move[:2] ** 2))
-        axial_move = np.abs(move[2])
-        return axial_move > lateral_move * self.axial_jump_threshold
-
-    def autofocus(self):
-        """Perform an autofocus routine.
-
-        If autofocus is disabled, nothing happens here.  If it is enabled, we optionally
-        check whether there's anything in the image to focus on, and then run the autofocus
-        routine.
-        """
-        if not self.autofocus_function:
-            logging.debug("Autofocus is disabled, skipping autofocus.")
-            return
-        if self.current_image_is_background_function:
-            # If it's been set, call the background detect function and skip
-            # autofocus if appropriate
-            if self.current_image_is_background_function():
-                here = self.microscope.stage.position
-                logging.info(f"Detected an empty field at {here}, skipping autofocus.")
-                return
-        # Assuming it's not disabled, and we're not skipping it, actually run the autofocus now
-        self.autofocus_function()
-        # Now, check for big jumps and record the new position if we've not made a big jump
-        here = self.microscope.stage.position
-        if self.check_for_axial_jumps(here):
-            logging.warning(
-                f"During a scan, there was a large axial jump from "
-                f"{self.closest_focused_point(here[:2])}"
-                f" to {here}.  This may mean autofocus has failed."
-            )
-        else:
-            # If there has not been a jump in focus, record the point as successful
-            self.record_focused_point(here)
-
-
 def construct_grid(
     initial: XyCoordinate,
     step_sizes: XyCoordinate,
     n_steps: XyCoordinate,
     style: Literal["raster", "snake", "spiral"] = "raster",
-) -> List[List[XyCoordinate]]:
+    stackLoc: Literal["centre", "base"] = "centre"
+):
     """
     Given an initial position, step sizes, and number of steps,
     construct a 2-dimensional list of scan x-y positions.
@@ -227,50 +94,6 @@ def construct_grid(
                     line.reverse()
 
     return arr
-
-
-def construct_grid_1d(
-    initial: XyCoordinate,
-    step_sizes: XyCoordinate,
-    n_steps: XyCoordinate,
-    style: Literal["raster", "snake", "spiral"] = "raster",
-) -> List[XyCoordinate]:
-    """Construct coordinates for a scan, returning a 1D list.
-
-    This is the same set of coordinates returned by `construct_grid`
-    but the list-of-lists is flattened to a simple list.
-    """
-    path = []
-    grid = construct_grid(
-        initial=initial, step_sizes=step_sizes, n_steps=n_steps, style=style
-    )
-    for line in grid:
-        path += line  # concatenate the lists
-    return path
-
-
-def closest_point_in_xy(
-    current_position: XyCoordinate, points: List[XyzCoordinate]
-) -> Optional[XyzCoordinate]:
-    """Find the closest point in a list
-
-    Given a 2D position, find the 3D position that's closest in XY and return it.
-    In the event of a tie, the most recent (i.e. latest in the list) is returned.
-
-    If the list is empty, we return None
-    """
-    if len(points) < 1:
-        return None
-    points_2d = np.asarray(points)[:, :2]
-
-    squared_distances = np.sum((points_2d - current_position) ** 2, axis=1)
-    # We reverse the distances before searching, as argmin will return the first
-    # point in the event of there being multiple points with the same minimum,
-    # and we want to pick the last one.
-    reverse_min_index = np.argmin(squared_distances[::-1])
-    # of course, now we must convert the index to be the right way round
-    min_index = len(points) - 1 - reverse_min_index
-    return points[int(min_index)]  # The explicit cast is necessary for MyPy
 
 
 ### Capturing
@@ -335,62 +158,6 @@ class ScanExtension(BaseExtension):
         logging.info(progress)
         return progress
 
-    def get_autofocus_function(self, dz: int, use_fast_autofocus: bool) -> Callable:
-        """Return a function that will perform an autofocus routine.
-
-        This should be called at the start of a scan.  It will check that
-        the necessary hardware and software are present, and raise a helpful
-        error if they are not.
-        """
-        microscope = find_component("org.openflexure.microscope")
-        # Locate the autofocus extension
-        autofocus_extension = find_extension("org.openflexure.autofocus")
-        if not autofocus_extension:
-            raise RuntimeError(
-                "The Autofocus extension is missing: select 'None' as your autofocus "
-                "type to scan without autofocusing."
-            )
-        if not (microscope.has_real_stage() and microscope.has_real_camera()):
-            raise RuntimeError(
-                "A real stage and camera are needed in order to autofocus.  You can "
-                "still run a scan without autofocus."
-            )
-
-        if use_fast_autofocus:
-
-            def autofocus():
-                # Run fast autofocus. Client should provide dz ~ 2000
-                autofocus_extension.fast_autofocus(microscope, dz=dz)
-                time.sleep(0.5)
-
-            return autofocus
-        else:
-
-            def autofocus():
-                # Run slow autofocus. Client should provide dz ~ 50
-                autofocus_extension.autofocus(microscope, range(-3 * dz, 4 * dz, dz))
-                time.sleep(0.5)
-
-            return autofocus
-
-    def get_background_detect_function(self):
-        """Return a function that returns true if we are looking at background"""
-        # Check for the background detect extension, raise an error now if it's missing.
-        background_detect_extension = find_extension(
-            "org.openflexure.background-detect"
-        )
-        if not background_detect_extension:
-            raise RuntimeError(
-                "Detecting background fields requires the background detect extension and it was not found."
-            )
-
-        def current_image_is_background():
-            verdict = background_detect_extension.grab_and_classify_image()
-            logging.debug(f"Background detection verdict: {verdict}")
-            return verdict["classification"] == "background"
-
-        return current_image_is_background
-
     ### Scanning
     def tile(
         self,
@@ -401,6 +168,7 @@ class ScanExtension(BaseExtension):
         stride_size: XyzCoordinate = (2000, 1500, 100),
         grid: XyzCoordinate = (3, 3, 5),
         style="raster",
+        stackLoc="centre",
         autofocus_dz: int = 50,
         use_video_port: bool = False,
         resize: Optional[Tuple[int, int]] = None,
@@ -409,7 +177,6 @@ class ScanExtension(BaseExtension):
         metadata: Optional[dict] = None,
         annotations: Optional[Dict[str, str]] = None,
         tags: Optional[List[str]] = None,
-        detect_empty_fields_and_skip_autofocus: bool = False,
     ):
         metadata = metadata or {}
         annotations = annotations or {}
@@ -417,20 +184,16 @@ class ScanExtension(BaseExtension):
 
         start = time.time()
 
-        # Store initial position
-        initial_position = microscope.stage.position
-        # Construct an x-y scan path (list of 2D coordinates)
-        path = construct_grid_1d(
-            initial_position[:2], stride_size[:2], grid[:2], style=style
-        )
-
         # Keep task progress
-        self._images_to_be_captured = len(path)
+        self._images_to_be_captured = reduce((lambda x, y: x * y), grid)
         self._images_captured_so_far = 0
 
         # Generate a basename if none given
         if not basename:
             basename = generate_basename()
+
+        # Store initial position
+        initial_position = microscope.stage.position
 
         # Add dataset metadata
         dataset_d = {
@@ -441,74 +204,103 @@ class ScanExtension(BaseExtension):
             "strideSize": stride_size,
             "grid": grid,
             "style": style,
+            "stackLoc": stackLoc,
             "autofocusDz": autofocus_dz,
         }
 
-        # Perform set-up to be able to autofocus, if needed
-        autofocus: Optional[Callable] = None
-        if autofocus_dz:
-            autofocus = self.get_autofocus_function(
-                dz=autofocus_dz, use_fast_autofocus=fast_autofocus
-            )
-        if detect_empty_fields_and_skip_autofocus:
-            current_image_is_background = self.get_background_detect_function()
+        # Check if autofocus is enabled
+        autofocus_extension = find_extension("org.openflexure.autofocus")
+        if (
+            autofocus_dz
+            and autofocus_extension
+            and microscope.has_real_stage()
+            and microscope.has_real_camera()
+        ):
+            autofocus_enabled = True
         else:
-            current_image_is_background = None
-        focus_manager = FocusManager(
-            microscope,
-            initial_position,
-            autofocus_function=autofocus,
-            current_image_is_background_function=current_image_is_background,
-            axial_jump_threshold=0.4
-            if detect_empty_fields_and_skip_autofocus
-            else None,
+            autofocus_enabled = False
+
+        # Construct an x-y grid (worry about z later)
+        x_y_grid = construct_grid(
+            initial_position[:2], stride_size[:2], grid[:2], style=style
         )
 
-        # Now step through each point in the x-y coordinate array
-        for x_y in path:
-            next_z = focus_manager.estimate_z(x_y)
-            # Move to new grid position
-            logging.debug("Moving to step %s", ([x_y[0], x_y[1], next_z]))
-            microscope.stage.move_abs((x_y[0], x_y[1], next_z))
-            # Autofocus (if requested)
-            focus_manager.autofocus()
+        # Keep the initial Z position the same as our current position
+        initial_z = initial_position[2]
+        next_z = initial_z  # Save this value for use in raster scans
 
-            # If we're not doing a z-stack, just capture
-            if grid[2] <= 1:
-                self.capture(
-                    microscope,
-                    basename,
-                    namemode=namemode,
-                    temporary=temporary,
-                    use_video_port=use_video_port,
-                    resize=resize,
-                    bayer=bayer,
-                    dataset=dataset_d,
-                    annotations=annotations,
-                    tags=tags,
-                )
-                # Update task progress
-                self._images_captured_so_far += 1
-                update_action_progress(self.progress())
-            else:
-                logging.debug("Entering z-stack")
-                self.stack(
-                    microscope=microscope,
-                    basename=basename,
-                    namemode=namemode,
-                    temporary=temporary,
-                    step_size=stride_size[2],
-                    steps=grid[2],
-                    use_video_port=use_video_port,
-                    resize=resize,
-                    bayer=bayer,
-                    dataset=dataset_d,
-                    annotations=annotations,
-                    tags=tags,
-                )
-            # Gracefully shut down if we have been requested to stop
-            if current_action() and current_action().stopped:
-                return
+        # Now step through each point in the x-y coordinate array
+        for line in x_y_grid:
+            # If rastering, rather than snake (or eventually spiral)
+            # Return focus to initial position
+            if style == "raster":
+                next_z = initial_z  # Reset z position at start of each new row
+                logging.debug("Returning to initial z position")
+                microscope.stage.move_abs(
+                    (line[0][0], line[0][1], next_z)
+                )  # RWB: I think this line is redundant
+
+            for x_y in line:
+                # Move to new grid position without changing z
+                logging.debug("Moving to step %s", ([x_y[0], x_y[1], next_z]))
+                microscope.stage.move_abs((x_y[0], x_y[1], next_z))
+                # Refocus
+                if autofocus_enabled:
+                    if fast_autofocus:
+                        # Run fast autofocus. Client should provide dz ~ 2000
+                        # if str(stackLoc) == "base":
+                        #     undershoot = stride_size[2]*(grid[2]-1)/2
+                        # else:
+                        #     undershoot = 0
+                        undershoot = stride_size[2]*(grid[2]-1)/2
+                        autofocus_extension.fast_autofocus(microscope, dz=autofocus_dz, undershoot=undershoot, backlash_correction=100)
+                    else:
+                        # Run slow autofocus. Client should provide dz ~ 50
+                        autofocus_extension.autofocus(
+                            microscope,
+                            range(-3 * autofocus_dz, 4 * autofocus_dz, autofocus_dz),
+                        )
+                        logging.debug("Finished autofocus")
+                        time.sleep(1)
+
+                # If we're not doing a z-stack, just capture
+                if grid[2] <= 1:
+                    self.capture(
+                        microscope,
+                        basename,
+                        namemode=namemode,
+                        temporary=temporary,
+                        use_video_port=use_video_port,
+                        resize=resize,
+                        bayer=bayer,
+                        dataset=dataset_d,
+                        annotations=annotations,
+                        tags=tags,
+                    )
+                    # Update task progress
+                    self._images_captured_so_far += 1
+                    update_action_progress(self.progress())
+                else:
+                    logging.debug("Entering z-stack")
+                    self.stack(
+                        microscope=microscope,
+                        basename=basename,
+                        namemode=namemode,
+                        temporary=temporary,
+                        step_size=stride_size[2],
+                        steps=grid[2],
+                        use_video_port=use_video_port,
+                        resize=resize,
+                        bayer=bayer,
+                        dataset=dataset_d,
+                        annotations=annotations,
+                        tags=tags,
+                        start=stackLoc,
+                    )
+                if current_action() and current_action().stopped:
+                    return
+                # Make sure we use our current best estimate of focus (i.e. the current position) next point
+                next_z = microscope.stage.position[2]
 
         logging.debug("Returning to %s", (initial_position))
         microscope.stage.move_abs(initial_position)
@@ -532,6 +324,8 @@ class ScanExtension(BaseExtension):
         annotations: Optional[Dict[str, str]] = None,
         dataset: Optional[Dict[str, str]] = None,
         tags: Optional[List[str]] = None,
+        start: Optional[str] = 'centre',
+        backlash_correction: Optional[int] = 300
     ):
         metadata = metadata or {}
         annotations = annotations or {}
@@ -540,11 +334,12 @@ class ScanExtension(BaseExtension):
         # Store initial position
         initial_position = microscope.stage.position
         logging.debug("Starting z-stack from position %s", microscope.stage.position)
-
         with microscope.lock:
             # Move to center scan
-            logging.debug("Moving to z-stack starting position")
-            microscope.stage.move_rel((0, 0, int((-step_size * steps) / 2)))
+            if start == 'centre':
+                logging.debug("Moving to z-stack starting position")
+                microscope.stage.move_rel((0, 0, int((-step_size * (steps-1)) / 2) - backlash_correction))
+                microscope.stage.move_rel((0, 0, backlash_correction))
             logging.debug("Starting scan from position %s", microscope.stage.position)
 
             for i in range(steps):
@@ -574,27 +369,24 @@ class ScanExtension(BaseExtension):
                     microscope.stage.move_rel((0, 0, step_size))
             if return_to_start:
                 logging.debug("Returning to %s", (initial_position))
-                microscope.stage.move_abs(initial_position)
+                microscope.stage.move_abs((initial_position[0], initial_position[1], initial_position[2]-backlash_correction))
+                microscope.stage.move_rel((0,0,backlash_correction))
 
 
 class TileScanArgs(FullCaptureArgs):
-    namemode = fields.String(
-        load_default="coordinates", metadata={"example": "coordinates"}
-    )
+    namemode = fields.String(missing="coordinates", example="coordinates")
     grid = fields.List(
         fields.Integer(validate=marshmallow.validate.Range(min=1)),
-        load_default=[3, 3, 3],
-        metadata={"example": [3, 3, 3]},
+        missing=[3, 3, 3],
+        example=[3, 3, 3],
     )
-    style = fields.String(load_default="raster")
-    autofocus_dz = fields.Integer(load_default=50)
-    fast_autofocus = fields.Boolean(load_default=False)
+    style = fields.String(missing="raster")
+    autofocus_dz = fields.Integer(missing=50)
+    fast_autofocus = fields.Boolean(missing=False)
+    stackLoc = fields.String(missing="centre")
     stride_size = fields.List(
-        fields.Integer,
-        load_default=[2000, 1500, 100],
-        metadata={"example": [2000, 1500, 100]},
+        fields.Integer, missing=[2000, 1500, 100], example=[2000, 1500, 100]
     )
-    detect_empty_fields_and_skip_autofocus = fields.Boolean(load_default=False)
 
 
 class TileScanAPI(ActionView):
@@ -633,6 +425,7 @@ class TileScanAPI(ActionView):
                 stride_size=args.get("stride_size"),
                 grid=args.get("grid"),
                 style=args.get("style"),
+                stackLoc=args.get("stackLoc"),
                 autofocus_dz=args.get("autofocus_dz"),
                 use_video_port=args.get("use_video_port"),
                 resize=resize,
@@ -640,7 +433,4 @@ class TileScanAPI(ActionView):
                 fast_autofocus=args.get("fast_autofocus"),
                 annotations=args.get("annotations"),
                 tags=args.get("tags"),
-                detect_empty_fields_and_skip_autofocus=args.get(
-                    "detect_empty_fields_and_skip_autofocus"
-                ),
             )
