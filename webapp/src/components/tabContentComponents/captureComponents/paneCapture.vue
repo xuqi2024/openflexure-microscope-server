@@ -116,6 +116,17 @@
             >
           </div>
 
+          <div class="uk-margin-small uk-margin-remove-bottom">
+              <label class="uk-form-label" for="form-stacked-text"
+                >xy Movement units</label
+              >
+              <select v-model="xyUnits" class="uk-select">
+                <option>Motor steps</option>
+                <option>Pixels</option>
+                <option>FOV percent</option>
+              </select>
+            </div>
+
           <div :class="{ 'uk-disabled': !scanCapture }">
             <div class="uk-grid-small uk-child-width-1-3" uk-grid>
               <div>
@@ -361,6 +372,7 @@ function defaultCaptureSettings() {
     scanDeltaZ: "Fast",
     scanStyle: "Raster",
     namingStyle: "Coordinates",
+    xyUnits: "Motor steps",
     scanStepSize: {
       x: 800,
       y: 640,
@@ -473,6 +485,7 @@ export default {
         ],
         style: this.scanStyle.toLowerCase(),
         namemode: this.namingStyle.toLowerCase(),
+        xyunits: this.xyUnits,
         autofocus_dz: afDeltas[this.scanDeltaZ],
         fast_autofocus: this.scanDeltaZ == "Fast",
         detect_empty_fields_and_skip_autofocus: this.detectEmptyFieldsAndSkipAutofocus

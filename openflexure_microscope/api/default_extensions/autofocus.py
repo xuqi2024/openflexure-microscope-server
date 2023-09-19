@@ -680,7 +680,7 @@ class AutofocusExtension(BaseExtension):
                 )  # takes us to the start of the stack
 
                 # We've deliberately undershot - figure out how much further we should move based on the curve
-                logging.debug("Calculate remining movement")
+                logging.debug("Calculate remaining movement")
                 current_js = m.camera.stream.last.size
                 imax: int = int(
                     np.argmax(js)
