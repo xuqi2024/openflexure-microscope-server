@@ -408,7 +408,6 @@ class ScanExtension(BaseExtension):
             stride_size[0], stride_size[1] = stride_size[1], stride_size[0]
             csm_matrix = self.get_csm()
             stride_size = np.dot(csm_matrix, stride_size)
-            logging.warning(stride_size)
             if str(units) == 'FOV percent':
                 #TODO How to get resolution from stream?
                 stride_size[0] *= 832 / 100
@@ -445,7 +444,7 @@ class ScanExtension(BaseExtension):
         starting_stride_size = stride_size.copy()
 
         stride_size[:2] = self.convert_to_steps(xyunits, stride_size[:2])
-        logging.warning(f'Converted {starting_stride_size[:2]} in {xyunits} to {stride_size[:2]} motor steps')
+        logging.debug(f'Converted {starting_stride_size[:2]} in {xyunits} to {stride_size[:2]} motor steps')
 
         start = time.time()
 

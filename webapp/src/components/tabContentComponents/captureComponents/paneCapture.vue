@@ -116,7 +116,9 @@
             >
           </div>
 
-          <div class="uk-margin-small uk-margin-remove-bottom">
+          <div :class="{ 'uk-disabled': !scanCapture }">
+            
+            <div class="uk-margin-small uk-margin-remove-bottom">
               <label class="uk-form-label" for="form-stacked-text"
                 >xy Movement units</label
               >
@@ -127,7 +129,6 @@
               </select>
             </div>
 
-          <div :class="{ 'uk-disabled': !scanCapture }">
             <div class="uk-grid-small uk-child-width-1-3" uk-grid>
               <div>
                 <label class="uk-form-label" for="form-stacked-text"
