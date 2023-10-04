@@ -8,7 +8,7 @@
         v-for="form in forms"
         v-else-if="forms"
         :key="`${form.route}/${form.name}`.replace(/\s+/g, '-').toLowerCase()"
-        class="uk-height-1-1 uk-width-1-1"
+        class="uk-height-max-large uk-width-1-1"
       >
         <JsonForm
           :name="form.name"
