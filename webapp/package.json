@@ -13,10 +13,14 @@
     "lint:fix": "vue-cli-service lint --fix"
   },
   "dependencies": {
+    "@node-wot/binding-http": "^0.8.10",
+    "@node-wot/core": "^0.8.10",
     "imjoy-core": "^0.13.74",
     "material-design-icons": "^3.0.1",
     "mousetrap": "^1.6.5",
-    "vue-observe-visibility": "^0.4.6"
+    "shebang-loader": "^0.0.1",
+    "vue-observe-visibility": "^0.4.6",
+    "webpack-shebang-plugin": "^1.1.8"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "^3.12.1",

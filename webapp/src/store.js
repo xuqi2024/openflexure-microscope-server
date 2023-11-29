@@ -1,5 +1,6 @@
 import Vue from "vue";
 import Vuex from "vuex";
+import wotStoreModule from "./wot-client";
 
 Vue.use(Vuex);
 
@@ -76,7 +77,8 @@ function getOriginFromLocation() {
 
 export default new Vuex.Store({
   modules: {
-    imjoy: moduleImjoy
+    imjoy: moduleImjoy,
+    wot: wotStoreModule
   },
   state: {
     origin: getOriginFromLocation(),

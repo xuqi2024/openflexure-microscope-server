@@ -305,22 +305,22 @@ export default {
   },
 
   methods: {
-    checkConnection: function() {
+    async checkConnection() {
       var baseUri = this.$store.getters.baseUri;
       this.$store.commit("changeWaiting", true);
-      axios
-        // TODO: more robust check - e.g. use a microscope Thing
-        .get(`${baseUri}/stage/`)
-        .then(() => {
-          this.$store.commit("setConnected");
-          this.$store.commit("setErrorMessage", null);
-        })
-        .catch(error => {
+      // TODO: more robust check - e.g. use a microscope Thing
+      // TODO: should we purge existing consumedThings?
+      try {
+        await axios.get(`${baseUri}/things/`)
+        await this.getConsumedThing("stage");
+        await this.getConsumedThing("camera");
+        this.$store.commit("setConnected");
+        this.$store.commit("setErrorMessage", null);
+      } catch (error) {
           this.$store.commit("setErrorMessage", error);
-        })
-        .finally(() => {
-          this.$store.commit("changeWaiting", false);
-        });
+      } finally {
+        this.$store.commit("changeWaiting", false);
+      }
     },
 
     handleExit: function() {

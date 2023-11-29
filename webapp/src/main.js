@@ -34,6 +34,17 @@ Vue.config.productionTip = false;
 
 Vue.mixin({
   methods: {
+    async getConsumedThingFromURI(uri) {
+      // Get a thing client, creatin it if necessary
+      if (! (uri in store.state.wot.consumedThings) ) {
+        await store.dispatch("wot/consumeThing", uri);
+      }
+      return store.state.consumedThings[uri];
+    },
+    async getConsumedThing(thing) {
+      let baseUri = this.$store.state.baseUri;
+      return await this.getConsumedThingFromURI(`${baseUri}/${thing}/`);
+    },
     modalConfirm: function(modalText) {
       var context = this;
 
