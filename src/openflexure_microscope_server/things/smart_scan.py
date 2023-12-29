@@ -153,7 +153,7 @@ class SmartScanThing(Thing):
 
         # if "1background_stats" not in current_keys:
         current_keys.append("background_stats")
-        settings.external_metadata_in_state = deepcopy(current_keys)
+        settings.external_metadata_in_state = current_keys
 
         logging.info(settings.external_metadata_in_state)
         logging.info(settings.external_metadata)
@@ -245,7 +245,7 @@ class SmartScanThing(Thing):
 
             # mask the image to only include pixels outside 5 stds of the mean of all three channels.
             # get the percent of pixels that are in the mask (assumed sample)
-            img_mask = check_dist(img2, stats_list, 3)
+            img_mask = check_dist(img2, stats_list, 5)
             background_coverage = round(100*np.count_nonzero(img_mask)/img_mask.size, 1)
 
 
@@ -296,11 +296,14 @@ class SmartScanThing(Thing):
                             stage.move_absolute(z = int(focused_path[z_index][2]))
                             attempts += 1
 
-                img = cam.capture_jpeg()
-                img = np.array(Image.open(img.open()))
-                img = cv2.resize(img, (0,0), fx = 0.5, fy = 0.5)
-                img = Image.fromarray(img)
-                img.save(os.path.join(folder_path, f"rabbit_{loc[0]}_{loc[1]}.jpg"))
+                img = Image.open(cam.capture_jpeg().open())
+                exif = img.info['exif']
+                # img = np.array(Image.open(img.open()))
+                # img = cv2.resize(img, (0,0), fx = 0.5, fy = 0.5)
+                # img = Image.fromarray(img)
+                width, height = img.size 
+                img = img.resize((int(width*0.5), int(height*0.5)))
+                img.save(os.path.join(folder_path, f"rabbit_{loc[0]}_{loc[1]}.jpg"), exif = exif)
 
             img_preview = cam.grab_jpeg()
             img_preview = np.array(Image.open(img_preview.open()))
