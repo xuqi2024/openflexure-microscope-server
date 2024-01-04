@@ -128,16 +128,24 @@ def distance_to_site(current, next):
     current = np.array(current, dtype="float64")
     return np.sqrt((next[1] - current[1]) ** 2 + (next[0] - current[0]) ** 2)
 
-def generate_config(folder_path: str, positions: list, names: list):
+def scale_csm(csm_matrix, calibration_width, img_width):
+    "Account for a calibration width that may differ from image width"
+    scale = img_width / calibration_width  # Usually >1, if we calibrated at low res
+    csm = np.array(csm_matrix) / scale  # Decrease the CSM if pixels are smaller]
+    return csm
+
+def generate_config(folder_path: str, positions: list, names: list, camera_to_sample_matrix, csm_calibration_width, img_width, logger):
 
     positions = np.array(positions)
-
     mean_loc = np.mean(positions, axis = 0)
+
+    camera_to_sample_matrix = scale_csm(camera_to_sample_matrix, csm_calibration_width, img_width)
 
     with open(os.path.join(folder_path, 'TileConfiguration.txt'), 'w') as fp:
         fp.write('# Define the number of dimensions we are working on\ndim = 2\n\n# Define the image coordinates\n')
         for i in range(len(names)):    
-            loc = positions[i] - mean_loc
+            # loc = positions[i] - mean_loc
+            loc = np.dot((positions[i] - mean_loc), np.linalg.inv(camera_to_sample_matrix))
             fp.write(f'{names[i]}; ; {loc[1], loc[0]} \n')
 
 
@@ -280,11 +288,14 @@ class SmartScanThing(Thing):
         arr = np.array(Image.open(r.open()))
 
         camera_stage_mapping_matrix = csm.image_to_stage_displacement_matrix
+        csm_calibration_width = csm.last_calibration["image_resolution"][1]
 
         # TODO: CHECK HOW TO GET CALIBRATION IMAGE SIZE
 
         dx = dx * arr.shape[1] / 100
         dy = dy * arr.shape[0] / 100
+
+        img_width = int(arr.shape[1] / 2)
 
         dx = np.array(
             np.dot(np.array([0, dx]), camera_stage_mapping_matrix), dtype=int
@@ -434,8 +445,8 @@ class SmartScanThing(Thing):
             # add the current position to the list of all positions visited
             true_path.append(loc)
 
-            # if len(names) > 1:
-            generate_config(folder_path, positions, names)
+            if len(names) > 1:
+                generate_config(folder_path, positions, names, camera_stage_mapping_matrix, csm_calibration_width, img_width, logger)
 
 
             path = sorted(path, key=lambda x: distance_to_site(loc[:2], x))
