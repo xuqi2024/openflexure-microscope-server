@@ -22,7 +22,7 @@ from camera_stage_mapping.camera_stage_calibration_1d import (
     image_to_stage_displacement_from_1d,
 )
 from camera_stage_mapping.camera_stage_tracker import Tracker
-from labthings_picamera2.thing import StreamingPiCamera2
+from openflexure_microscope_server.interfaces.camera import AbstractCamera
 from labthings_sangaboard import SangaboardThing
 
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
@@ -31,7 +31,7 @@ from labthings_fastapi.types.numpy import NDArray, denumpify, DenumpifyingDict
 from labthings_fastapi.decorators import thing_action, thing_property
 from labthings_fastapi.thing import Thing
 
-Camera = direct_thing_client_dependency(StreamingPiCamera2, "/camera/")
+Camera = direct_thing_client_dependency(AbstractCamera, "/camera/")
 Stage = direct_thing_client_dependency(SangaboardThing, "/stage/")
 
 CoordinateType = Tuple[float, float, float]

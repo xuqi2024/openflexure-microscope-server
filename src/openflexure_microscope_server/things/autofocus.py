@@ -19,13 +19,13 @@ from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
 from labthings_fastapi.dependencies.blocking_portal import BlockingPortal
 from labthings_fastapi.decorators import thing_action
 from labthings_fastapi.types.numpy import NDArray
-from labthings_picamera2.thing import StreamingPiCamera2
+from openflexure_microscope_server.interfaces.camera import AbstractCamera
 from labthings_sangaboard import SangaboardThing
 import numpy as np
 from pydantic import BaseModel
 
 Stage = direct_thing_client_dependency(SangaboardThing, "/stage/")
-Camera = raw_thing_dependency(StreamingPiCamera2)
+Camera = raw_thing_dependency(AbstractCamera)
 
 ### Autofocus utilities
 
