@@ -111,8 +111,6 @@ class RecentringThing(Thing):
             focused_pos[direction] = [list(stage.position.values())]
             moves = +1
 
-            print(centre)
-
             stage.move_absolute(x=centre[0], y=centre[1], z=centre[2])
             steps = 0
             all_heights = []
@@ -140,8 +138,6 @@ class RecentringThing(Thing):
                 position = list(stage.position.values())
                 focused_pos[direction].append(position)
 
-                logging.info(focused_pos)
-
                 steps += 1
                 if steps > max_steps:
                     logging.warning(
@@ -149,7 +145,7 @@ class RecentringThing(Thing):
                     )
                     break
 
-                if len(focused_pos[direction]) > 4:
+                if len(focused_pos[direction]) >= 4:
                     all_heights = [x[2] for x in focused_pos[direction]]
                     direction_index = [x[direction] for x in focused_pos[direction]]
 
@@ -165,13 +161,14 @@ class RecentringThing(Thing):
 
                     turning_loc = -turning[0] / (turning[1])
 
-                    logging.warning(sorted_all_heights)
+                    test_sorted_all_heights = [i * np.sign(quad_fit[0]) for i in sorted_all_heights]
+
                     if (
-                        np.argmax(sorted_all_heights) != 0
-                        and np.argmax(sorted_all_heights) != len(all_heights) - 1
+                        np.argmin(test_sorted_all_heights) != 0
+                        and np.argmin(test_sorted_all_heights) != len(all_heights) - 1
                     ):
                         logging.info(
-                            f"Breaking because the highest point is at {np.argmax(sorted_all_heights)} in the list"
+                            f"Breaking because the turning point is at {np.argmin(test_sorted_all_heights)} in the list"
                         )
                         # plt.plot(sorted_lateral, sorted_all_heights,'.')
                         # plt.plot(sorted_lateral, quad_fit_func(sorted_lateral))
