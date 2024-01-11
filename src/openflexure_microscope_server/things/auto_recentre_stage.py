@@ -4,6 +4,7 @@ import time
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
+from labthings_fastapi.dependencies.invocation import InvocationLogger
 from labthings_fastapi.decorators import thing_action
 from labthings_sangaboard import SangaboardThing
 from labthings_picamera2.thing import StreamingPiCamera2
@@ -71,6 +72,7 @@ class RecentringThing(Thing):
         self,
         autofocus: AutofocusDep,
         stage: StageDep,
+        logger: InvocationLogger,
         max_steps=15,
         lateral_distance=5000,
     ):
@@ -140,7 +142,7 @@ class RecentringThing(Thing):
 
                 steps += 1
                 if steps > max_steps:
-                    logging.warning(
+                    logger.warning(
                         "Couldn't find a suitable position. Roughly centre the stage and check your sample is suitable for autofocus"
                     )
                     break
@@ -167,7 +169,7 @@ class RecentringThing(Thing):
                         np.argmin(test_sorted_all_heights) != 0
                         and np.argmin(test_sorted_all_heights) != len(all_heights) - 1
                     ):
-                        logging.info(
+                        logger.info(
                             f"Breaking because the turning point is at {np.argmin(test_sorted_all_heights)} in the list"
                         )
                         # plt.plot(sorted_lateral, sorted_all_heights,'.')
@@ -192,6 +194,6 @@ class RecentringThing(Thing):
             stage.move_absolute(x=centre[0], y=centre[1], z=centre[2])
             self.looping_autofocus(autofocus, stage)
 
-        logging.info(f"Centre of ROM is at {centre, stage.position['z']} \n")
+        logger.info(f"Centre of ROM is at {centre, stage.position['z']} \n")
 
         return focused_pos
