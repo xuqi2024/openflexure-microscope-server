@@ -380,6 +380,7 @@ class SmartScanThing(Thing):
         images_folder = None
         starting_position = None
         self._scan_lock.acquire(timeout=0.1)
+        resize_stitch = 1.0
         try:
             # Before anything else, check that we've got a background set
             # It's annoying to have to wait to find out!
@@ -553,7 +554,7 @@ class SmartScanThing(Thing):
                     if not self.preview_stitch_running():
                         self.preview_stitch_start(images_folder)
                     if not self.correlate_running():
-                        self.correlate_start(images_folder)
+                        self.correlate_start(images_folder, resize_stitch = resize_stitch)
 
                 # add the current position to the list of all positions visited
                 true_path.append(loc)
@@ -602,7 +603,7 @@ class SmartScanThing(Thing):
             logger.info("Stitching final image (may take some time)...")
             try:
                 if scan_folder:
-                    self.stitch_scan(logger, os.path.basename(scan_folder))
+                    self.stitch_scan(logger, os.path.basename(scan_folder), resize_stitch = resize_stitch)
             except SubprocessError as e:
                 logger.exception(f"Stitching failed: {e}")
             logger.info("Creating zip archive of images (may take some time)...")
@@ -804,13 +805,13 @@ class SmartScanThing(Thing):
                 self._preview_stitch_popen.wait()
         
     _correlate_popen = None
-    def correlate_start(self, images_folder: str) -> None:
+    def correlate_start(self, images_folder: str, resize_stitch: float=1.0) -> None:
         """Start stitching a preview of the scan in a subprocess"""
         if self.correlate_running():
             raise RuntimeError("Only one subprocess is allowed at a time")
         with self._correlate_popen_lock:
             self._correlate_popen = Popen(
-                [self._script, "--stitching_mode", "only_correlate", images_folder]
+                [self._script, "--stitching_mode", "only_correlate", "--resize", f"{resize_stitch}", images_folder]
             )
 
     def correlate_running(self) -> bool:
@@ -840,8 +841,8 @@ class SmartScanThing(Thing):
         return output
 
     @thing_action
-    def stitch_scan(self, logger: InvocationLogger, scan_name: Optional[str]=None, downsample: float=1.0) -> None:
+    def stitch_scan(self, logger: InvocationLogger, scan_name: Optional[str]=None, downsample: float=1.0, resize_stitch: float=1.0) -> None:
         """Generate a stitched image based on stage position metadata"""
         images_folder = self.images_folder(scan_name=scan_name)
-        self.run_subprocess(logger, [self._script, "--stitching_mode", "all", images_folder])
+        self.run_subprocess(logger, [self._script, "--stitching_mode", "all", "--resize", f"{resize_stitch}", images_folder])
 
