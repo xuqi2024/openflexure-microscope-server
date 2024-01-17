@@ -553,7 +553,12 @@ class SmartScanThing(Thing):
                     
 
                     name = f"image_{loc[0]}_{loc[1]}.jpg"
-                    # img = Image.open(cam.capture_jpeg(resolution="full").open())
+                    if self.save_bayer_images:
+                        arr = cam.capture_array(stream_name="raw")
+                        np.savez(
+                            os.path.join(raw_images_folder, name[:-4] + ".npz"),
+                            bayer_image=arr,
+                        )
                     jpegblob = cam.capture_jpeg(resolution="full")
                     jpegblob.save(os.path.join(raw_images_folder, name))
                     img = Image.open(jpegblob.open())
@@ -679,6 +684,15 @@ class SmartScanThing(Thing):
     @stitch_automatically.setter
     def stitch_automatically(self, value: bool) -> None:
         self.thing_settings["stitch_automatically"] = value
+    
+    @thing_property
+    def save_bayer_images(self) -> bool:
+        """Should we attempt to stitch scans as we go?"""
+        return self.thing_settings.get("save_bayer_images", False)
+    
+    @save_bayer_images.setter
+    def save_bayer_images(self, value: bool) -> None:
+        self.thing_settings["save_bayer_images"] = value
 
     @thing_property
     def scans(self) -> list[ScanInfo]:
