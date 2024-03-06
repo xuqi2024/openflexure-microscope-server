@@ -7,17 +7,21 @@ See repository root for licensing information.
 """
 from __future__ import annotations
 from contextlib import contextmanager
+import matplotlib.pyplot as plt
 import logging
 import time
+import os
+from datetime import datetime
 from typing import Annotated, Mapping, Optional, Sequence
 
 from fastapi import Depends
+from fastapi.responses import FileResponse
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.raw_thing import raw_thing_dependency
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
 from labthings_fastapi.dependencies.blocking_portal import BlockingPortal
-from labthings_fastapi.decorators import thing_action
+from labthings_fastapi.decorators import thing_action, fastapi_endpoint, thing_property
 from labthings_fastapi.types.numpy import NDArray
 from labthings_picamera2.thing import StreamingPiCamera2
 from labthings_sangaboard import SangaboardThing
@@ -79,6 +83,9 @@ class JPEGSharpnessMonitor:
         # Final z position after move
         final_z_position: int = self.stage_positions[-1]['z']
         return data_index, final_z_position
+
+    def hold(self, delay):
+        time.sleep(delay)
 
     def move_data(
         self, istart: int, istop: Optional[int] = None
@@ -250,3 +257,89 @@ class AutofocusThing(Thing):
         cutoff = threshold * (peak - base)
 
         return current_sharpness >= base + cutoff
+
+    @thing_action
+    def measure_settling_time(
+        self, m:SharpnessMonitorDep, stage:Stage, delay: int = 2, dz: int = 800
+    ):
+        """Make a Z move down then up by dz, then pause for delay while monitoring sharpness.
+        This is useful so we can see how long we need to wait for the sharpness value to converge"""
+        with m.run():
+            m.focus_rel(-(dz+200))
+            m.focus_rel(200)
+            m.focus_rel(dz)
+            m.hold(delay)
+        return m.data_dict()
+            
+    @thing_action
+    def plot_settling(self, m:SharpnessMonitorDep, stage:Stage, repeats:int = 2, filename='settling_time'):
+        """Plot the settling data"""
+        settling_data = []
+        f, axs = plt.subplots(1,2)
+        for i in range(repeats):
+            settling_data.append(self.measure_settling_time(m = m, stage = stage))
+            m.jpeg_times = []
+            m.jpeg_sizes = []
+            m.stage_times = []
+            m.stage_positions = []
+        for i in range(repeats):
+            jpeg_times = np.array(settling_data[i].jpeg_times)
+            jpeg_sizes = np.array(settling_data[i].jpeg_sizes)
+            stage_times = np.array(settling_data[i].stage_times)
+            stop_time = stage_times[-1]
+            jpeg_times -= stop_time
+            stage_times -= stop_time
+            stop_index = np.argmax(jpeg_times > 0)
+            
+            rr = slice(stop_index, None)
+            axs[0].plot(jpeg_times, jpeg_sizes, label=f"Repeat {i}")
+            axs[1].plot(jpeg_times[rr], jpeg_sizes[rr], label=f"Repeat {i}")
+            
+        axs[0].axvline(x=0, linestyle='dashed', label = 'Start time')
+        axs[0].set_title('Full sweep')
+        axs[1].set_title('Sharpness once stationary')
+        axs[1].legend()
+        axs[0].set_ylabel('JPEG Size / Mb')
+        for ax in axs:
+            ax.set_xlabel('Time / seconds')
+        f.tight_layout()
+        plt.savefig(os.path.join('/var/openflexure/extensions', f'{filename}.png'))
+        return f'{filename}.png'
+
+    @fastapi_endpoint(
+            "get",
+            "latest_settling_time.jpg",
+            responses = {
+                200: {
+                    "description": "The latest plot from settling()",
+                    "content": {"image/jpeg": {}}
+                },
+                404: {"description": "File not found"}
+            },
+        )
+    def get_latest_settle(self):
+        """Retrieve the latest settling plot.
+        """
+        path = self.latest_settling_path
+        if not os.path.isfile(path):
+            raise HTTPException(404, "File not found")
+        return FileResponse(path)
+
+    @property
+    def latest_settling_path(self):
+        """The path of the latest plot from settling()"""
+        return "/var/openflexure/extensions/settling_time.png"
+
+    @thing_property
+    def latest_settle_time(self):
+        """The modification time of the latest plot from settling()
+        
+        This will return `null` if there is no preview image to return.
+        """
+        try:
+            fpath = self.latest_settling_path
+            if os.path.exists(fpath):
+                return os.path.getmtime(fpath)
+        except IOError:
+            return None
+        return None

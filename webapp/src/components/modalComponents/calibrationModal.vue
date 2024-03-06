@@ -100,6 +100,40 @@
       </div>
 
       <div v-show="stepValue == 3">
+      <p>
+          <b>Measure stage settling time</b>
+      </p>
+      <p>
+        <b
+          >Follow the steps below to check how quickly your stage 
+          settles after a move.</b
+        >
+      </p>
+          <ul class="uk-list uk-list-bullet">
+            <li>Manually or automatically focus on a sample. Ideally an area with
+            sharp features and clear contrast</li>
+            <li>
+            Avoid knocking your microscope or desk while this is running
+            </li>
+            <li>
+            Use the produced plot to judge your settling time - when the right plot
+            first peaks is a good estimate of settling
+            </li>
+     </ul>
+      <action-button
+        thing="autofocus"
+        action="plot_settling"
+        submit-label="Measure settling time"
+        :submit-data="{ repeats: 3 }"
+        @finished="updateFigure()"
+        @error="modalError"
+        />
+      <div class="view-image uk-width-expand uk-height-1-1">
+          <img class=image-fit :src="settlingPlot">
+      </div>
+      </div>
+
+      <div v-show="stepValue == 4">
         <p>
           <b>Calibration complete</b>
         </p>
@@ -118,7 +152,7 @@
           Cancel
         </button>
         <button
-          v-show="stepValue == 3"
+          v-show="stepValue == 4"
           class="uk-button uk-button-default"
           type="button"
           @click="stepValue = 0"
@@ -126,7 +160,7 @@
           Restart
         </button>
         <button
-          v-show="stepValue < 3"
+          v-show="stepValue < 4"
           class="uk-button uk-button-primary uk-margin-left"
           type="button"
           @click="increment()"
@@ -134,7 +168,7 @@
           Next
         </button>
         <button
-          v-show="stepValue == 3"
+          v-show="stepValue == 4"
           class="uk-button uk-button-primary uk-margin-left"
           type="button"
           @click="hide()"
@@ -150,6 +184,7 @@
 import cameraCalibrationSettings from "../tabContentComponents/settingsComponents/cameraSettingsComponents/cameraCalibrationSettings.vue";
 import CSMCalibrationSettings from "../tabContentComponents/settingsComponents/CSMSettingsComponents/CSMCalibrationSettings.vue";
 import miniStreamDisplay from "../genericComponents/miniStreamDisplay.vue";
+import ActionButton from "../labThingsComponents/actionButton.vue";
 
 export default {
   name: "CalibrationModal",
@@ -157,7 +192,8 @@ export default {
   components: {
     cameraCalibrationSettings,
     CSMCalibrationSettings,
-    miniStreamDisplay
+    miniStreamDisplay,
+    ActionButton
   },
 
   data: function() {
@@ -165,7 +201,9 @@ export default {
       ready: false,
       stepValue: 0,
       isCSMCalibrated: undefined,
-      isLSTCalibrated: undefined
+      isLSTCalibrated: undefined,
+      settlingPlot: null,
+      settlingUpdateTime: null
     };
   },
 
@@ -235,6 +273,17 @@ export default {
       this.$emit("onClose");
     },
 
+    async updateFigure() {
+      this.settlingPlot = ""
+      let mtime = await this.readThingProperty(
+          "autofocus",
+          "latest_settle_time"
+        );
+        if (mtime !== null) {
+          this.settlingPlot = `${this.$store.getters.baseUri}/autofocus/latest_settling_time.jpg?t=${mtime}`;
+        }
+      },
+
     decrement: function() {
       if (this.stepValue > 0) {
         this.stepValue = this.stepValue - 1;
@@ -243,12 +292,15 @@ export default {
 
     increment: function() {
       // Upper bound on section number
-      if (this.stepValue < 3) {
+      if (this.stepValue < 4) {
         this.stepValue = this.stepValue + 1;
         return true;
       }
     }
-  }
+  },
+  beforeMount() {
+   this.updateFigure()
+},
 };
 </script>
 
