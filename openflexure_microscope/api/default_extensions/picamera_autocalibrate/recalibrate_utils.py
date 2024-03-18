@@ -239,6 +239,11 @@ def adjust_white_balance_from_raw(
     are BGGR...
     """
     blue, g1, g2, red = get_channel_percentiles(camera, percentile)
+    logging.info(
+        f"Raw white point before averaging green channels is "
+        f"R: {red} G1: {g1} G2: {g2} B: {blue} \n"
+        f"If g1 and g2 are far apart, then the Bayer Filter Pattern is not correct."
+    )
     green = (g1 + g2) / 2.0
     new_awb_gains = (green / red, green / blue)
     logging.info(
@@ -251,9 +256,17 @@ def adjust_white_balance_from_raw(
     return new_awb_gains
 
 
-def channels_from_bayer_array(bayer_array: np.ndarray) -> np.ndarray:
-    """Given the 'array' from a PiBayerArray, return the 4 channels."""
-    bayer_pattern: List[Tuple[int, int]] = [(0, 0), (0, 1), (1, 0), (1, 1)]
+def channels_from_bayer_array(camera: PiCamera, bayer_array: np.ndarray) -> np.ndarray:
+    """ Given the 'array' from a PiBayerArray, return the 4 channels,
+    according to the Bayer filter patterns of the PiCamera Version.
+    """
+    cam_version_dict = {
+        "RP_ov5647": [(0, 1), (1, 1), (0, 0), (1, 0)],
+        "RP_imx219": [(0, 0), (0, 1), (1, 0), (1, 1)],
+    }
+    bayer_pattern: List[Tuple[int, int]] = cam_version_dict.get(
+        camera.exif_tags["IFD0.Model"], [(0, 0), (0, 1), (1, 0), (1, 1)]
+    )
     channels_shape: Tuple[int, ...] = (
         4,
         bayer_array.shape[0] // 2,
@@ -280,7 +293,7 @@ def get_channel_percentiles(camera: PiCamera, percentile: float) -> np.ndarray:
     """
     with PiBayerArray(camera) as output:
         camera.capture(output, format="jpeg", bayer=True)
-        channels = channels_from_bayer_array(output.array)
+        channels = channels_from_bayer_array(camera, output.array)
         return np.percentile(channels, percentile, axis=(1, 2)) - 64
 
 
@@ -364,7 +377,7 @@ def lst_from_camera(camera: PiCamera) -> np.ndarray:
     # raw_image is a 3D array, with full resolution and 3 colour channels.  No
     # de-mosaicing has been done, so 2/3 of the values are zero (3/4 for R and B
     # channels, 1/2 for green because there's twice as many green pixels).
-    channels = channels_from_bayer_array(raw_image)
+    channels = channels_from_bayer_array(camera, raw_image)
     return lst_from_channels(channels)
 
 
