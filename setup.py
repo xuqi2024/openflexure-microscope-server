@@ -56,7 +56,7 @@ setup(
         "sangaboard ~= 0.3.3",
         "expiringdict ~= 1.2.1",
         "camera-stage-mapping == 0.1.4",
-        "picamerax ~= 21.9.8",
+        "picamerax ~= 24.3.21",
         "pyyaml ~= 5.4.0",
         "pytest-cov ~= 2.10.1",
         "piexif ~= 1.1.3",
