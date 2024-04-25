@@ -586,26 +586,27 @@ class SmartScanThing(Thing):
                     capture_start = time.time()
                     metadata = metadata_getter()
                     # raw_image = cam.capture_array(stream_name="raw")
-                    # acquired.set()
-                    # acquisition_time = time.time()
+                    processed = cam.capture_array(stream_name="main")
+                    acquired.set()
+                    acquisition_time = time.time()
                     # # Save the raw image
                     # np.savez(os.path.join(raw_images_folder, name + ".npz"), raw_image=raw_image, **norm_inputs)
                     # # Process it into 8 bit RGB
                     # processed = process_raw_image(rggb2rgb(raw2rggb(raw_image)))
                     # processed[processed > 255] = 255
                     # processed[processed < 0] = 0
-                    # img = Image.fromarray(processed.astype(np.uint8), mode="RGB")
-                    # img.save(
-                    #     os.path.join(images_folder, name),
-                    #     quality=95,
-                    #     subsampling=0
-                    # )
-                    # exif_dict = piexif.load(os.path.join(images_folder, name))
-                    # exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
-                    #     metadata
-                    # ).encode("utf-8")
-                    # piexif.insert(piexif.dump(exif_dict), os.path.join(images_folder, name))
-                    # save_time = time.time()
+                    img = Image.fromarray(processed.astype(np.uint8), mode="RGB")
+                    img.save(
+                        os.path.join(images_folder, name),
+                        quality=95,
+                        subsampling=0
+                    )
+                    exif_dict = piexif.load(os.path.join(images_folder, name))
+                    exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
+                        metadata
+                    ).encode("utf-8")
+                    piexif.insert(piexif.dump(exif_dict), os.path.join(images_folder, name))
+                    save_time = time.time()
 
                     logger.info(f"Acquired {name} in {acquisition_time-capture_start:.1f}s then {save_time-acquisition_time:.1f}s saving to disk")
                 except Exception as e:
@@ -698,8 +699,27 @@ class SmartScanThing(Thing):
                             attempts += 1
 
                     # Acquire the image in a thread, and continue once it's acquired (i.e. leave saving in the background)
+                    if capture_thread:  # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
+                        if capture_thread.is_alive():
+                            wait_start = time.time()
+                            capture_thread.join()
+                            wait_time = time.time() - wait_start
+                            logger.info(f"Waited {wait_time:.1f}s for the previous capture to finish saving.")
+                    acquired = Event()
                     name = f"image_{int(loc[0])}_{int(loc[1])}.jpg"
-                    cam.capture_jpeg(resolution="main").save(os.path.join(images_folder, name))
+                    capture_thread = Thread(
+                        target=capture_and_save,
+                        kwargs={
+                        #    "cam": cam,
+                        #    "logger": logger,
+                            "acquired": acquired,
+                            "name": name,
+                        #    "images_folder": images_folder,
+                        #    "raw_images_folder": raw_images_folder,
+                        }
+                    )
+                    capture_thread.start()
+                    acquired.wait()  # wait until the image is acquired
 
                     positions.append(loc[:2])
                     names.append(name)
