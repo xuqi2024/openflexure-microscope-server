@@ -595,7 +595,8 @@ class SmartScanThing(Thing):
                     # processed = process_raw_image(rggb2rgb(raw2rggb(raw_image)))
                     # processed[processed > 255] = 255
                     # processed[processed < 0] = 0
-                    img = Image.fromarray(processed.astype(np.uint8), mode="RGB")
+                    logger.info(f"Captured array has dtype {processed.dtype} and shape {processed.shape}")
+                    img = Image.fromarray(processed[:, :, :3], mode="RGB")
                     img.save(
                         os.path.join(images_folder, name),
                         quality=95,
