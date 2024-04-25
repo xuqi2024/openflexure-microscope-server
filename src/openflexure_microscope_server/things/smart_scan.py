@@ -699,23 +699,7 @@ class SmartScanThing(Thing):
 
                     # Acquire the image in a thread, and continue once it's acquired (i.e. leave saving in the background)
                     name = f"image_{int(loc[0])}_{int(loc[1])}.jpg"
-                    img = Image.open(cam.capture_jpeg(resolution="main").open())
-                    # jpegblob = cam.grab_jpeg(stream_name="lores")
-                    # jpegblob.save(os.path.join(raw_images_folder, name))
-                    # img = Image.open(jpegblob.open())
-                    exif = img.info['exif']
-                    # width, height = img.size 
-                    # img = img.resize((int(width*0.5), int(height*0.5)))
-
-                    img_width, _ = img.size
-
-                    logger.info(f"Saving {name}")
-                    img.save(
-                        os.path.join(images_folder, name),
-                        exif=exif,
-                        quality=95,
-                        subsampling=0
-                    )
+                    cam.capture_jpeg(resolution="main").save(os.path.join(images_folder, name))
 
                     positions.append(loc[:2])
                     names.append(name)
