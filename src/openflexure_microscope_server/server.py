@@ -2,7 +2,7 @@ from __future__ import annotations
 import logging
 from fastapi import Response
 from labthings_fastapi.thing_server import ThingServer
-from labthings_sangaboard import SangaboardThing
+from labthings_sangaboard.proscan import ProScan
 from labthings_picamera2.thing import StreamingPiCamera2
 from socket import gethostname
 
@@ -21,7 +21,7 @@ configure_logging()
 
 thing_server = ThingServer()
 thing_server.add_thing(StreamingPiCamera2(), "/camera/")
-thing_server.add_thing(SangaboardThing(), "/stage/")
+thing_server.add_thing(ProScan(), "/stage/")
 thing_server.add_thing(RecentringThing(), "/auto_recentre_stage/")
 thing_server.add_thing(AutofocusThing(), "/autofocus/")
 thing_server.add_thing(CameraStageMapper(), "/camera_stage_mapping/")

@@ -171,7 +171,7 @@ def generate_config(folder_path: str, positions: list, names: list, camera_to_sa
 def raw2rggb(raw):
     """Convert packed 10 bit raw to RGGB 8 bit"""
     raw = np.asarray(raw)  # ensure it's an array
-    rggb = np.empty((616, 820, 4), dtype=np.uint8)
+    rggb = np.empty((760, 820, 4), dtype=np.uint8)
     raw_w = rggb.shape[1]//2*5
     for plane, offset in enumerate([(1,1), (0,1), (1,0), (0,0)]):
         rggb[:, ::2, plane] = raw[offset[0]::2, offset[1]:raw_w+offset[1]:5]
@@ -585,27 +585,28 @@ class SmartScanThing(Thing):
                 try:
                     capture_start = time.time()
                     metadata = metadata_getter()
-                    raw_image = cam.capture_array(stream_name="raw")
-                    acquired.set()
-                    acquisition_time = time.time()
-                    # Save the raw image
-                    np.savez(os.path.join(raw_images_folder, name + ".npz"), raw_image=raw_image, **norm_inputs)
-                    # Process it into 8 bit RGB
-                    processed = process_raw_image(rggb2rgb(raw2rggb(raw_image)))
-                    processed[processed > 255] = 255
-                    processed[processed < 0] = 0
-                    img = Image.fromarray(processed.astype(np.uint8), mode="RGB")
-                    img.save(
-                        os.path.join(images_folder, name),
-                        quality=95,
-                        subsampling=0
-                    )
-                    exif_dict = piexif.load(os.path.join(images_folder, name))
-                    exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
-                        metadata
-                    ).encode("utf-8")
-                    piexif.insert(piexif.dump(exif_dict), os.path.join(images_folder, name))
-                    save_time = time.time()
+                    # raw_image = cam.capture_array(stream_name="raw")
+                    # acquired.set()
+                    # acquisition_time = time.time()
+                    # # Save the raw image
+                    # np.savez(os.path.join(raw_images_folder, name + ".npz"), raw_image=raw_image, **norm_inputs)
+                    # # Process it into 8 bit RGB
+                    # processed = process_raw_image(rggb2rgb(raw2rggb(raw_image)))
+                    # processed[processed > 255] = 255
+                    # processed[processed < 0] = 0
+                    # img = Image.fromarray(processed.astype(np.uint8), mode="RGB")
+                    # img.save(
+                    #     os.path.join(images_folder, name),
+                    #     quality=95,
+                    #     subsampling=0
+                    # )
+                    # exif_dict = piexif.load(os.path.join(images_folder, name))
+                    # exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
+                    #     metadata
+                    # ).encode("utf-8")
+                    # piexif.insert(piexif.dump(exif_dict), os.path.join(images_folder, name))
+                    # save_time = time.time()
+
                     logger.info(f"Acquired {name} in {acquisition_time-capture_start:.1f}s then {save_time-acquisition_time:.1f}s saving to disk")
                 except Exception as e:
                     logger.error(f"An error occurred while saving {name}: {e}", exc_info=e)
@@ -643,11 +644,15 @@ class SmartScanThing(Thing):
                         [stage.position["x"], stage.position["y"] + dy],
                     ]
                     for pos in new_pos:
-                        if (
-                            pos not in [sublist[:2] for sublist in true_path]
-                            and pos not in path
-                        ):
+                        true_path_distances = [distance_to_site(pos, sublist[:2]) for sublist in true_path]
+                        if len(true_path_distances) == 0:
                             path.append(pos)
+                        else:
+                            path_distances = [distance_to_site(pos, sublist[:2]) for sublist in path]
+                            if (
+                                np.min(true_path_distances) > 100 and np.min(path_distances) > 100
+                            ):
+                                path.append(pos)
 
                     attempts = 0
                     if self.autofocus_dz > 200:
@@ -693,29 +698,25 @@ class SmartScanThing(Thing):
                             attempts += 1
 
                     # Acquire the image in a thread, and continue once it's acquired (i.e. leave saving in the background)
-                    if capture_thread:  # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
-                        if capture_thread.is_alive():
-                            wait_start = time.time()
-                            capture_thread.join()
-                            wait_time = time.time() - wait_start
-                            logger.info(f"Waited {wait_time:.1f}s for the previous capture to finish saving.")
-                    acquired = Event()
-                    name = f"image_{loc[0]}_{loc[1]}.jpg"
-                    time.sleep(0.2)
-                    capture_thread = Thread(
-                        target=capture_and_save,
-                        kwargs={
-                        #    "cam": cam,
-                        #    "logger": logger,
-                            "acquired": acquired,
-                            "name": name,
-                        #    "images_folder": images_folder,
-                        #    "raw_images_folder": raw_images_folder,
-                        }
+                    name = f"image_{int(loc[0])}_{int(loc[1])}.jpg"
+                    img = Image.open(cam.capture_jpeg(resolution="main").open())
+                    # jpegblob = cam.grab_jpeg(stream_name="lores")
+                    # jpegblob.save(os.path.join(raw_images_folder, name))
+                    # img = Image.open(jpegblob.open())
+                    exif = img.info['exif']
+                    # width, height = img.size 
+                    # img = img.resize((int(width*0.5), int(height*0.5)))
+
+                    img_width, _ = img.size
+
+                    logger.info(f"Saving {name}")
+                    img.save(
+                        os.path.join(images_folder, name),
+                        exif=exif,
+                        quality=95,
+                        subsampling=0
                     )
-                    capture_thread.start()
-                    acquired.wait()  # wait until the image is acquired
-                    #time.sleep(0.5)
+
                     positions.append(loc[:2])
                     names.append(name)
 
@@ -730,12 +731,16 @@ class SmartScanThing(Thing):
                 for i in path:
                     if distance_to_site(i, true_path[0][:2]) < max_dist:
                         temp_path.append(i)
+                    # if i[0] - true_path[0][0] < 67900 and i[1] - true_path[0][1] < 311000:
+                    #     temp_path.append(i) 
                     else:
                         logger.info(f'Rejected moving to {i} as it is out of range')
+                        true_path.append(i)
                 path = temp_path.copy()
                 path = sorted(path, key=lambda x: (steps_from_centre(x, true_path[0][:2], dx, dy), distance_to_site(loc[:2], x)))
                 self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
-
+                if len(true_path) > 15*33:
+                    break
         except InvocationCancelledError:
             logger.error("Stopping scan because it was cancelled.")
         except NotEnoughFreeSpaceError as e:
@@ -758,7 +763,7 @@ class SmartScanThing(Thing):
             try:
                 logger.info("Returning to starting position.")
                 if starting_position is not None:
-                    stage.move_absolute(**starting_position, block_cancellation=True)
+                    stage.move_absolute(**starting_position)#, block_cancellation=True)
             finally:
                 self._scan_lock.release()
             self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
@@ -1096,6 +1101,7 @@ class SmartScanThing(Thing):
         # be appended on every loop as we can't overwrite files in the zip
         files_to_delay = ['TileConfiguration', 'tiling_cache', 'stitched.jp', 'stitched_from', 'stitched.om']
         tiff_name = ""
+        stitch_name = ""
 
         with zipfile.ZipFile(zip_fname, mode="a") as zip:
             for file in files:

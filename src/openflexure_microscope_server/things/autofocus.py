@@ -160,7 +160,7 @@ class AutofocusThing(Thing):
             # Move to dz while monitoring sharpness
             # i: Sharpness monitor index for this move
             # z: Final z position after move
-            i, z = m.focus_rel(dz, block_cancellation=True)
+            i, z = m.focus_rel(dz)#, block_cancellation=True)
             # Get the z position with highest sharpness from the previous move (index i)
             fz: int = m.sharpest_z_on_move(i)
             # Move all the way to the start so it's consistent
@@ -216,7 +216,7 @@ class AutofocusThing(Thing):
                     stage.move_relative(x = 0, y = 0, z = -(backlash + dz / 2))
                     stage.move_relative(x = 0, y = 0, z = backlash)
 
-                i, z = m.focus_rel(dz, block_cancellation=True)
+                i, z = m.focus_rel(dz)#, block_cancellation=True)
                 _, heights, sizes = m.move_data(i)
             
                 peak_height = heights[np.argmax(sizes)]
