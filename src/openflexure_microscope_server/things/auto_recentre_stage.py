@@ -1,9 +1,13 @@
 import numpy as np
 import logging
+import cv2
+import json
+from PIL import Image
 import time
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
+from labthings_fastapi.dependencies.invocation import CancelHook, InvocationLogger, InvocationCancelledError
 from labthings_fastapi.decorators import thing_action
 from labthings_sangaboard import SangaboardThing
 from labthings_picamera2.thing import StreamingPiCamera2
@@ -14,6 +18,129 @@ StageDep = direct_thing_client_dependency(SangaboardThing, "/stage/")
 CamDep = direct_thing_client_dependency(StreamingPiCamera2, "/camera/")
 CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
 AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
+
+def turningpoints(lst):
+    dx = np.diff(lst)
+    return (dx[1:] * dx[:-1] < 0)
+
+class RangeofMotionThing(Thing):
+    @thing_action
+    def measure_rom(
+        self,
+        autofocus: AutofocusDep,
+        stage: StageDep,
+        cam: CamDep,
+        csm: CSMDep,
+        cancel: CancelHook,
+        logger: InvocationLogger,
+    ):
+        try:        
+            lateral_offset = 60
+            stream_resolution = cam.stream_resolution
+
+            step_sizes = {
+                'x' : (lateral_offset / 100) * stream_resolution[0],
+                'y' : (lateral_offset / 100) * stream_resolution[1],
+            }
+
+            minimum_offset = {
+                'x' : step_sizes['x'] * 0.6,
+                'y' : step_sizes['y'] * 0.6,
+            }
+
+            this_step_size = {}
+
+            pixel_um = 0.872 #From USAF resolution test
+            break_limit = 1500000
+            results = {}
+            i = 0
+
+            for axs in ['x','y']:
+                results[axs] = {}
+                this_step_size = {
+                    'x':0,
+                    'y':0
+                }
+                for dir in [1, -1]:
+                    i += 1
+                    this_step_size[axs] = step_sizes[axs] * dir
+
+                    autofocus.looping_autofocus(dz = 1000)
+
+                    starting_pos = list(stage.position.values())
+                    logging.info(f"Starting at {starting_pos}")
+
+                    #First loop finds maximum displacement in positive x direction
+
+                    delta = {
+                        'x':10001,
+                        'y':10001
+                    }
+                    tot_dis_xpos = 0
+                    displacement_xpos = []
+                    displacement_y = []
+                    dis_mag_xpos = []
+                    tot_mag_xpos = 0
+                    steps_xpos = []
+                    totMag_eachStep_xpos = [] #This variable tracks the total distance travelled after each movement
+                    stage_coord_xpos = []
+
+                    while np.abs(delta[axs]) > minimum_offset[axs]:  #loop will continue until pixel distance is less than some value
+                        pos = stage.position
+                        if np.abs(pos[axs] - starting_pos[2]) >= break_limit:
+                            logging.warning("Break limit met")
+                            break
+                        
+                        image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
+
+                        if len(stage_coord_xpos) > 1:
+                            z_diff = stage_coord_xpos[-1][2] - stage_coord_xpos[-2][2]
+                        else:
+                            z_diff = 0
+                        
+                        # TODO combine these into one move
+                            
+                        # Move down first to avoid hitting sample
+                        stage.move_relative(z = z_diff)
+                        csm.move_in_image_coordinates(x = this_step_size['x'], y = this_step_size['y'])
+                        
+
+                        steps_xpos.append(stage.position[axs])
+
+                        autofocus.looping_autofocus(dz = 1500)
+
+                        image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
+                        image1=image1.tolist()
+                        image2=image2.tolist()
+                        offset = [x * 1 for x in csm.get_displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
+                        delta['x'] = offset[1]
+                        delta['y'] = offset[0]
+                        logging.info(f"Most recent move was {delta}. Threshold is {minimum_offset}")
+
+                        displacement_xpos.append(delta['x'] * pixel_um) #converts to um
+                        displacement_y.append(delta['y'] * pixel_um) #converts to um 
+                        tot_dis_xpos = tot_dis_xpos + (delta['y'] * pixel_um) #This just takes x-axis data not magnitude
+                        dis_mag_xpos.append(np.sqrt((delta['y'])**2+(delta['x'])**2)) #magnitude of displacement
+                        tot_mag_xpos = tot_mag_xpos + (np.sqrt((delta['y'])**2+(delta['x'])**2)*pixel_um) #converts to um
+                        totMag_eachStep_xpos.append(tot_mag_xpos)
+                        stage_coord_xpos.append(list(stage.position.values()))
+                            
+                    stage.move_absolute(x = starting_pos[0], y = starting_pos[1], z = starting_pos[2])
+                    pos = starting_pos.copy()
+                    logging.info(f"Loop {i} done")
+                    
+                    results[axs][dir] = {
+                        "stage_lateral_steps" : steps_xpos,
+                        "correlation_lateral_steps": totMag_eachStep_xpos,
+                        "stage_positions": stage_coord_xpos
+                    }
+
+            results['csm'] = csm.image_to_stage_displacement_matrix
+            
+            with open(r'logs/stage_range.json', 'w', encoding='utf-8') as f:
+                json.dump(results, f, ensure_ascii=False, indent=4)
+        except InvocationCancelledError:
+            logger.error("Stopping measurement because it was cancelled by the user")
 
 class RecentringThing(Thing):
     @thing_action
@@ -46,7 +173,6 @@ class RecentringThing(Thing):
         to noise or a failed autofocus.
         """
 
-        max_steps = 20
         dx = lateral_distance
 
         centre = list(stage.position.values())
@@ -84,7 +210,12 @@ class RecentringThing(Thing):
                 stage.move_absolute(
                     x=int(destination[0]), y=int(destination[1]), z=destination[2]
                 )
-                autofocus.looping_autofocus(autofocus, stage)
+                while True:
+                    jpeg_zs, jpeg_sizes = autofocus.looping_autofocus(dz=1500, start = 'centre')
+                    time.sleep(0.1)
+                    autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, camera = CamDep, threshold = 0.88)
+                    if autofocus_success:
+                        break
                 position = list(stage.position.values())
                 focused_pos[direction].append(position)
 
@@ -96,27 +227,26 @@ class RecentringThing(Thing):
                         "Couldn't find a suitable position. Roughly centre the stage and check your sample is suitable for autofocus"
                     )
                     break
+                
+                all_heights = [x[2] for x in focused_pos[direction]]
+                direction_index = [x[direction] for x in focused_pos[direction]]
 
-                if len(focused_pos[direction]) > 4:
-                    all_heights = [x[2] for x in focused_pos[direction]]
-                    direction_index = [x[direction] for x in focused_pos[direction]]
+                sorted_all_heights = [
+                    x for y, x in sorted(zip(direction_index, all_heights))
+                ]
 
-                    sorted_all_heights = [
-                        x for y, x in sorted(zip(direction_index, all_heights))
-                    ]
+                sorted_lateral = sorted(direction_index)
+                quad_fit = np.polyfit(sorted_lateral, sorted_all_heights, 2)
+                quad_fit_func = np.poly1d(quad_fit)
 
-                    sorted_lateral = sorted(direction_index)
-                    quad_fit = np.polyfit(sorted_lateral, sorted_all_heights, 2)
-                    quad_fit_func = np.poly1d(quad_fit)
+                turning = quad_fit_func.deriv()
 
-                    turning = quad_fit_func.deriv()
+                turning_loc = -turning[0] / (turning[1])
 
-                    turning_loc = -turning[0] / (turning[1])
-
-                    logging.warning(sorted_all_heights)
+                if len(focused_pos[direction]) >= 3:
                     if (
-                        np.argmax(sorted_all_heights) != 0
-                        and np.argmax(sorted_all_heights) != len(all_heights) - 1
+                        np.argmax(sorted_all_heights) > 1
+                        and np.argmax(sorted_all_heights) < len(all_heights) - 2
                     ):
                         logging.info(
                             f"Breaking because the highest point is at {np.argmax(sorted_all_heights)} in the list"
@@ -126,9 +256,9 @@ class RecentringThing(Thing):
                         # plt.show()
                         break
                     else:
-                        if turning_loc < np.min(sorted_lateral):
+                        if turning_loc < np.mean(sorted_lateral):
                             moves = -1
-                        elif turning_loc > np.max(sorted_lateral):
+                        elif turning_loc > np.mean(sorted_lateral):
                             moves = 1
                         else:
                             # plt.plot(sorted_lateral, sorted_all_heights,'.')
@@ -143,6 +273,10 @@ class RecentringThing(Thing):
             stage.move_absolute(x=centre[0], y=centre[1], z=centre[2])
             autofocus.looping_autofocus()
 
-        logging.info(f"Centre of ROM is at {centre, stage.position['z']} \n")
+        logging.info(f"Centre of ROM is at {centre[:2], stage.position['z']}")
+        logging.info(f"{focused_pos}")
+
+        with open(r'logs/stage_recentre.json', 'w', encoding='utf-8') as f:
+            json.dump(focused_pos, f, ensure_ascii=False, indent=4)
 
         return focused_pos

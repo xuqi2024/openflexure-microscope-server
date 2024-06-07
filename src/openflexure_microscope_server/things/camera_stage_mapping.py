@@ -22,6 +22,7 @@ from camera_stage_mapping.camera_stage_calibration_1d import (
     image_to_stage_displacement_from_1d,
 )
 from camera_stage_mapping.camera_stage_tracker import Tracker
+import camera_stage_mapping.fft_image_tracking
 from labthings_picamera2.thing import StreamingPiCamera2
 from labthings_sangaboard import SangaboardThing
 
@@ -292,3 +293,9 @@ class CameraStageMapper(Thing):
             k: getattr(self, k)
             for k in ["image_to_stage_displacement_matrix", "image_resolution"]
         }
+
+    @thing_action
+    def get_displacement_between_images(self, image_0, image_1, sigma=10, fractional_threshold=0.1, pad=True):
+        image_0 = np.array(image_0)
+        image_1 = np.array(image_1)
+        return camera_stage_mapping.fft_image_tracking.displacement_between_images(image_0=image_0, image_1=image_1, sigma=10, fractional_threshold=0.1, pad=True).tolist()
