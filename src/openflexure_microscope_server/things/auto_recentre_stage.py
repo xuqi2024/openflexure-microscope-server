@@ -19,10 +19,6 @@ CamDep = direct_thing_client_dependency(StreamingPiCamera2, "/camera/")
 CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
 AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
 
-def turningpoints(lst):
-    dx = np.diff(lst)
-    return (dx[1:] * dx[:-1] < 0)
-
 class RangeofMotionThing(Thing):
     @thing_action
     def measure_rom(
@@ -34,6 +30,12 @@ class RangeofMotionThing(Thing):
         cancel: CancelHook,
         logger: InvocationLogger,
     ):
+        """Recentre the stage, based on the focal plane
+        Measure the range of motion of the stage, by moving along
+        the postive and negative x and y directions by less than 
+        one full image, checking the correlation between images,
+        and breaking if it appears to have undershot.
+            """
         try:        
             lateral_offset = 60
             stream_resolution = cam.stream_resolution
@@ -44,8 +46,8 @@ class RangeofMotionThing(Thing):
             }
 
             minimum_offset = {
-                'x' : step_sizes['x'] * 0.6,
-                'y' : step_sizes['y'] * 0.6,
+                'x' : step_sizes['x'] * 0.8,
+                'y' : step_sizes['y'] * 0.8,
             }
 
             this_step_size = {}
@@ -272,11 +274,12 @@ class RecentringThing(Thing):
             ]
             stage.move_absolute(x=centre[0], y=centre[1], z=centre[2])
             autofocus.looping_autofocus()
-
+        
         logging.info(f"Centre of ROM is at {centre[:2], stage.position['z']}")
         logging.info(f"{focused_pos}")
 
         with open(r'logs/stage_recentre.json', 'w', encoding='utf-8') as f:
             json.dump(focused_pos, f, ensure_ascii=False, indent=4)
 
+        stage.set_zero_position()
         return focused_pos
