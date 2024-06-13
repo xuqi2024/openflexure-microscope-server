@@ -26,7 +26,7 @@
     >
       Download calibration data
     </button>
-    <p>Current CSM matrix: {{ csmMatrix }} at a resolution of {{ csmResolution }} <br>
+    <p v-if="this.csmMatrix!='undefined'">Current CSM matrix: {{ csmMatrix }} at a resolution of {{ csmResolution }} <br>
     This means that one motor step is roughly {{ csmRatio }} pixels <br>
     The full field of view is roughly {{ csmFOV }} motor steps</p>
   </div>
@@ -53,9 +53,9 @@ export default {
   
   data() {
     return {
-      csmMatrix: "",
-      csmResolution: "",
-      csmRatio: ""
+      csmMatrix: "undefined",
+      csmResolution: "undefined",
+      csmRatio: "undefined"
     };
   },
 
@@ -116,7 +116,7 @@ export default {
       csmMatrix[1][0] = Number(csmMatrix[1][0].toFixed(3));
       csmMatrix[1][1] = Number(csmMatrix[1][1].toFixed(3));
       this.csmMatrix = csmMatrix;
-      this.csmRatio = (Math.abs(csmMatrix[1][0]) + Math.abs(csmMatrix[0][1])) / 2;
+      this.csmRatio = Number((Math.abs(csmMatrix[1][0]) + Math.abs(csmMatrix[0][1])) / 2).toFixed(3);
       this.csmFOV = [
         Number((streamResolution[0]**2 * this.csmRatio / this.csmResolution[1]).toFixed(0)),
         Number((streamResolution[1]**2 * this.csmRatio / this.csmResolution[0]).toFixed(0)),
