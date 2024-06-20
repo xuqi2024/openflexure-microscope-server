@@ -54,11 +54,11 @@
           name="element"
         />
       </div>
-      <p> FOV is {{ fov }} microns <br>
+      <p> The physical size of a pixel is {{ um_per_px }} microns <br>
+        The uncertainty of that size is {{ um_per_px_uncert }} microns <br>
+        FOV is {{ fov }} microns <br>
         Uncertainty on FOV is {{ fov_uncert }} microns <br>
         Based on an image / stream size of {{ image_size }} <br>
-        The physical size of a pixel is {{ um_per_px }} microns <br>
-        The uncertainty of that size is {{ um_per_px_uncert }} microns <br>
         </p>
         </div>
         <div class="uk-grid uk-child-width-expand uk-height-match" uk-grid>
