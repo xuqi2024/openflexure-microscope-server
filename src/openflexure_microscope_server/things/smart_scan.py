@@ -655,7 +655,7 @@ class SmartScanThing(Thing):
                             jpeg_zs, jpeg_sizes = autofocus.looping_autofocus(dz=self.autofocus_dz, start = 'base')
                             current_height = stage.position["z"]
                             time.sleep(0.2)
-                            autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, camera = CamDep, threshold = 0.92)
+                            autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, camera = CamDep, threshold = 0.88)
                             logger.info(f"We just tested the focus! Result was {autofocus_success}")
 
                             if autofocus_success:
@@ -663,13 +663,14 @@ class SmartScanThing(Thing):
                                 # test if the change in z between them exceeds a ratio (indicating a failed autofocus)
                                 if len(focused_path) > 0:
                                     nearest_focused_site = focused_path[closest(loc, focused_path)]
-                                    result = limit_focus_change(
-                                        nearest_focused_site[0:2],
-                                        nearest_focused_site[-1],
-                                        loc[0:2],
-                                        current_height,
-                                        0.5,
-                                    )
+                                    # result = limit_focus_change(
+                                    #     nearest_focused_site[0:2],
+                                    #     nearest_focused_site[-1],
+                                    #     loc[0:2],
+                                    #     current_height,
+                                    #     0.5,
+                                    # )
+                                    result = "accept"
 
                                 # if there haven't been any previous autofocuses, we have to assume this one worked
                                 else:
@@ -955,10 +956,11 @@ class SmartScanThing(Thing):
                 404: {"description": "File not found"}
             },
         )
-    def get_latest_preview(self) -> FileResponse:
+    def get_latest_preview(self, logger:InvocationLogger) -> FileResponse:
         """Retrieve the latest preview image.
         """
         path = self.latest_preview_stitch_path
+        logger.info(path)
         if not os.path.isfile(path):
             raise HTTPException(404, "File not found")
         return FileResponse(path)
@@ -994,7 +996,7 @@ class SmartScanThing(Thing):
             raise RuntimeError("Only one subprocess is allowed at a time")
         with self._correlate_popen_lock:
             self._correlate_popen = Popen(
-                [self._script, "--stitching_mode", "only_correlate", "--minimum_overlap", f"{round(overlap*0.9, 2)}", images_folder]
+                [self._script, "--stitching_mode", "only_correlate", "--minimum_overlap", f"{round(overlap*0.9, 2)}", "--resize", "1", images_folder]
             )
 
     def correlate_running(self) -> bool:
@@ -1058,7 +1060,7 @@ class SmartScanThing(Thing):
                 overlap = data_loaded['overlap']
             except:
                 overlap = 0.1
-        self.run_subprocess(logger, [self._script, "--stitching_mode", "all", f"{tiff_arg}", "--minimum_overlap", f"{round(overlap*0.9,2)}", images_folder])
+        self.run_subprocess(logger, [self._script, "--stitching_mode", "all", f"{tiff_arg}", "--minimum_overlap", f"{round(overlap*0.9,2)}", "--resize", "1", images_folder])
     
     @thing_action
     def create_zip_of_scan(self, logger: InvocationLogger, scan_name: Optional[str]=None, download_zip = True) -> ZipBlob:
@@ -1095,6 +1097,7 @@ class SmartScanThing(Thing):
         # and should only be zipped at the end of the scan - otherwise they'll
         # be appended on every loop as we can't overwrite files in the zip
         files_to_delay = ['TileConfiguration', 'tiling_cache', 'stitched.jp', 'stitched_from', 'stitched.om']
+        stitch_name = ""
         tiff_name = ""
 
         with zipfile.ZipFile(zip_fname, mode="a") as zip:
@@ -1125,7 +1128,7 @@ class SmartScanThing(Thing):
             with zipfile.ZipFile(zip_fname, mode="a") as zip:
                 for fname in ["stitched_from_stage.jpg", stitch_name, tiff_name]:
                     fpath = os.path.join(images_folder, fname)
-                    if os.path.exists(fpath):
+                    if os.path.isfile(fpath):
                         logger.info(f'copying {fpath} to upper level')
                         zip.write(fpath, arcname=fname)
                 for file in files:
