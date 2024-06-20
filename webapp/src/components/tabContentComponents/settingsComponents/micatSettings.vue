@@ -63,7 +63,7 @@
         </div>
         <div class="uk-grid uk-child-width-expand uk-height-match" uk-grid>
         <div>
-          <streamDisplay />
+          <miniStreamDisplay />
         </div>
         <div>
       <img
@@ -78,14 +78,14 @@
 </template>
     
     <script>
-    import streamDisplay from "../streamContent.vue";
+    import miniStreamDisplay from "../../genericComponents/miniStreamDisplay.vue"
     import ActionButton from "../../labThingsComponents/actionButton.vue";
     
     export default {
       name: "micatSettings",
     
       components: {
-        streamDisplay,
+        miniStreamDisplay,
         ActionButton
       },
     
@@ -145,7 +145,4 @@
       }
     };
     </script>
-    
-    <style lang="less">
-  </style>
     
