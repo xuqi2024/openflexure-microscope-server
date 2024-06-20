@@ -4,20 +4,24 @@ import cv2
 import json
 from PIL import Image
 import time
+from typing import Annotated, Any, Callable, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
 from labthings_fastapi.dependencies.invocation import CancelHook, InvocationLogger, InvocationCancelledError
-from labthings_fastapi.decorators import thing_action
+from labthings_fastapi.decorators import thing_action, thing_property
 from labthings_sangaboard import SangaboardThing
 from labthings_picamera2.thing import StreamingPiCamera2
+from labthings_fastapi.types.numpy import NDArray, denumpify, DenumpifyingDict
 from openflexure_microscope_server.things.autofocus import AutofocusThing
+from openflexure_microscope_server.things.micat import MicatThing
 from openflexure_microscope_server.things.camera_stage_mapping import CameraStageMapper
 
 StageDep = direct_thing_client_dependency(SangaboardThing, "/stage/")
 CamDep = direct_thing_client_dependency(StreamingPiCamera2, "/camera/")
 CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
 AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
+MicatDep = direct_thing_client_dependency(MicatThing, "/micat/")
 
 class RangeofMotionThing(Thing):
     @thing_action
@@ -29,6 +33,7 @@ class RangeofMotionThing(Thing):
         csm: CSMDep,
         cancel: CancelHook,
         logger: InvocationLogger,
+        micat: MicatDep
     ):
         """Recentre the stage, based on the focal plane
         Measure the range of motion of the stage, by moving along
@@ -36,7 +41,11 @@ class RangeofMotionThing(Thing):
         one full image, checking the correlation between images,
         and breaking if it appears to have undershot.
             """
-        try:        
+        starting_position = list(stage.position.values())
+
+        try:
+            logger.info("Using the stage to measure the range of motion")
+
             lateral_offset = 60
             stream_resolution = cam.stream_resolution
 
@@ -46,14 +55,18 @@ class RangeofMotionThing(Thing):
             }
 
             minimum_offset = {
-                'x' : step_sizes['x'] * 0.8,
-                'y' : step_sizes['y'] * 0.8,
+                'x' : step_sizes['x'] * 0.9,
+                'y' : step_sizes['y'] * 0.9,
             }
 
             this_step_size = {}
 
-            pixel_um = 0.872 #From USAF resolution test
-            break_limit = 1500000
+            try:
+                pixel_um = micat.last_micat['um_per_px']
+            except:
+                pixel_um = 0.872 #From USAF resolution test
+            
+            break_limit = 190000
             results = {}
             i = 0
 
@@ -70,7 +83,7 @@ class RangeofMotionThing(Thing):
                     autofocus.looping_autofocus(dz = 1000)
 
                     starting_pos = list(stage.position.values())
-                    logging.info(f"Starting at {starting_pos}")
+                    logger.info(f"Starting at {starting_pos}")
 
                     #First loop finds maximum displacement in positive x direction
 
@@ -86,7 +99,7 @@ class RangeofMotionThing(Thing):
                     steps_xpos = []
                     totMag_eachStep_xpos = [] #This variable tracks the total distance travelled after each movement
                     stage_coord_xpos = []
-
+                    # TODO add retry failed move, just in case
                     while np.abs(delta[axs]) > minimum_offset[axs]:  #loop will continue until pixel distance is less than some value
                         pos = stage.position
                         if np.abs(pos[axs] - starting_pos[2]) >= break_limit:
@@ -94,6 +107,7 @@ class RangeofMotionThing(Thing):
                             break
                         
                         image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
+                        image1=image1.tolist()
 
                         if len(stage_coord_xpos) > 1:
                             z_diff = stage_coord_xpos[-1][2] - stage_coord_xpos[-2][2]
@@ -108,16 +122,22 @@ class RangeofMotionThing(Thing):
                         
 
                         steps_xpos.append(stage.position[axs])
+                        failure_count = 0
+                        while failure_count < 4:
+                            autofocus.looping_autofocus(dz = 1500)
 
-                        autofocus.looping_autofocus(dz = 1500)
-
-                        image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
-                        image1=image1.tolist()
-                        image2=image2.tolist()
-                        offset = [x * 1 for x in csm.get_displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
-                        delta['x'] = offset[1]
-                        delta['y'] = offset[0]
-                        logging.info(f"Most recent move was {delta}. Threshold is {minimum_offset}")
+                            image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
+                            
+                            image2=image2.tolist()
+                            offset = [x * 1 for x in csm.get_displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
+                            delta['x'] = int(offset[1])
+                            delta['y'] = int(offset[0])
+                            logger.info(f"Most recent move was {delta}. Threshold is {minimum_offset}")
+                            if np.abs(delta[axs]) > minimum_offset[axs]:
+                                failure_count = 10
+                            else:
+                                failure_count += 1
+                                logger.info(f'Looks like that move failed. Going to retry. Attempt {failure_count} out of 4')
 
                         displacement_xpos.append(delta['x'] * pixel_um) #converts to um
                         displacement_y.append(delta['y'] * pixel_um) #converts to um 
@@ -129,7 +149,7 @@ class RangeofMotionThing(Thing):
                             
                     stage.move_absolute(x = starting_pos[0], y = starting_pos[1], z = starting_pos[2])
                     pos = starting_pos.copy()
-                    logging.info(f"Loop {i} done")
+                    logger.info(f"Loop {i} done")
                     
                     results[axs][dir] = {
                         "stage_lateral_steps" : steps_xpos,
@@ -139,10 +159,21 @@ class RangeofMotionThing(Thing):
 
             results['csm'] = csm.image_to_stage_displacement_matrix
             
-            with open(r'logs/stage_range.json', 'w', encoding='utf-8') as f:
-                json.dump(results, f, ensure_ascii=False, indent=4)
-        except InvocationCancelledError:
+            self.thing_settings["rom_data"] = DenumpifyingDict(results).model_dump()
+            return results
+        
+        except:
             logger.error("Stopping measurement because it was cancelled by the user")
+            stage.move_absolute(x = starting_position[0], y = starting_position[1], z = starting_position[2], block_cancellation=True)
+            raise Exception
+            
+
+    @thing_property
+    def rom_data(self) -> Optional[Dict]:
+        """The results of the last calibration that was run
+        """
+        return self.thing_settings.get("rom_data", None)
+        
 
 class RecentringThing(Thing):
     @thing_action
@@ -150,8 +181,9 @@ class RecentringThing(Thing):
         self,
         autofocus: AutofocusDep,
         stage: StageDep,
+        logger: InvocationLogger,
         max_steps=15,
-        lateral_distance=5000,
+        lateral_distance=2500,
     ):
         """Recentre the stage, based on the focal plane
 
@@ -174,112 +206,130 @@ class RecentringThing(Thing):
         much between these sites, making the procedure more sensitive
         to noise or a failed autofocus.
         """
+        starting_position = list(stage.position.values())
+        try:
+            dx = lateral_distance
 
-        dx = lateral_distance
+            centre = list(stage.position.values())
 
-        centre = list(stage.position.values())
+            # A list of all the positions we've focused
+            focused_pos = [[], []]
 
-        # A list of all the positions we've focused
-        focused_pos = [[], []]
+            logger.info(f"Recentring the stage. Starting at {centre}")
 
-        autofocus.looping_autofocus()
+            autofocus.looping_autofocus()
 
-        for direction in [0, 1]:
-            # Start off with the current position, and moving in the positive direction
-            focused_pos[direction] = [list(stage.position.values())]
-            moves = +1
+            for direction in [0, 1]:
+                # Start off with the current position, and moving in the positive direction
 
-            stage.move_absolute(x=centre[0], y=centre[1], z=centre[2])
-            steps = 0
-            all_heights = []
+                logger.info(f"Moving along the {['x','y'][direction]} axis")
+                focused_pos[direction] = [list(stage.position.values())]
+                moves = +1
 
-            # We'll run this for x, then y
-            while True:
-                # If we're moving in the positive direction, we want the highest point
-                # Otherwise, we want the lowest
-                if moves > 0:
-                    starting_point = np.max(
-                        np.array(focused_pos[direction])[:, direction]
-                    )
-                else:
-                    starting_point = np.min(
-                        np.array(focused_pos[direction])[:, direction]
-                    )
+                stage.move_absolute(x=centre[0], y=centre[1], z=centre[2])
+                steps = 0
+                all_heights = []
 
-                # Next location is an extra move in the direction we want
-                destination = centre
-                destination[direction] = starting_point + moves * dx
-                stage.move_absolute(
-                    x=int(destination[0]), y=int(destination[1]), z=destination[2]
-                )
+                # We'll run this for x, then y
                 while True:
-                    jpeg_zs, jpeg_sizes = autofocus.looping_autofocus(dz=1500, start = 'centre')
-                    time.sleep(0.1)
-                    autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, camera = CamDep, threshold = 0.88)
-                    if autofocus_success:
-                        break
-                position = list(stage.position.values())
-                focused_pos[direction].append(position)
-
-                logging.info(focused_pos)
-
-                steps += 1
-                if steps > max_steps:
-                    logging.warning(
-                        "Couldn't find a suitable position. Roughly centre the stage and check your sample is suitable for autofocus"
-                    )
-                    break
-                
-                all_heights = [x[2] for x in focused_pos[direction]]
-                direction_index = [x[direction] for x in focused_pos[direction]]
-
-                sorted_all_heights = [
-                    x for y, x in sorted(zip(direction_index, all_heights))
-                ]
-
-                sorted_lateral = sorted(direction_index)
-                quad_fit = np.polyfit(sorted_lateral, sorted_all_heights, 2)
-                quad_fit_func = np.poly1d(quad_fit)
-
-                turning = quad_fit_func.deriv()
-
-                turning_loc = -turning[0] / (turning[1])
-
-                if len(focused_pos[direction]) >= 3:
-                    if (
-                        np.argmax(sorted_all_heights) > 1
-                        and np.argmax(sorted_all_heights) < len(all_heights) - 2
-                    ):
-                        logging.info(
-                            f"Breaking because the highest point is at {np.argmax(sorted_all_heights)} in the list"
+                    # If we're moving in the positive direction, we want the highest point
+                    # Otherwise, we want the lowest
+                    if moves > 0:
+                        starting_point = np.max(
+                            np.array(focused_pos[direction])[:, direction]
                         )
-                        # plt.plot(sorted_lateral, sorted_all_heights,'.')
-                        # plt.plot(sorted_lateral, quad_fit_func(sorted_lateral))
-                        # plt.show()
-                        break
                     else:
-                        if turning_loc < np.mean(sorted_lateral):
-                            moves = -1
-                        elif turning_loc > np.mean(sorted_lateral):
-                            moves = 1
-                        else:
+                        starting_point = np.min(
+                            np.array(focused_pos[direction])[:, direction]
+                        )
+
+                    # Next location is an extra move in the direction we want
+                    destination = centre
+                    destination[direction] = starting_point + moves * dx
+                    stage.move_absolute(
+                        x=int(destination[0]), y=int(destination[1]), z=destination[2]
+                    )
+                    while True:
+                        jpeg_zs, jpeg_sizes = autofocus.looping_autofocus(dz=1500, start = 'centre')
+                        time.sleep(0.1)
+                        autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, camera = CamDep, threshold = 0.88)
+                        if autofocus_success:
+                            break
+                    position = list(stage.position.values())
+                    focused_pos[direction].append(position)
+
+                    steps += 1
+                    if steps > max_steps:
+                        logger.warning(
+                            "Couldn't find a suitable position. Roughly centre the stage and check your sample is suitable for autofocus"
+                        )
+                        break
+                    
+                    all_heights = [x[2] for x in focused_pos[direction]]
+                    direction_index = [x[direction] for x in focused_pos[direction]]
+
+                    sorted_all_heights = [
+                        x for y, x in sorted(zip(direction_index, all_heights))
+                    ]
+
+                    sorted_lateral = sorted(direction_index)
+                    quad_fit = np.polyfit(sorted_lateral, sorted_all_heights, 2)
+                    quad_fit_func = np.poly1d(quad_fit)
+
+                    turning = quad_fit_func.deriv()
+
+                    turning_loc = -turning[0] / (turning[1])
+
+                    if len(focused_pos[direction]) >= 3:
+                        if (
+                            np.argmax(sorted_all_heights) > 1
+                            and np.argmax(sorted_all_heights) < len(all_heights) - 2
+                        ):
+                            logger.info(
+                                f"Breaking because the highest point is at {np.argmax(sorted_all_heights)} in the list"
+                            )
                             # plt.plot(sorted_lateral, sorted_all_heights,'.')
                             # plt.plot(sorted_lateral, quad_fit_func(sorted_lateral))
                             # plt.show()
-                            pass
+                            break
+                        else:
+                            if turning_loc < np.mean(sorted_lateral):
+                                moves = -1
+                            elif turning_loc > np.mean(sorted_lateral):
+                                moves = 1
+                            else:
+                                # plt.plot(sorted_lateral, sorted_all_heights,'.')
+                                # plt.plot(sorted_lateral, quad_fit_func(sorted_lateral))
+                                # plt.show()
+                                pass
 
-            # Centre value is replaced by the maximum value recorded in that axis
-            centre[direction] = focused_pos[direction][np.argmax(all_heights)][
-                direction
-            ]
-            stage.move_absolute(x=centre[0], y=centre[1], z=centre[2])
-            autofocus.looping_autofocus()
-        
-        logging.info(f"Centre of ROM is at {centre[:2], stage.position['z']}")
-        logging.info(f"{focused_pos}")
+                # Centre value is replaced by the maximum value recorded in that axis
+                centre[direction] = focused_pos[direction][np.argmax(all_heights)][
+                    direction
+                ]
+                stage.move_absolute(x=centre[0], y=centre[1], z=centre[2])
+                autofocus.looping_autofocus()
+            
+            logger.info(f"Centre of ROM is at {centre[:2], stage.position['z']}")
 
-        with open(r'logs/stage_recentre.json', 'w', encoding='utf-8') as f:
-            json.dump(focused_pos, f, ensure_ascii=False, indent=4)
+            logger.info(f"List of positions is {focused_pos}")
 
-        stage.set_zero_position()
-        return focused_pos
+            with open(r'logs/stage_recentre.json', 'w', encoding='utf-8') as f:
+                json.dump(focused_pos, f, ensure_ascii=False, indent=4)
+
+            stage.set_zero_position()
+
+            self.thing_settings["recentring_data"] = focused_pos
+            return focused_pos
+
+        except InvocationCancelledError:
+            stage.move_absolute(x = starting_position[0], y = starting_position[1], z = starting_position[2], block_cancellation=True)
+            logger.error("Stopping measurement because it was cancelled by the user")
+            raise Exception
+
+
+    @thing_property
+    def recentring_data(self) -> Optional[Dict]:
+        """The results of the last calibration that was run
+        """
+        return self.thing_settings.get("recentring_data", None)
