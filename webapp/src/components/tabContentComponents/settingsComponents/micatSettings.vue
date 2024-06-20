@@ -70,6 +70,7 @@
         v-if="displayImageOnRight"
         id="last-stitched-image"
         :src="lastStitchedImage"
+        @error="$(this).hide();"
       />
     </div>
       </div>

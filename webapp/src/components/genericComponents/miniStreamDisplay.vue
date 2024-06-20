@@ -40,7 +40,9 @@ export default {
   name: "MiniStreamDisplay",
 
   data: function() {
-    return {}
+    return {
+      isVisible: false
+    };
   },
 
   computed: {
@@ -88,6 +90,10 @@ export default {
   },
 
   methods: {
+    visibilityChanged(isVisible) {
+      this.isVisible = isVisible;
+    },
+
     clickMonitor: function(event) {
       // Calculate steps from event coordinates
       let xCoordinate = event.offsetX;
