@@ -10,19 +10,37 @@
           action="measure_rom"
           submit-label="Measure range of motion"
           :can-terminate="true"
+          :requires-confirmation="true"
+          :modal-progress="true"
+          :confirmation-message="
+          'The stage will now move, measuring the stage range of motion. This requires a sample to be visible '
+          + 'in the microscope big enough to cover the full range of motion, and the stage to be roughly centred. OK to proceed?'
+          "
           :poll-interval="0.1"
           @response="alertROMMeasured"
         />
       </div>
       <div class="uk-margin">
         <action-button
-          thing="recentre_stage"
-          action="recentre"
-          submit-label="Recentre stage"
-          :can-terminate="true"
-          :poll-interval="0.1"
+          thing="auto_recentre_stage"
+              action="recentre"
+              submit-label="Re-centre Stage"
+              :can-terminate="true"
+              :requires-confirmation="true"
+              :modal-progress="true"
+              :confirmation-message="
+                'The stage will now move, and autofocus will be used to find the centre of motion. This requires a sample to be visible in the microscope. OK to proceed?'
+              "
+          :submit-data="{max_steps: 15,  lateral_distance: 2500}"
         />
       </div>
+      <button
+      type="button"
+      class="uk-button uk-button-default uk-width-1-1"
+      @click="getStageData()"
+    >
+      Download calibration data
+    </button>
     </div>
   </div>
 </template>
@@ -46,7 +64,32 @@ export default {
   methods: {
     alertROMMeasured() {
       this.modalNotify(`Range of motion has been measured`);
-    }
+    },
+
+    getStageData: async function() {
+      try {
+        let recentre_data = await this.readThingProperty(
+          "auto_recentre_stage",
+          "recentring_data")
+        let rom_data = await this.readThingProperty(
+          "range_of_motion",
+          "rom_data"
+        );
+        var data = Object.assign({}, rom_data, recentre_data)
+        if (data == {}) {
+          throw "No calibration data available.";
+        }
+        const dataStr = JSON.stringify(data);
+        const url = window.URL.createObjectURL(new Blob([dataStr]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", "stage_data.json");
+        document.body.appendChild(link);
+        link.click();
+      } catch (error) {
+        this.modalError(error); // Let mixin handle error
+      }
+    },
   }
 };
 </script>
