@@ -21,6 +21,7 @@ from labthings_fastapi.decorators import thing_action
 from labthings_fastapi.types.numpy import NDArray
 from labthings_picamera2.thing import StreamingPiCamera2
 from labthings_sangaboard import SangaboardThing
+from scipy import signal
 import numpy as np
 from pydantic import BaseModel
 
@@ -223,15 +224,28 @@ class AutofocusThing(Thing):
                 height_min = np.min(heights)
                 height_max = np.max(heights)
 
+                peaks = signal.find_peaks(sizes, prominence = 1000)[0]
+                if len(peaks) > 1:
+                    logging.info('Multiple peaks, moving to highest and redoing')
+                    stage.move_relative(x = 0, y = 0, z = -(dz+backlash))
+                    stage.move_absolute(z = heights[max(peaks)])
+                    start = 'centre'
+                elif all(sizes[-4:] == sorted(sizes[-4:])):
+                    logging.info('Looks like focus is increasing, redoing')
+                    stage.move_absolute(z = max(heights))
+                    dz *= 1.5
+                    start = 'centre'
                 if (
-                    peak_height - height_min < dz / 5
-                    or height_max - peak_height < dz / 5
+                    peak_height - height_min < 400 #dz / 5
+                    or height_max - peak_height < 400 #dz / 5
                 ):
+                    logging.info('Too close to edge, redoing')
                     attempts += 1
                     start = 'centre'
                     stage.move_absolute(z = peak_height-backlash)
                     stage.move_absolute(z = peak_height)
                 else:
+                    logging.info('Autofocus looks good')
                     repeat = False
                     stage.move_relative(x = 0, y = 0, z = -(dz+backlash))
                     stage.move_absolute(z = peak_height)
