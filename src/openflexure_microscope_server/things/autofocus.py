@@ -18,12 +18,14 @@ from labthings_fastapi.dependencies.raw_thing import raw_thing_dependency
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
 from labthings_fastapi.dependencies.blocking_portal import BlockingPortal
 from labthings_fastapi.decorators import thing_action
-from labthings_fastapi.types.numpy import NDArray
+from labthings_fastapi.types.numpy import NDArray, denumpify, DenumpifyingDict
 from labthings_picamera2.thing import StreamingPiCamera2
 from labthings_sangaboard import SangaboardThing
 from scipy import signal
 import numpy as np
 from pydantic import BaseModel
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 Stage = direct_thing_client_dependency(SangaboardThing, "/stage/")
 Camera = raw_thing_dependency(StreamingPiCamera2)
@@ -82,18 +84,34 @@ class JPEGSharpnessMonitor:
         return data_index, final_z_position
 
     def move_data(
-        self, istart: int, istop: Optional[int] = None
+        self, istart: int, istop: Optional[int] = None, data: Optional[dict] = None
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Extract sharpness as a function of (interpolated) z"""
         if istop is None:
             istop = istart + 2
-        jpeg_times: np.ndarray = np.array(self.jpeg_times)
-        jpeg_sizes: np.ndarray = np.array(self.jpeg_sizes)
-        stage_times: np.ndarray = np.array(self.stage_times)[
-            istart:istop
-        ]
+        try:
+            jpeg_times: np.ndarray = np.array(self.jpeg_times)
+        except:
+            jpeg_times: np.ndarray = np.array(data['jpeg_times'])
+        try:
+            jpeg_sizes: np.ndarray = np.array(self.jpeg_sizes)
+        except:
+            jpeg_sizes: np.ndarray = np.array(data['jpeg_sizes'])
+        try:
+            stage_times: np.ndarray = np.array(self.stage_times)[
+                istart:istop
+            ]
+        except:
+            stage_times: np.ndarray = np.array(data['stage_times'])[
+                istart:istop
+            ]
+        try:
+            stage_positions: np.ndarray = np.array(self.stage_positions)
+        except:
+            stage_positions: np.ndarray = np.array(data['stage_positions'])
+
         stage_zs: np.ndarray = np.array(
-            [p['z'] for p in self.stage_positions[istart:istop]]
+            [p['z'] for p in stage_positions[istart:istop]]
           )
         try:
             start: int = int(np.argmax(jpeg_times > stage_times[0]))
@@ -252,15 +270,80 @@ class AutofocusThing(Thing):
             return heights.tolist(), sizes.tolist()
 
     @thing_action
-    def verify_focus_sharpness(self, sweep_sizes: list, camera: WrappedCamera, threshold: float = 0.95):
+    def verify_focus_sharpness(self, sweep_sizes: list, wrappedcamera: WrappedCamera, threshold: float = 0.95):
         '''Take the sharpness curve of the autofocus, and the size of the current frame
         to see if the autofocus completed successfully. Returns True if current sharpness
         is within "leniency" number of frames from the peak of the autofocus'''
 
-        current_sharpness = camera.grab_jpeg_size(stream_name='lores')
+        current_sharpness = wrappedcamera.grab_jpeg_size(stream_name='lores')
 
         peak = np.max(sweep_sizes)
         base = np.min(sweep_sizes)
         cutoff = threshold * (peak - base)
 
         return current_sharpness >= base + cutoff
+
+    @thing_action
+    def autofocus_report(self, m: SharpnessMonitorDep, stage: Stage, wrappedcamera: WrappedCamera, repeats, plots):
+        '''Repeatedly run autofocus and then test the result.'''
+
+        # self.looping_autofocus(stage, m)
+
+        results = {
+            'overshot': 0,
+            'fraction': [],
+            'total': 0
+        }
+        all_sweeps = {}
+
+        data = {}
+
+        for i in range(repeats):
+            data[i] = self.fast_autofocus(m)
+
+            all_sweeps[f'{i}'] = {}
+            for starts in range(7):
+                offset = len(data[i].stage_positions) - 8
+                _, heights, sizes = m.move_data(istart=starts+offset, data = data[i])       
+                
+                all_sweeps[f'{i}'][starts] = {}
+
+                all_sweeps[f'{i}'][starts]['heights'] = heights
+                all_sweeps[f'{i}'][starts]['sizes'] = sizes
+            
+            results['total'] += 1
+
+            sweep_heights = all_sweeps[f'{i}'][2]['heights']
+            sweep_sizes = all_sweeps[f'{i}'][2]['sizes']
+            
+            align_heights = all_sweeps[f'{i}'][6]['heights']
+            align_sizes = all_sweeps[f'{i}'][6]['sizes']
+
+            peak = np.max(sweep_sizes)
+            base = np.min(sweep_sizes)
+            sweep_range = (peak - base)
+
+            align_result = align_sizes[-1]
+            align_range = (align_result - base)
+            
+            results['fraction'].append(align_range / sweep_range)
+
+            if np.max(align_sizes) != align_result:
+                results['overshot'] += 1
+
+        if plots:
+            with PdfPages("logs/focus.pdf") as pdf:
+                for i in range(len(all_sweeps)):
+                    sweep_heights = all_sweeps[f'{i}'][2]['heights']
+                    sweep_sizes = all_sweeps[f'{i}'][2]['sizes']
+                    
+                    align_heights = all_sweeps[f'{i}'][6]['heights']
+                    align_sizes = all_sweeps[f'{i}'][6]['sizes']
+                    f,ax = plt.subplots(1,1)
+                    ax.plot(sweep_heights, sweep_sizes, '.', label = 2)
+                    ax.plot(align_heights, align_sizes, '.', label = 6)
+                    ax.plot(align_heights[-1], wrappedcamera.grab_jpeg_size(stream_name='lores'))
+                    pdf.savefig(f)
+                    plt.close(f)
+
+        return results
