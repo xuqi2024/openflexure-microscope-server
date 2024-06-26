@@ -22,6 +22,8 @@
 * Build the static web app with `npm run build`
 * Serve a development version with `npm run serve`
 
+We generally run this on the Raspberry Pi (as that is where the Webapp is hosted). If this isn't suitable - for example, if you can't install Node on your microscope due to version conflicts or no internet connection - you can build it on your computer instead, and then copy over the contents of `..\src\openflexure_microscope_server\static` to your Pi (using scp or another file transfer method).
+
 ## VS Code and ESLint
 
 To prevent the editor from interfering with ESLint, add to your project `settings.json`:
