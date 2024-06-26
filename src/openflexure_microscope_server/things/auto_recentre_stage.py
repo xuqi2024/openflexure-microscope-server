@@ -252,7 +252,7 @@ class RecentringThing(Thing):
                     while True:
                         jpeg_zs, jpeg_sizes = autofocus.looping_autofocus(dz=1500, start = 'centre')
                         time.sleep(0.1)
-                        autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, camera = CamDep, threshold = 0.88)
+                        autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, wrappedcamera = CamDep, threshold = 0.88)
                         if autofocus_success:
                             break
                     position = list(stage.position.values())

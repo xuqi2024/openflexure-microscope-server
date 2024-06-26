@@ -655,7 +655,7 @@ class SmartScanThing(Thing):
                             jpeg_zs, jpeg_sizes = autofocus.looping_autofocus(dz=self.autofocus_dz, start = 'base')
                             current_height = stage.position["z"]
                             time.sleep(0.2)
-                            autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, camera = CamDep, threshold = 0.88)
+                            autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, wrappedcamera = CamDep, threshold = 0.88)
                             logger.info(f"We just tested the focus! Result was {autofocus_success}")
 
                             if autofocus_success:
