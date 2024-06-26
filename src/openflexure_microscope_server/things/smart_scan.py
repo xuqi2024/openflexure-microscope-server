@@ -217,7 +217,7 @@ class BackgroundDetectThing(Thing):
     @thing_property
     def fraction(self) -> float:
         """How much of the image needs to be not background to label as sample"""
-        return self.thing_settings.get("fraction", 7)
+        return self.thing_settings.get("fraction", 25)
 
     @fraction.setter
     def fraction(self, value: float) -> None:

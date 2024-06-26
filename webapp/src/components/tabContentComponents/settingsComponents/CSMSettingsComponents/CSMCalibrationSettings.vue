@@ -55,7 +55,7 @@ export default {
     return {
       csmMatrix: "undefined",
       csmResolution: "undefined",
-      csmRatio: "undefined",
+      csmRatio: "undefined"
     };
   },
 
