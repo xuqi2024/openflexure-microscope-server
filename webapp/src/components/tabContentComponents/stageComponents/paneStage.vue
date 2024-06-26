@@ -41,6 +41,21 @@
     >
       Download calibration data
     </button>
+    <div class="uk-margin">
+        <action-button
+          thing="autofocus"
+              action="autofocus_report"
+              submit-label="Test autofocus"
+              :can-terminate="true"
+              :requires-confirmation="true"
+              :modal-progress="true"
+              :modal-response="true"
+              :confirmation-message="
+                'A series of autofocuses will now run, and the success of each will be measured. The resulting plots can be downloaded from the logs folder. OK to proceed?'
+              "
+          :submit-data="{repeats: 20,  plots: 'true'}"
+        />
+      </div>
     </div>
   </div>
 </template>
