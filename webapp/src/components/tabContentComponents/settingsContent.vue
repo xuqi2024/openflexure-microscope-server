@@ -46,6 +46,19 @@
         </li>
         <li>
           <tabIcon
+            id="settings-camera-icon"
+            tab-i-d="micat"
+            :show-title="false"
+            :show-tooltip="false"
+            :require-connection="true"
+            :current-tab="currentTab"
+            @set-tab="setTab"
+          >
+            micat
+          </tabIcon>
+        </li>
+        <li>
+          <tabIcon
             id="settings-stage-icon"
             tab-i-d="stage"
             :show-title="false"
@@ -101,6 +114,16 @@
       </tabContent>
 
       <tabContent
+        tab-i-d="micat"
+        :require-connection="false"
+        :current-tab="currentTab"
+      >
+        <div class="settings-pane uk-padding-small">
+          <micatSettings />
+        </div>
+      </tabContent>
+
+      <tabContent
         tab-i-d="camera"
         :require-connection="true"
         :current-tab="currentTab"
@@ -140,6 +163,7 @@ import appSettings from "./settingsComponents/appSettings.vue";
 import featuresSettings from "./settingsComponents/featuresSettings.vue";
 import CSMSettings from "./settingsComponents/CSMSettings.vue";
 import stageSettings from "./settingsComponents/stageSettings.vue";
+import micatSettings from "./settingsComponents/micatSettings.vue";
 // Import generic components
 import tabIcon from "../genericComponents/tabIcon";
 import tabContent from "../genericComponents/tabContent";
@@ -154,6 +178,7 @@ export default {
     cameraSettings,
     stageSettings,
     CSMSettings,
+    micatSettings,
     appSettings,
     featuresSettings,
     tabIcon,
