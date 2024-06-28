@@ -415,7 +415,7 @@ class SmartScanThing(Thing):
             z = int(focused_path[z_index][2])
         else:
             z = stage.position["z"]
-        logger.info(f"Moving to {loc}")
+        logger.debug(f"Moving to {loc}")
         stage.move_absolute(
             x=int(loc[0]), y=int(loc[1]), z = z - self.autofocus_dz / 2
         )
@@ -506,7 +506,10 @@ class SmartScanThing(Thing):
             dx = int(np.abs(np.dot(np.array([0, arr.shape[1] * (1 - overlap)]), CSM)[0]))
             dy = int(np.abs(np.dot(np.array([arr.shape[0] * (1 - overlap), 0]), CSM)[1]))
 
-            logger.info(f"Based on an overlap of {overlap}, we will make steps of {dx}, {dy}")
+            logger.info(f"Running a scan with an overlap between images of {overlap}")
+            logger.debug(f"Overlap of {overlap}, movements of {dx}, {dy}")
+            logger.debug(f"Autofocus range is {self.autofocus_dz}")
+            logger.debug(f"Skipping background is {self.skip_background}")
 
             # construct a 2D scan path
             path = [[stage.position["x"], stage.position["y"]]]
@@ -565,7 +568,7 @@ class SmartScanThing(Thing):
                 corrected[corrected < 0] = 0
                 corrected[corrected > 255] = 255
                 return gamma_8bit(corrected)
-            logger.info(
+            logger.debug(
                 f"Generated normalisation image with shape {white_norm.shape}, "
                 f"max {white_norm.max(axis=(0,1))}, min {white_norm.min(axis=(0,1))}"
             )
@@ -606,7 +609,7 @@ class SmartScanThing(Thing):
                     ).encode("utf-8")
                     piexif.insert(piexif.dump(exif_dict), os.path.join(images_folder, name))
                     save_time = time.time()
-                    logger.info(f"Acquired {name} in {acquisition_time-capture_start:.1f}s then {save_time-acquisition_time:.1f}s saving to disk")
+                    logger.debug(f"Acquired {name} in {acquisition_time-capture_start:.1f}s then {save_time-acquisition_time:.1f}s saving to disk")
                 except Exception as e:
                     logger.error(f"An error occurred while saving {name}: {e}", exc_info=e)
             
@@ -653,10 +656,9 @@ class SmartScanThing(Thing):
                     if self.autofocus_dz > 200:
                         while True:
                             jpeg_zs, jpeg_sizes = autofocus.looping_autofocus(dz=self.autofocus_dz, start = 'base')
-                            current_height = stage.position["z"]
                             time.sleep(0.2)
-                            autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, wrappedcamera = CamDep, threshold = 0.88)
-                            logger.info(f"We just tested the focus! Result was {autofocus_success}")
+                            autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, wrappedcamera = CamDep, threshold = 0.9)
+                            logger.debug(f"Result of autofocus was {autofocus_success}.")
 
                             if autofocus_success:
                                 # if there have been successful autofocuses in this scan, find the closest one in x-y
@@ -688,7 +690,7 @@ class SmartScanThing(Thing):
                                 break
                             # if the autofocus was rejected, we return to the height of the closest successful autofocus. not perfect, but better than wandering out of focus
                             logger.info(
-                                "The focus has shifted further than we expect: retrying."
+                                "Redoing this autofocus to improve alignment."
                             )
                             stage.move_absolute(z=int(loc[2]))
                             attempts += 1
@@ -699,7 +701,7 @@ class SmartScanThing(Thing):
                             wait_start = time.time()
                             capture_thread.join()
                             wait_time = time.time() - wait_start
-                            logger.info(f"Waited {wait_time:.1f}s for the previous capture to finish saving.")
+                            logger.debug(f"Waited {wait_time:.1f}s for the previous capture to finish saving.")
                     acquired = Event()
                     name = f"image_{loc[0]}_{loc[1]}.jpg"
                     time.sleep(0.2)
@@ -714,6 +716,7 @@ class SmartScanThing(Thing):
                         #    "raw_images_folder": raw_images_folder,
                         }
                     )
+                    logger.info(f"Captured an image at {loc}")
                     capture_thread.start()
                     acquired.wait()  # wait until the image is acquired
                     #time.sleep(0.5)
@@ -763,7 +766,7 @@ class SmartScanThing(Thing):
             finally:
                 self._scan_lock.release()
             self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
-            logger.info("Waiting for background processes to finish...")
+            logger.info("Processing images, please wait")
             self.preview_stitch_wait()
             self.correlate_wait()
             try:
@@ -960,7 +963,6 @@ class SmartScanThing(Thing):
         """Retrieve the latest preview image.
         """
         path = self.latest_preview_stitch_path
-        logger.info(path)
         if not os.path.isfile(path):
             raise HTTPException(404, "File not found")
         return FileResponse(path)
@@ -1017,12 +1019,11 @@ class SmartScanThing(Thing):
             self, logger: InvocationLogger, cmd: list[str],
         ) -> CompletedProcess:
         """Run a  subprocess and log any output"""
-        logger.info(f"Running command in subprocess: `{' '.join(cmd)}`")
+        logger.debug(f"Running command in subprocess: `{' '.join(cmd)}`")
 
         
         p = Popen(cmd, stdout=PIPE, stderr = STDOUT, bufsize=1, universal_newlines=True)
         os.set_blocking(p.stdout.fileno(), False) 
-        logger.info(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())))
         while p.poll() == None:
             try:
                 output = p.stdout.readline()
@@ -1056,7 +1057,6 @@ class SmartScanThing(Thing):
             try:
                 with open(os.path.join(images_folder, 'scan_inputs.json')) as data_file:
                     data_loaded = json.load(data_file)
-                    logger.info(data_loaded)
                 overlap = data_loaded['overlap']
             except:
                 overlap = 0.1
@@ -1074,7 +1074,6 @@ class SmartScanThing(Thing):
             )
         if not os.path.isdir(images_folder):
             raise FileNotFoundError(f"Tried to make a zip archive of {images_folder} but it does not exist.")
-        # logger.info("Creating zip archive of images (may take some time)...")
 
         zip_fname = f'{os.path.join(scan_folder, "images")}.zip'
 
@@ -1116,7 +1115,7 @@ class SmartScanThing(Thing):
                     # logger.info('Not adding the .zip to itself')
                     pass
                 else:
-                    logger.info(f'appending {file} to zip')
+                    logger.debug(f'appending {file} to zip')
                     zip.write(os.path.join(folder_path, file), arcname=file)
                     
 
@@ -1129,13 +1128,13 @@ class SmartScanThing(Thing):
                 for fname in ["stitched_from_stage.jpg", stitch_name, tiff_name]:
                     fpath = os.path.join(images_folder, fname)
                     if os.path.isfile(fpath):
-                        logger.info(f'copying {fpath} to upper level')
+                        logger.debug(f'copying {fpath} to upper level')
                         zip.write(fpath, arcname=fname)
                 for file in files:
                     if any(banned_name in file for banned_name in files_to_delay):
-                        logger.info(f'we are finally adding {file} into zip')
+                        logger.debug(f'we are finally adding {file} into zip')
                         zip.write(os.path.join(folder_path, file), arcname=file)
-            logger.info('about to download zip')
+            logger.info('About to download zip')
             return ZipBlob.from_file(zip_fname)
 
     @thing_action

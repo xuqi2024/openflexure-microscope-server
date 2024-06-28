@@ -245,12 +245,12 @@ class AutofocusThing(Thing):
 
                 peaks = signal.find_peaks(sizes, prominence = 1000)[0]
                 if len(peaks) > 1:
-                    logging.info('Multiple peaks, moving to highest and redoing')
+                    logging.debug('Multiple peaks, moving to highest and redoing')
                     stage.move_relative(x = 0, y = 0, z = -(dz+backlash))
                     stage.move_absolute(z = heights[max(peaks)])
                     start = 'centre'
                 elif all(sizes[-4:] == sorted(sizes[-4:])):
-                    logging.info('Looks like focus is increasing, redoing')
+                    logging.debug('Looks like autofocus sharpness is increasing, redoing')
                     stage.move_absolute(z = max(heights))
                     dz *= 1.5
                     start = 'centre'
@@ -258,13 +258,12 @@ class AutofocusThing(Thing):
                     peak_height - height_min < 400 #dz / 5
                     or height_max - peak_height < 400 #dz / 5
                 ):
-                    logging.info('Too close to edge, redoing')
+                    logging.debug('Autofocus sweep too close to edge, redoing')
                     attempts += 1
                     start = 'centre'
                     stage.move_absolute(z = peak_height-backlash)
                     stage.move_absolute(z = peak_height)
                 else:
-                    logging.info('Autofocus looks good')
                     repeat = False
                     stage.move_relative(x = 0, y = 0, z = -(dz+backlash))
                     stage.move_absolute(z = peak_height)
