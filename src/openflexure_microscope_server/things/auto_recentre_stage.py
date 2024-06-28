@@ -55,8 +55,8 @@ class RangeofMotionThing(Thing):
             }
 
             minimum_offset = {
-                'x' : step_sizes['x'] * 0.9,
-                'y' : step_sizes['y'] * 0.9,
+                'x' : int(step_sizes['x'] * 0.9),
+                'y' : int(step_sizes['y'] * 0.9),
             }
 
             this_step_size = {}
@@ -146,7 +146,9 @@ class RangeofMotionThing(Thing):
                         tot_mag_xpos = tot_mag_xpos + (np.sqrt((delta['y'])**2+(delta['x'])**2)*pixel_um) #converts to um
                         totMag_eachStep_xpos.append(tot_mag_xpos)
                         stage_coord_xpos.append(list(stage.position.values()))
-                            
+
+                    
+                    #TODO: make this move to the centre instead of the start
                     stage.move_absolute(x = starting_pos[0], y = starting_pos[1], z = starting_pos[2])
                     pos = starting_pos.copy()
                     logger.info(f"Loop {i} done")
@@ -156,6 +158,11 @@ class RangeofMotionThing(Thing):
                         "correlation_lateral_steps": totMag_eachStep_xpos,
                         "stage_positions": stage_coord_xpos
                     }
+                    
+                z_pos_list = [pos[2] for pos in stage_coord_xpos]
+                max_index = np.argmax(z_pos_list)
+                x_max_pos = stage_coord_xpos[max_index][0]
+                logging.info(f'Apparent peak was at {x_max_pos}. We started at {starting_pos[0]}')
 
             results['csm'] = csm.image_to_stage_displacement_matrix
             
@@ -249,12 +256,15 @@ class RecentringThing(Thing):
                     stage.move_absolute(
                         x=int(destination[0]), y=int(destination[1]), z=destination[2]
                     )
-                    while True:
+                    attempts = 0
+                    while attempts < 5:
                         jpeg_zs, jpeg_sizes = autofocus.looping_autofocus(dz=1500, start = 'centre')
-                        time.sleep(0.1)
-                        autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, wrappedcamera = CamDep, threshold = 0.88)
+                        time.sleep(0.2)
+                        autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, wrappedcamera = CamDep, threshold = 0.85)
                         if autofocus_success:
                             break
+                        else:
+                            attempts += 1
                     position = list(stage.position.values())
                     focused_pos[direction].append(position)
 
@@ -312,11 +322,12 @@ class RecentringThing(Thing):
             
             logger.info(f"Centre of ROM is at {centre[:2], stage.position['z']}")
 
-            logger.info(f"List of positions is {focused_pos}")
+            logger.debug(f"List of positions is {focused_pos}")
 
             with open(r'logs/stage_recentre.json', 'w', encoding='utf-8') as f:
                 json.dump(focused_pos, f, ensure_ascii=False, indent=4)
 
+            logger.info("Setting the centre of the range of motion to 0, 0, 0")
             stage.set_zero_position()
 
             self.thing_settings["recentring_data"] = focused_pos
