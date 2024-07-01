@@ -16,6 +16,7 @@ from typing import Annotated, Any, Callable, Dict, List, Mapping, NamedTuple, Op
 from fastapi import Depends, HTTPException
 
 import numpy as np
+from PIL import Image
 from pydantic import BaseModel
 from camera_stage_mapping.camera_stage_calibration_1d import (
     calibrate_backlash_1d,
@@ -285,6 +286,73 @@ class CameraStageMapper(Thing):
             np.array(self.image_to_stage_displacement_matrix)
         )
         stage.move_relative(x=relative_move[0], y=relative_move[1])
+
+
+    @thing_action
+    def certify_move_in_image_coordinates(
+        self,
+        stage: Stage,
+        cam: Camera,
+        x: float,
+        y: float,
+        threshold: int = 5
+    ):
+        """Move by a given number of pixels on the camera and verify using cross correlation
+        
+        NB x and y here refer to what is usually understood to be the horizontal and
+        vertical axes of the image. In many toolkits, "matrix indices" are used, which
+        swap the order of these coordinates. This includes opencv and PIL. So, don't be
+        surprised if you find it necessary to swap x and y around.
+
+        As a general rule, `x` usually corresponds to the longer dimension of the image,
+        and `y` to the shorter one. Checking what shape your chosen toolkit reports for
+        an image usually helps resolve any ambiguity.
+
+        The move it attempts will try to undershoot by 5% of move - it's easier to keep moving
+        than to turn around. Once it gets within "threshold" pixels of the target position, it'll
+        break. Currently doesn't do anything useful if it overshoots, just logs the problem but
+        stays there.
+        """
+        self.assert_calibrated()
+
+        #TODO limit move to one FOV
+
+        resize = 1
+        undershoot = 0.9
+        image_0 = Image.open(cam.grab_jpeg().open())
+
+        y_move = y
+        x_move = x
+
+        while True:
+            logging.info(f'Trying to move by {x_move} {y_move}')
+            relative_move: np.ndarray = np.dot(
+                np.array([y_move, x_move]),
+                np.array(self.image_to_stage_displacement_matrix)
+            )
+
+            stage.move_relative(x=relative_move[0] * undershoot, y=relative_move[1] * undershoot)
+            image_1 = Image.open(cam.grab_jpeg().open())
+
+            offset = [i / resize for i in self.get_displacement_between_images(image_1, image_0)][::-1]
+
+            logging.info(f"Measured offset is {offset}")
+
+            if np.all(np.abs(np.subtract(offset, [x, y])) < threshold):
+                logging.info('Good move')
+                break
+            else:
+                x_move = x - offset[0]
+                y_move = y - offset[1]
+
+                logging.info(f'Missed in x by {x_move}')
+                logging.info(f'Missed in y by {y_move}')
+
+                if np.abs(x) - np.abs(offset[0]) < -threshold or np.abs(y) - np.abs(offset[1]) < -threshold:
+                    logging.info('Overshot')
+                    break
+
+        return offset, x, y
 
     @thing_property
     def thing_state(self) -> dict[str, Any]:
