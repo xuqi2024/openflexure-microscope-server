@@ -22,6 +22,7 @@ from labthings_fastapi.decorators import thing_action, thing_property
 from labthings_fastapi.types.numpy import NDArray, denumpify, DenumpifyingDict
 from labthings_picamera2.thing import StreamingPiCamera2
 from labthings_sangaboard import SangaboardThing
+from .settings_manager import SettingsManager
 from scipy import signal
 import numpy as np
 from pydantic import BaseModel
@@ -31,6 +32,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 Stage = direct_thing_client_dependency(SangaboardThing, "/stage/")
 Camera = raw_thing_dependency(StreamingPiCamera2)
 WrappedCamera = direct_thing_client_dependency(StreamingPiCamera2, "/camera/")
+Settings = direct_thing_client_dependency(SettingsManager, "/settings/")
 
 ### Autofocus utilities
 
@@ -166,6 +168,7 @@ class AutofocusThing(Thing):
         m: SharpnessMonitorDep,
         dz: int=2000,
         start: str='centre',
+        backlash: int=0
     ) -> SharpnessDataArrays:
         """Sweep the stage up and down, then move to the sharpest point
         
@@ -176,7 +179,8 @@ class AutofocusThing(Thing):
         with m.run():
             # Move to (-dz / 2)
             if start == 'centre':
-                m.focus_rel(-dz / 2)
+                m.focus_rel(-dz / 2 - backlash)
+                m.focus_rel(backlash)
             # Move to dz while monitoring sharpness
             # i: Sharpness monitor index for this move
             # z: Final z position after move
@@ -184,12 +188,12 @@ class AutofocusThing(Thing):
             # Get the z position with highest sharpness from the previous move (index i)
             fz: int = m.sharpest_z_on_move(i)
             # Move all the way to the start so it's consistent
-            i, z = m.focus_rel(-dz)
+            i, z = m.focus_rel(-(dz+backlash))
             # Move to the target position fz (relative move of (fz - z))
             m.focus_rel(fz - z)
             # Return all focus data
             return m.data_dict()
-        
+
     @thing_action
     def move_and_measure(
         self,
@@ -284,7 +288,7 @@ class AutofocusThing(Thing):
         return current_sharpness >= base + cutoff
 
     @thing_action
-    def autofocus_report(self, m: SharpnessMonitorDep, stage: Stage, wrappedcamera: WrappedCamera, logger: InvocationLogger, repeats, plots):
+    def autofocus_report(self, m: SharpnessMonitorDep, stage: Stage, wrappedcamera: WrappedCamera, logger: InvocationLogger, settings: Settings, repeats: int = 20, plots: bool = True, notes: str = "None"):
         '''Repeatedly run autofocus and test whether the resulting position is as sharp as expected
         and whether the stage has overshot.'''
 
@@ -351,8 +355,10 @@ class AutofocusThing(Thing):
                 time_stamp =  time.strftime("%H:%M")
                 # this is a data / title page summarising the data
                 f, ax = plt.subplots(1,1)
-                ax.text(0.1, 0.5,f"""Autofocus test was run at {time_stamp} on {date_stamp}. \n
+                ax.text(0.1, 0.8,f"""Autofocus test was run at {time_stamp} on {date_stamp}.
                 Out of {results['total']} trials, it appears that {results['overshot']} overshot.
+                User notes are {notes}.
+                Microscope name is {settings.hostname}
                 """,
                 horizontalalignment='left',verticalalignment='center', transform=ax.transAxes, wrap=True)
                 ax.axis('off')
