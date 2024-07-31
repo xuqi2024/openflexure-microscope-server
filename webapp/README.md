@@ -1,42 +1,41 @@
-# OpenFlexure Microscope JS Client
+# .
 
-## Key info
+This template should help get you started developing with Vue 3 in Vite.
 
-* Vue.js web application providing a graphical interface for the OFM
-* Once built, will be served by the API server from the host root on port 5000
+## Recommended IDE Setup
 
-* See [openflexure-microscope-server/README.md](https://gitlab.com/openflexure/openflexure-microscope-server/-/blob/master/README.md) for details on local installation and building
+[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
 
-# Developer guidelines
+## Customize configuration
 
-## Creating releases
+See [Vite Configuration Reference](https://vitejs.dev/config/).
 
-* JS client is coupled to the API, and so are no longer separately built and deployed.
-* See [openflexure-microscope-server/README.md](https://gitlab.com/openflexure/openflexure-microscope-server/-/blob/master/README.md) for details on creating new releases
+## Project Setup
 
-## Installing
+```sh
+npm install
+```
 
-* Install Node.js (and npm)
-* Install dependencies with `npm install`
-* Node v18 changes SSL, and so you need `$env:NODE_OPTIONS = "--openssl-legacy-provider"` on Windows or `export NODE_OPTIONS=--openssl-legacy-provider` on Linux/MacOS for compatibility.
-* Build the static web app with `npm run build`
-* Serve a development version with `npm run serve`
+### Compile and Hot-Reload for Development
 
-We generally run this on the Raspberry Pi (as that is where the Webapp is hosted). If this isn't suitable - for example, if you can't install Node on your microscope due to version conflicts or no internet connection - you can build it on your computer instead, and then copy over the contents of `..\src\openflexure_microscope_server\static` to your Pi (using scp or another file transfer method).
+```sh
+npm run dev
+```
 
-## VS Code and ESLint
+### Compile and Minify for Production
 
-To prevent the editor from interfering with ESLint, add to your project `settings.json`:
+```sh
+npm run build
+```
 
-```json
-{
-    "editor.tabSize": 2,
-    "cSpell.enabled": false,
-    "eslint.validate": ["vue","javascript", "javascriptreact"],
-    "editor.formatOnSave": false,
-    "vetur.validation.template": false,
-    "editor.codeActionsOnSave": {
-        "source.fixAll.eslint": true
-    }
-}
+### Run Unit Tests with [Vitest](https://vitest.dev/)
+
+```sh
+npm run test:unit
+```
+
+### Lint with [ESLint](https://eslint.org/)
+
+```sh
+npm run lint
 ```
