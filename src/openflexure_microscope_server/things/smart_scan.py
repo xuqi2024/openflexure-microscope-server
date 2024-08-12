@@ -587,6 +587,7 @@ class SmartScanThing(Thing):
                     metadata = metadata_getter()
                     # raw_image = cam.capture_array(stream_name="raw")
                     processed = cam.capture_array(stream_name="main")
+                    time.sleep(0.1)
                     acquired.set()
                     acquisition_time = time.time()
                     # # Save the raw image
@@ -602,6 +603,7 @@ class SmartScanThing(Thing):
                         quality=95,
                         subsampling=0
                     )
+                    time.sleep(0.2)
                     exif_dict = piexif.load(os.path.join(images_folder, name))
                     exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
                         metadata
@@ -744,8 +746,8 @@ class SmartScanThing(Thing):
                 path = temp_path.copy()
                 path = sorted(path, key=lambda x: (steps_from_centre(x, true_path[0][:2], dx, dy), distance_to_site(loc[:2], x)))
                 self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
-                if len(true_path) > 15*33:
-                    break
+                # if len(true_path) > 15*33:
+                #     break
         except InvocationCancelledError:
             logger.error("Stopping scan because it was cancelled.")
         except NotEnoughFreeSpaceError as e:
