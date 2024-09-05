@@ -272,19 +272,19 @@ class AutofocusThing(Thing):
             #         stage.move_relative(x = 0, y = 0, z = -(dz+backlash))
             #         stage.move_absolute(z = peak_height)
             # return heights.tolist(), sizes.tolist()
-            if (
-                peak_height - height_min < dz / 5
-                or height_max - peak_height < dz / 5
-            ):
-                attempts += 1
-                start = 'centre'
-                stage.move_absolute(z = peak_height-backlash)
-                stage.move_absolute(z = peak_height)
-            else:
-                repeat = False
-                stage.move_relative(x = 0, y = 0, z = -(dz+backlash))
-                stage.move_absolute(z = peak_height)
-        return heights.tolist(), sizes.tolist()
+                if (
+                    peak_height - height_min < dz / 5
+                    or height_max - peak_height < dz / 5
+                ):
+                    attempts += 1
+                    start = 'centre'
+                    stage.move_absolute(z = peak_height-backlash)
+                    stage.move_absolute(z = peak_height)
+                else:
+                    repeat = False
+                    stage.move_relative(x = 0, y = 0, z = -(dz+backlash))
+                    stage.move_absolute(z = peak_height)
+            return heights.tolist(), sizes.tolist()
 
     @thing_action
     def verify_focus_sharpness(self, sweep_sizes: list, wrappedcamera: WrappedCamera, threshold: float = 0.95):
