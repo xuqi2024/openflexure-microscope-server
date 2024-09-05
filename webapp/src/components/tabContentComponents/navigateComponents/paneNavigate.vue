@@ -257,7 +257,7 @@ export default {
     }
   },
 
-  mounted() {
+  async mounted() {
     // Reload saved settings
     this.stepSize =
       this.getLocalStorageObj("navigation_stepSize") || this.stepSize;
@@ -280,7 +280,7 @@ export default {
       );
     });
     // Update the current position in text boxes
-    this.updatePosition();
+    await this.updatePosition();
   },
 
   beforeDestroy() {
