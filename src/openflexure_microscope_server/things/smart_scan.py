@@ -657,7 +657,7 @@ class SmartScanThing(Thing):
                         while True:
                             jpeg_zs, jpeg_sizes = autofocus.looping_autofocus(dz=self.autofocus_dz, start = 'base')
                             time.sleep(0.2)
-                            autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, wrappedcamera = CamDep, threshold = 0.9)
+                            autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, wrappedcamera = CamDep, threshold = 0.8)
                             logger.debug(f"We just tested the focus! Result was {autofocus_success}")
 
                             if autofocus_success:
@@ -688,10 +688,6 @@ class SmartScanThing(Thing):
                             if attempts >= 3:
                                 logger.warning("Could not autofocus after 3 attempts.")
                                 break
-                            # if the autofocus was rejected, we return to the height of the closest successful autofocus. not perfect, but better than wandering out of focus
-                            logger.info(
-                                "The focus has shifted further than we expect: retrying."
-                            )
                             stage.move_absolute(z=int(loc[2]))
                             attempts += 1
 
