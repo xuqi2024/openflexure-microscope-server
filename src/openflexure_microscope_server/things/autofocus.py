@@ -231,7 +231,7 @@ class AutofocusThing(Thing):
         """
         repeat = True
         attempts = 0
-        backlash = 200
+        backlash = 0
 
         with m.run():
             while repeat and attempts < 10:
