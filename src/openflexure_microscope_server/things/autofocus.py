@@ -247,31 +247,44 @@ class AutofocusThing(Thing):
                 height_min = np.min(heights)
                 height_max = np.max(heights)
 
-                peaks = signal.find_peaks(sizes, prominence = 1000)[0]
-                if len(peaks) > 1:
-                    logging.debug('Multiple peaks, moving to highest and redoing')
-                    stage.move_relative(x = 0, y = 0, z = -(dz+backlash))
-                    stage.move_absolute(z = heights[max(peaks)])
-                    start = 'centre'
-                elif all(sizes[-4:] == sorted(sizes[-4:])):
-                    logging.debug('Looks like autofocus sharpness is increasing, redoing')
-                    stage.move_absolute(z = max(heights))
-                    dz *= 1.5
-                    start = 'centre'
-                if (
-                    peak_height - height_min < 400 #dz / 5
-                    or height_max - peak_height < 400 #dz / 5
-                ):
-                    logging.debug('Autofocus sweep too close to edge, redoing')
-                    attempts += 1
-                    start = 'centre'
-                    stage.move_absolute(z = peak_height-backlash)
-                    stage.move_absolute(z = peak_height)
-                else:
-                    repeat = False
-                    stage.move_relative(x = 0, y = 0, z = -(dz+backlash))
-                    stage.move_absolute(z = peak_height)
-            return heights.tolist(), sizes.tolist()
+            #     peaks = signal.find_peaks(sizes, prominence = 1000)[0]
+            #     if len(peaks) > 1:
+            #         logging.debug('Multiple peaks, moving to highest and redoing')
+            #         stage.move_relative(x = 0, y = 0, z = -(dz+backlash))
+            #         stage.move_absolute(z = heights[max(peaks)])
+            #         start = 'centre'
+            #     elif all(sizes[-4:] == sorted(sizes[-4:])):
+            #         logging.debug('Looks like autofocus sharpness is increasing, redoing')
+            #         stage.move_absolute(z = max(heights))
+            #         dz *= 1.5
+            #         start = 'centre'
+            #     if (
+            #         peak_height - height_min < 400 #dz / 5
+            #         or height_max - peak_height < 400 #dz / 5
+            #     ):
+            #         logging.debug('Autofocus sweep too close to edge, redoing')
+            #         attempts += 1
+            #         start = 'centre'
+            #         stage.move_absolute(z = peak_height-backlash)
+            #         stage.move_absolute(z = peak_height)
+            #     else:
+            #         repeat = False
+            #         stage.move_relative(x = 0, y = 0, z = -(dz+backlash))
+            #         stage.move_absolute(z = peak_height)
+            # return heights.tolist(), sizes.tolist()
+            if (
+                peak_height - height_min < dz / 5
+                or height_max - peak_height < dz / 5
+            ):
+                attempts += 1
+                start = 'centre'
+                stage.move_absolute(z = peak_height-backlash)
+                stage.move_absolute(z = peak_height)
+            else:
+                repeat = False
+                stage.move_relative(x = 0, y = 0, z = -(dz+backlash))
+                stage.move_absolute(z = peak_height)
+        return heights.tolist(), sizes.tolist()
 
     @thing_action
     def verify_focus_sharpness(self, sweep_sizes: list, wrappedcamera: WrappedCamera, threshold: float = 0.95):
