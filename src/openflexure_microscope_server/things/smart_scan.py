@@ -217,7 +217,7 @@ class BackgroundDetectThing(Thing):
     @thing_property
     def fraction(self) -> float:
         """How much of the image needs to be not background to label as sample"""
-        return self.thing_settings.get("fraction", 7)
+        return self.thing_settings.get("fraction", 25)
 
     @fraction.setter
     def fraction(self, value: float) -> None:
@@ -385,8 +385,8 @@ class SmartScanThing(Thing):
             os.makedirs(self.scans_folder_path)
         if not scan_name:
             scan_name = "scan"
-        for j in range(999999):
-            folder_path = os.path.join(self.scans_folder_path, f"{scan_name}_{j:06}")
+        for j in range(9999):
+            folder_path = os.path.join(self.scans_folder_path, f"{scan_name}_{j:04}")
             if not os.path.exists(folder_path):
                 os.makedirs(folder_path)
                 self._latest_scan_name = os.path.basename(folder_path)
@@ -415,7 +415,7 @@ class SmartScanThing(Thing):
             z = int(focused_path[z_index][2])
         else:
             z = stage.position["z"]
-        logger.info(f"Moving to {loc}")
+        logger.debug(f"Moving to {loc}")
         stage.move_absolute(
             x=int(loc[0]), y=int(loc[1]), z = z - self.autofocus_dz / 2
         )
@@ -506,7 +506,10 @@ class SmartScanThing(Thing):
             dx = int(np.abs(np.dot(np.array([0, arr.shape[1] * (1 - overlap)]), CSM)[0]))
             dy = int(np.abs(np.dot(np.array([arr.shape[0] * (1 - overlap), 0]), CSM)[1]))
 
-            logger.info(f"Based on an overlap of {overlap}, we will make steps of {dx}, {dy}")
+            logger.info(f"Running a scan with an overlap between images of {overlap}")
+            logger.debug(f"Overlap of {overlap}, movements of {dx}, {dy}")
+            logger.debug(f"Autofocus range is {self.autofocus_dz}")
+            logger.debug(f"Skipping background is {self.skip_background}")
 
             # construct a 2D scan path
             path = [[stage.position["x"], stage.position["y"]]]
@@ -565,7 +568,7 @@ class SmartScanThing(Thing):
                 corrected[corrected < 0] = 0
                 corrected[corrected > 255] = 255
                 return gamma_8bit(corrected)
-            logger.info(
+            logger.debug(
                 f"Generated normalisation image with shape {white_norm.shape}, "
                 f"max {white_norm.max(axis=(0,1))}, min {white_norm.min(axis=(0,1))}"
             )
@@ -606,7 +609,7 @@ class SmartScanThing(Thing):
                     ).encode("utf-8")
                     piexif.insert(piexif.dump(exif_dict), os.path.join(images_folder, name))
                     save_time = time.time()
-                    logger.info(f"Acquired {name} in {acquisition_time-capture_start:.1f}s then {save_time-acquisition_time:.1f}s saving to disk")
+                    logger.debug(f"Acquired {name} in {acquisition_time-capture_start:.1f}s then {save_time-acquisition_time:.1f}s saving to disk")
                 except Exception as e:
                     logger.error(f"An error occurred while saving {name}: {e}", exc_info=e)
             
@@ -653,9 +656,8 @@ class SmartScanThing(Thing):
                     if self.autofocus_dz > 200:
                         while True:
                             jpeg_zs, jpeg_sizes = autofocus.looping_autofocus(dz=self.autofocus_dz, start = 'base')
-                            current_height = stage.position["z"]
                             time.sleep(0.2)
-                            autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, camera = CamDep, threshold = 0.92)
+                            autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, wrappedcamera = CamDep, threshold = 0.9)
                             logger.info(f"We just tested the focus! Result was {autofocus_success}")
 
                             if autofocus_success:
@@ -663,13 +665,14 @@ class SmartScanThing(Thing):
                                 # test if the change in z between them exceeds a ratio (indicating a failed autofocus)
                                 if len(focused_path) > 0:
                                     nearest_focused_site = focused_path[closest(loc, focused_path)]
-                                    result = limit_focus_change(
-                                        nearest_focused_site[0:2],
-                                        nearest_focused_site[-1],
-                                        loc[0:2],
-                                        current_height,
-                                        0.5,
-                                    )
+                                    # result = limit_focus_change(
+                                    #     nearest_focused_site[0:2],
+                                    #     nearest_focused_site[-1],
+                                    #     loc[0:2],
+                                    #     current_height,
+                                    #     0.5,
+                                    # )
+                                    result = "accept"
 
                                 # if there haven't been any previous autofocuses, we have to assume this one worked
                                 else:
@@ -698,7 +701,7 @@ class SmartScanThing(Thing):
                             wait_start = time.time()
                             capture_thread.join()
                             wait_time = time.time() - wait_start
-                            logger.info(f"Waited {wait_time:.1f}s for the previous capture to finish saving.")
+                            logger.debug(f"Waited {wait_time:.1f}s for the previous capture to finish saving.")
                     acquired = Event()
                     name = f"image_{loc[0]}_{loc[1]}.jpg"
                     time.sleep(0.2)
@@ -762,7 +765,7 @@ class SmartScanThing(Thing):
             finally:
                 self._scan_lock.release()
             self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
-            logger.info("Waiting for background processes to finish...")
+            logger.info("Processing images, please wait")
             self.preview_stitch_wait()
             self.correlate_wait()
             try:
@@ -955,7 +958,7 @@ class SmartScanThing(Thing):
                 404: {"description": "File not found"}
             },
         )
-    def get_latest_preview(self) -> FileResponse:
+    def get_latest_preview(self, logger:InvocationLogger) -> FileResponse:
         """Retrieve the latest preview image.
         """
         path = self.latest_preview_stitch_path
@@ -994,7 +997,7 @@ class SmartScanThing(Thing):
             raise RuntimeError("Only one subprocess is allowed at a time")
         with self._correlate_popen_lock:
             self._correlate_popen = Popen(
-                [self._script, "--stitching_mode", "only_correlate", "--minimum_overlap", f"{round(overlap*0.9, 2)}", images_folder]
+                [self._script, "--stitching_mode", "only_correlate", "--minimum_overlap", f"{round(overlap*0.9, 2)}", "--resize", "1", images_folder]
             )
 
     def correlate_running(self) -> bool:
@@ -1015,12 +1018,11 @@ class SmartScanThing(Thing):
             self, logger: InvocationLogger, cmd: list[str],
         ) -> CompletedProcess:
         """Run a  subprocess and log any output"""
-        logger.info(f"Running command in subprocess: `{' '.join(cmd)}`")
+        logger.debug(f"Running command in subprocess: `{' '.join(cmd)}`")
 
         
         p = Popen(cmd, stdout=PIPE, stderr = STDOUT, bufsize=1, universal_newlines=True)
         os.set_blocking(p.stdout.fileno(), False) 
-        logger.info(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())))
         while p.poll() == None:
             try:
                 output = p.stdout.readline()
@@ -1054,11 +1056,10 @@ class SmartScanThing(Thing):
             try:
                 with open(os.path.join(images_folder, 'scan_inputs.json')) as data_file:
                     data_loaded = json.load(data_file)
-                    logger.info(data_loaded)
                 overlap = data_loaded['overlap']
             except:
                 overlap = 0.1
-        self.run_subprocess(logger, [self._script, "--stitching_mode", "all", f"{tiff_arg}", "--minimum_overlap", f"{round(overlap*0.9,2)}", images_folder])
+        self.run_subprocess(logger, [self._script, "--stitching_mode", "all", f"{tiff_arg}", "--minimum_overlap", f"{round(overlap*0.9,2)}", "--resize", "1", images_folder])
     
     @thing_action
     def create_zip_of_scan(self, logger: InvocationLogger, scan_name: Optional[str]=None, download_zip = True) -> ZipBlob:
@@ -1072,7 +1073,6 @@ class SmartScanThing(Thing):
             )
         if not os.path.isdir(images_folder):
             raise FileNotFoundError(f"Tried to make a zip archive of {images_folder} but it does not exist.")
-        # logger.info("Creating zip archive of images (may take some time)...")
 
         zip_fname = f'{os.path.join(scan_folder, "images")}.zip'
 
@@ -1095,9 +1095,15 @@ class SmartScanThing(Thing):
         # and should only be zipped at the end of the scan - otherwise they'll
         # be appended on every loop as we can't overwrite files in the zip
         files_to_delay = ['TileConfiguration', 'tiling_cache', 'stitched.jp', 'stitched_from', 'stitched.om']
+        stitch_name = ""
+        tiff_name = ""
 
         with zipfile.ZipFile(zip_fname, mode="a") as zip:
             for file in files:
+                if 'stitched.jp' in file:
+                    stitch_name = os.path.split(file)[1]
+                if '.ome.tiff' in file:
+                    tiff_name = os.path.split(file)[1]
                 if any(banned_name in file for banned_name in files_to_delay):
                     # logger.info(f'we only add {file} into zip at the end of the scan')
                     pass
@@ -1108,7 +1114,7 @@ class SmartScanThing(Thing):
                     # logger.info('Not adding the .zip to itself')
                     pass
                 else:
-                    logger.info(f'appending {file} to zip')
+                    logger.debug(f'appending {file} to zip')
                     zip.write(os.path.join(folder_path, file), arcname=file)
                     
 
@@ -1118,16 +1124,16 @@ class SmartScanThing(Thing):
         # TODO: if you download multiple times, you get duplicate files - is this a problem?
         if download_zip:
             with zipfile.ZipFile(zip_fname, mode="a") as zip:
-                for fname in ["stitched_from_stage.jpg", "stitched.jpg"]:
+                for fname in ["stitched_from_stage.jpg", stitch_name, tiff_name]:
                     fpath = os.path.join(images_folder, fname)
-                    if os.path.exists(fpath):
-                        logger.info(f'copying {fpath} to upper level')
+                    if os.path.isfile(fpath):
+                        logger.debug(f'copying {fpath} to upper level')
                         zip.write(fpath, arcname=fname)
                 for file in files:
                     if any(banned_name in file for banned_name in files_to_delay):
-                        logger.info(f'we are finally adding {file} into zip')
+                        logger.debug(f'we are finally adding {file} into zip')
                         zip.write(os.path.join(folder_path, file), arcname=file)
-            logger.info('about to download zip')
+            logger.info('About to download zip')
             return ZipBlob.from_file(zip_fname)
 
     @thing_action
