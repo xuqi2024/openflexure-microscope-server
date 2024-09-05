@@ -215,6 +215,11 @@ export default {
           component: navigateContent
         },
         {
+          id: "background_detect",
+          icon: "background_replace",
+          component: backgroundDetectContent
+        },
+        {
           id: "slidescan",
           icon: "settings_overscan",
           component: slideScanContent
@@ -223,11 +228,6 @@ export default {
           id: "scanlist",
           icon: "photo_library",
           component: ScanListContent
-        },
-        {
-          id: "background_detect",
-          icon: "background_replace",
-          component: backgroundDetectContent
         }
       ];
       if (!this.$store.state.galleryEnabled) {
