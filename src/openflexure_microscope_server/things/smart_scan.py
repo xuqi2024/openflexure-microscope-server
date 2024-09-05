@@ -658,7 +658,7 @@ class SmartScanThing(Thing):
                             jpeg_zs, jpeg_sizes = autofocus.looping_autofocus(dz=self.autofocus_dz, start = 'base')
                             time.sleep(0.2)
                             autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, wrappedcamera = CamDep, threshold = 0.9)
-                            logger.info(f"We just tested the focus! Result was {autofocus_success}")
+                            logger.debug(f"We just tested the focus! Result was {autofocus_success}")
 
                             if autofocus_success:
                                 # if there have been successful autofocuses in this scan, find the closest one in x-y
