@@ -433,7 +433,7 @@ class SmartScanThing(Thing):
         csm: CSMDep,
         background_detect: BackgroundDep,
         recentre: RecentreStage,
-        scan_name: str="",
+        scan_name: str=""
     ):
         """Move the stage to cover an area, taking images that can be tiled together.
 
@@ -714,12 +714,15 @@ class SmartScanThing(Thing):
                     )
                     capture_thread.start()
                     acquired.wait()  # wait until the image is acquired
-                    #time.sleep(0.5)
                     positions.append(loc[:2])
                     names.append(name)
 
                 # add the current position to the list of all positions visited
                 true_path.append(loc)
+                
+                if len(true_path) == self.max_image_count:
+                    logger.info(f'Now captured {len(true_path)} images, ending scan.')
+                    break
 
                 #if len(names) > 1:
                 #    generate_config(images_folder, positions, names, CSM, csm_calibration_width, img_width, logger)
@@ -779,6 +782,15 @@ class SmartScanThing(Thing):
     @max_range.setter
     def max_range(self, value: int) -> None:
         self.thing_settings["max_range"] = value
+
+    @thing_property
+    def max_image_count(self) -> int:
+        """The maximum number of images to capture before we break"""
+        return self.thing_settings.get("max_image_count", 0)
+
+    @max_image_count.setter
+    def max_image_count(self, value: int) -> None:
+        self.thing_settings["max_image_count"] = value
 
     @thing_property
     def stitch_tiff(self) -> bool:
