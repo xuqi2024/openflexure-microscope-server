@@ -658,7 +658,12 @@ class SmartScanThing(Thing):
                                     stage = stage,
                                     cam = cam,
                                     metadata_getter = metadata_getter,
-                                    images_folder = images_folder
+                                    images_folder = images_folder,
+                                    start = 'base',
+                                    autofocus_dz = 2000,
+                                    stack_height = 9,
+                                    stack_dz = 50,
+                                    raw_image = raw_image
                                     )
 
                     focused_path.append([stage.position["x"], stage.position["y"], focused_height])
@@ -1108,9 +1113,14 @@ class SmartScanThing(Thing):
         cam: CamDep,
         metadata_getter: GetThingStates,
         images_folder,
-        start = 'base'
+        start = 'base',
+        autofocus_dz = 2000,
+        stack_height = 9,
+        stack_dz = 50,
+        raw_image = None
     ):
-        raw_image = cam.capture_array(stream_name="raw")
+        if raw_image is None:
+            raw_image = cam.capture_array(stream_name="raw")
         #TODO: assert the image is 10-bit packed, or deal with other formats!
         rgb = rggb2rgb(raw2rggb(raw_image))
         lst = dict(cam.lens_shading_tables)
@@ -1134,10 +1144,6 @@ class SmartScanThing(Thing):
             corrected[corrected < 0] = 0
             corrected[corrected > 255] = 255
             return gamma_8bit(corrected)
-        logger.info(
-            f"Generated normalisation image with shape {white_norm.shape}, "
-            f"max {white_norm.max(axis=(0,1))}, min {white_norm.min(axis=(0,1))}"
-        )
         norm_inputs = {
             "luminance": lum,
             "Cr": Cr,
@@ -1174,35 +1180,31 @@ class SmartScanThing(Thing):
                 ).encode("utf-8")
                 piexif.insert(piexif.dump(exif_dict), os.path.join(images_folder, name))
                 save_time = time.time()
-                logger.info(f"Acquired {name} in {acquisition_time-capture_start:.1f}s then {save_time-acquisition_time:.1f}s saving to disk")
             except Exception as e:
                 logger.error(f"An error occurred while saving {name}: {e}", exc_info=e)
 
         if start == 'centre':
-            stage.move_relative(x = 0, y = 0, z = -1200)
+            stage.move_relative(x = 0, y = 0, z = -(200 + autofocus_dz / 2))
             stage.move_relative(x = 0, y = 0, z = 200)
-        if start == 'centre':
+        elif start == 'base':
             stage.move_relative(x = 0, y = 0, z = -200)
             stage.move_relative(x = 0, y = 0, z = 200)
-        m = autofocus.move_and_measure(dz = [0,2000])
-        stage.move_relative(x = 0, y = 0, z = -2200)
+        m = autofocus.move_and_measure(dz = [0,autofocus_dz])
+        stage.move_relative(x = 0, y = 0, z = -(200 + autofocus_dz))
         stage.move_relative(x = 0, y = 0, z = 200)
         
-        logger.info(m)
-        logger.info(len(m.stage_positions))
         _, heights, sizes = self.move_data(len(m.stage_positions)-2, data = m)
-        logger.info(heights)
-        logger.info(sizes)
         stage.move_absolute(
             x = stage.position['x'],
             y = stage.position['y'],
-            z = heights[np.argmax(sizes)] - 300
+            z = heights[np.argmax(sizes)] - ((2 + stack_height - 1) / 2)*stack_dz
             )
         
         captures = 0
         sharpnesses = []
         capture_heights = []
-        while captures < 15:
+        max_stack_height = 15
+        while captures < max_stack_height:
             current_sharpness = cam.grab_jpeg_size(stream_name='lores')
             sharpnesses.append(current_sharpness)
             capture_heights.append(stage.position['z'])
@@ -1211,10 +1213,29 @@ class SmartScanThing(Thing):
             stage.move_relative(
                 x = 0,
                 y = 0,
-                z = 50
+                z = stack_dz
             )
+            if len(sharpnesses) >= 9:
+                result = self.test_sharpnesses(sharpnesses[-9:], logger)
+                if result:
+                    break
+            if captures == stack_height:
+                logger.warning('Could\'t find focus')
         return capture_heights[np.argmax(sharpnesses)]
 
+    def test_sharpnesses(self, sharpnesses, logger):
+        if np.argmax(sharpnesses) <= 2:
+            return False
+        if np.argmax(sharpnesses) >= 7:
+            return False
+        max_loc = np.argmax(sharpnesses)
+        approach = sharpnesses[:max_loc]
+        recede = sharpnesses[max_loc:]
+        if sorted(approach) == approach and sorted(recede, reverse = True):
+            logger.info('really good')
+        else:
+            logger.info('Good enough')
+        return True
 
     def move_data(
         self, istart: int, istop: Optional[int] = None, data: Optional[dict] = None
