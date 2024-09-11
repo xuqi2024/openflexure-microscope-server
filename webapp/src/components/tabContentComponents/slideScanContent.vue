@@ -34,6 +34,13 @@
               <div class="uk-margin">
                 <propertyControl
                   thing-name="smart_scan"
+                  property-name="max_image_count"
+                  label="Max image count (0 for unlimited)"
+                />
+              </div>
+              <div class="uk-margin">
+                <propertyControl
+                  thing-name="smart_scan"
                   property-name="stitch_tiff"
                   label="When stitching, produce a pyramidal tiff"
                 />
@@ -236,7 +243,7 @@ export default {
 
 <style scoped>
 #log-display {
-  height: 20em;
+  height: 15em;
 }
 .control-component {
   width: 33%;
