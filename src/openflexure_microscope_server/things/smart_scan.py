@@ -652,70 +652,16 @@ class SmartScanThing(Thing):
                         ):
                             path.append(pos)
 
-                    attempts = 0
-                    if self.autofocus_dz > 200:
-                        while True:
-                            jpeg_zs, jpeg_sizes = autofocus.looping_autofocus(dz=self.autofocus_dz, start = 'base')
-                            time.sleep(0.2)
-                            autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, wrappedcamera = CamDep, threshold = 0.8)
-                            logger.debug(f"We just tested the focus! Result was {autofocus_success}")
+                    focused_height = self.smart_stack(cancel = cancel,
+                                    logger = logger,
+                                    autofocus = autofocus,
+                                    stage = stage,
+                                    cam = cam,
+                                    metadata_getter = metadata_getter,
+                                    images_folder = images_folder
+                                    )
 
-                            if autofocus_success:
-                                # if there have been successful autofocuses in this scan, find the closest one in x-y
-                                # test if the change in z between them exceeds a ratio (indicating a failed autofocus)
-                                if len(focused_path) > 0:
-                                    nearest_focused_site = focused_path[closest(loc, focused_path)]
-                                    # result = limit_focus_change(
-                                    #     nearest_focused_site[0:2],
-                                    #     nearest_focused_site[-1],
-                                    #     loc[0:2],
-                                    #     current_height,
-                                    #     0.5,
-                                    # )
-                                    result = "accept"
-
-                                # if there haven't been any previous autofocuses, we have to assume this one worked
-                                else:
-                                    result = "accept"
-                            else:
-                                result = "reject"
-
-                            # if the autofocus worked, add the current position to the list of successful locations
-                            if result == "accept":
-                                loc = list(stage.position.values())
-                                focused_path.append(loc)
-                                break
-                            if attempts >= 3:
-                                logger.warning("Could not autofocus after 3 attempts.")
-                                break
-                            stage.move_absolute(z=int(loc[2]))
-                            attempts += 1
-
-                    # Acquire the image in a thread, and continue once it's acquired (i.e. leave saving in the background)
-                    if capture_thread:  # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
-                        if capture_thread.is_alive():
-                            wait_start = time.time()
-                            capture_thread.join()
-                            wait_time = time.time() - wait_start
-                            logger.debug(f"Waited {wait_time:.1f}s for the previous capture to finish saving.")
-                    acquired = Event()
-                    name = f"image_{loc[0]}_{loc[1]}.jpg"
-                    time.sleep(0.2)
-                    capture_thread = Thread(
-                        target=capture_and_save,
-                        kwargs={
-                        #    "cam": cam,
-                        #    "logger": logger,
-                            "acquired": acquired,
-                            "name": name,
-                        #    "images_folder": images_folder,
-                        #    "raw_images_folder": raw_images_folder,
-                        }
-                    )
-                    capture_thread.start()
-                    acquired.wait()  # wait until the image is acquired
-                    positions.append(loc[:2])
-                    names.append(name)
+                    focused_path.append([stage.position["x"], stage.position["y"], focused_height])
 
                 # add the current position to the list of all positions visited
                 true_path.append(loc)
@@ -1152,3 +1098,169 @@ class SmartScanThing(Thing):
         
         return zip
 
+    @thing_action
+    def smart_stack(
+        self,
+        cancel: CancelHook,
+        logger: InvocationLogger,
+        autofocus: AutofocusDep,
+        stage: StageDep,
+        cam: CamDep,
+        metadata_getter: GetThingStates,
+        images_folder,
+        start = 'base'
+    ):
+        raw_image = cam.capture_array(stream_name="raw")
+        #TODO: assert the image is 10-bit packed, or deal with other formats!
+        rgb = rggb2rgb(raw2rggb(raw_image))
+        lst = dict(cam.lens_shading_tables)
+        lum = np.array(lst["luminance"])
+        Cr = np.array(lst["Cr"])
+        Cb = np.array(lst["Cb"])
+        gr, gb = cam.colour_gains
+        G = 1/lum
+        R = G/Cr/gr*np.min(Cr)  # The extra /np.max(Cr) emulates the quirky handling of Cr in
+        B = G/Cb/gb*np.min(Cb)   # the picamera2 pipeline
+        white_norm_lores = np.stack([R, G, B], axis=2)
+        zoom_factors = [i/n for i, n in zip(rgb[...,:3].shape, white_norm_lores.shape)]
+        white_norm = zoom(white_norm_lores, zoom_factors, order=1)[:rgb.shape[0], :rgb.shape[1], :]  # Could use some work
+        colour_correction_matrix = np.array(cam.colour_correction_matrix).reshape((3,3))
+        contrast_algorithm = cam.tuning["algorithms"][9]["rpi.contrast"]
+        gamma = np.array(contrast_algorithm["gamma_curve"]).reshape((-1,2))
+        gamma_8bit = interp1d(gamma[:, 0]/255, gamma[:, 1]/255)
+        def process_raw_image(img):
+            normed = img/white_norm
+            corrected = np.dot(colour_correction_matrix, normed.reshape((-1, 3)).T).T.reshape(normed.shape)
+            corrected[corrected < 0] = 0
+            corrected[corrected > 255] = 255
+            return gamma_8bit(corrected)
+        logger.info(
+            f"Generated normalisation image with shape {white_norm.shape}, "
+            f"max {white_norm.max(axis=(0,1))}, min {white_norm.min(axis=(0,1))}"
+        )
+        norm_inputs = {
+            "luminance": lum,
+            "Cr": Cr,
+            "Cb": Cb,
+            "gain_red": gr,
+            "gain_blue": gb,
+        }
+        def capture_and_save(name: str) -> None:
+            """Capture an image and save it to disk
+            
+            This will set the event `acquired` once the image has been acquired, so
+            that the stage may be moved while it's saved.
+            """
+            try:
+                capture_start = time.time()
+                metadata = metadata_getter()
+                raw_image = cam.capture_array(stream_name="raw")
+                acquisition_time = time.time()
+                # Save the raw image
+                # np.savez(os.path.join(raw_images_folder, name + ".npz"), raw_image=raw_image, **norm_inputs)
+                # Process it into 8 bit RGB
+                processed = process_raw_image(rggb2rgb(raw2rggb(raw_image)))
+                processed[processed > 255] = 255
+                processed[processed < 0] = 0
+                img = Image.fromarray(processed.astype(np.uint8), mode="RGB")
+                img.save(
+                    os.path.join(images_folder, name),
+                    quality=95,
+                    subsampling=0
+                )
+                exif_dict = piexif.load(os.path.join(images_folder, name))
+                exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
+                    metadata
+                ).encode("utf-8")
+                piexif.insert(piexif.dump(exif_dict), os.path.join(images_folder, name))
+                save_time = time.time()
+                logger.info(f"Acquired {name} in {acquisition_time-capture_start:.1f}s then {save_time-acquisition_time:.1f}s saving to disk")
+            except Exception as e:
+                logger.error(f"An error occurred while saving {name}: {e}", exc_info=e)
+
+        if start == 'centre':
+            stage.move_relative(x = 0, y = 0, z = -1200)
+            stage.move_relative(x = 0, y = 0, z = 200)
+        if start == 'centre':
+            stage.move_relative(x = 0, y = 0, z = -200)
+            stage.move_relative(x = 0, y = 0, z = 200)
+        m = autofocus.move_and_measure(dz = [0,2000])
+        stage.move_relative(x = 0, y = 0, z = -2200)
+        stage.move_relative(x = 0, y = 0, z = 200)
+        
+        logger.info(m)
+        logger.info(len(m.stage_positions))
+        _, heights, sizes = self.move_data(len(m.stage_positions)-2, data = m)
+        logger.info(heights)
+        logger.info(sizes)
+        stage.move_absolute(
+            x = stage.position['x'],
+            y = stage.position['y'],
+            z = heights[np.argmax(sizes)] - 300
+            )
+        
+        captures = 0
+        sharpnesses = []
+        capture_heights = []
+        while captures < 15:
+            current_sharpness = cam.grab_jpeg_size(stream_name='lores')
+            sharpnesses.append(current_sharpness)
+            capture_heights.append(stage.position['z'])
+            capture_and_save(f"{stage.position['x']}_{stage.position['y']}_{stage.position['z']}_{captures}.jpeg")
+            captures += 1
+            stage.move_relative(
+                x = 0,
+                y = 0,
+                z = 50
+            )
+        return capture_heights[np.argmax(sharpnesses)]
+
+
+    def move_data(
+        self, istart: int, istop: Optional[int] = None, data: Optional[dict] = None
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Extract sharpness as a function of (interpolated) z"""
+        if istop is None:
+            istop = istart + 2
+        try:
+            jpeg_times: np.ndarray = np.array(data.jpeg_times)
+        except:
+            jpeg_times: np.ndarray = np.array(data['jpeg_times'])
+        try:
+            jpeg_sizes: np.ndarray = np.array(data.jpeg_sizes)
+        except:
+            jpeg_sizes: np.ndarray = np.array(data['jpeg_sizes'])
+        try:
+            stage_times: np.ndarray = np.array(data.stage_times)[
+                istart:istop
+            ]
+        except:
+            stage_times: np.ndarray = np.array(data['stage_times'])[
+                istart:istop
+            ]
+        try:
+            stage_positions: np.ndarray = np.array(data.stage_positions)
+        except:
+            stage_positions: np.ndarray = np.array(data['stage_positions'])
+
+        stage_zs: np.ndarray = np.array(
+            [p['z'] for p in stage_positions[istart:istop]]
+          )
+        try:
+            start: int = int(np.argmax(jpeg_times > stage_times[0]))
+            stop: int = int(np.argmax(jpeg_times > stage_times[1]))
+        except ValueError as e:
+            if np.sum(jpeg_times > stage_times[0]) == 0:
+                raise ValueError(
+                    "No images were captured during the move of the stage.  Perhaps the camera is not streaming images?"
+                ) from e
+            else:
+                raise e
+        if stop < 1:
+            stop = len(jpeg_times)
+            # logging.debug("changing stop to %s", (stop))
+        jpeg_times = jpeg_times[start:stop]
+        jpeg_zs: np.ndarray = np.interp(
+            jpeg_times, stage_times, stage_zs
+        )  # np.ndarray[float]
+        return jpeg_times, jpeg_zs, jpeg_sizes[start:stop]
