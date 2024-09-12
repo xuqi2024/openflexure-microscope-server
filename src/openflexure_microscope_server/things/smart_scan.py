@@ -481,6 +481,8 @@ class SmartScanThing(Thing):
             # Record the starting position so we can move back there afterwards
             starting_position = stage.position
 
+            autofocus.fast_autofocus(dz = self.autofocus_dz)
+
             r = cam.grab_jpeg()
             arr = np.array(Image.open(r.open()))
             if csm.image_resolution is None:
@@ -1219,8 +1221,8 @@ class SmartScanThing(Thing):
                 result = self.test_sharpnesses(sharpnesses[-9:], logger)
                 if result:
                     break
-            if captures == stack_height:
-                logger.warning('Could\'t find focus')
+            if captures == max_stack_height:
+                logger.warning(f"Could't find focus. Took {len(sharpnesses)} images and the best one was at {np.argmax(sharpnesses)}")
         return capture_heights[np.argmax(sharpnesses)]
 
     def test_sharpnesses(self, sharpnesses, logger):
