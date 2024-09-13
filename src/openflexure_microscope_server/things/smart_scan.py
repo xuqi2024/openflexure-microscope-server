@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from scipy.stats import norm
 from scipy.ndimage import zoom
 from scipy.interpolate import interp1d
+from scipy.optimize import curve_fit
 from copy import deepcopy
 from datetime import datetime
 from subprocess import CompletedProcess, Popen, PIPE, SubprocessError, run, STDOUT
@@ -393,6 +394,35 @@ class SmartScanThing(Thing):
                 return folder_path
         raise FileExistsError("Could not create a new scan folder: all names in use!")
     
+    def function(
+            self,
+            data,
+            a,
+            b,
+            c,
+            d,
+            e
+        ):
+        x = data[0]
+        y = data[1]
+        return a*x**2 + b*y**2 + c*x + d*y + e
+
+    def fit_next_z(
+            self,
+            loc,
+            focused_path
+        ):
+        #TODO test when to reject this fit - like if we only have a couple of points in one axis, or if curvature is positive
+        x_data = []
+        y_data = []
+        z_data = []
+        for item in focused_path:
+            x_data.append(item[0])
+            y_data.append(item[1])
+            z_data.append(item[2])
+        parameters, covariance = curve_fit(self.function, [x_data, y_data], z_data, [-1, 1, -1, 1, 1], method='trf')
+        next_z = self.function(loc, *parameters)
+        return next_z
     
     def move_to_next_point(
             self,
@@ -410,7 +440,13 @@ class SmartScanThing(Thing):
         """
         loc = [path[0][0], path[0][1]]
         path.remove(path[0])
-        if len(focused_path) > 1:
+        if len(focused_path) > 6:
+            z = self.fit_next_z(loc, focused_path)
+            # just so the stage.move line still works....
+            z = z + self.autofocus_dz / 2 - 400
+            # 400 is our undershoot: 100 to move back up, and then we start the 
+            # stack at predicted peak, minus 6 steps
+        elif len(focused_path) > 1:
             z_index = closest(loc, focused_path)
             z = int(focused_path[z_index][2])
         else:
@@ -665,7 +701,8 @@ class SmartScanThing(Thing):
                                     autofocus_dz = 2000,
                                     stack_height = 9,
                                     stack_dz = 50,
-                                    raw_image = raw_image
+                                    raw_image = raw_image,
+                                    focused_path = focused_path
                                     )
 
                     focused_path.append([stage.position["x"], stage.position["y"], focused_height])
@@ -1119,7 +1156,8 @@ class SmartScanThing(Thing):
         autofocus_dz = 2000,
         stack_height = 9,
         stack_dz = 50,
-        raw_image = None
+        raw_image = None,
+        focused_path = []
     ):
         if raw_image is None:
             raw_image = cam.capture_array(stream_name="raw")
@@ -1185,23 +1223,26 @@ class SmartScanThing(Thing):
             except Exception as e:
                 logger.error(f"An error occurred while saving {name}: {e}", exc_info=e)
 
-        if start == 'centre':
-            stage.move_relative(x = 0, y = 0, z = -(200 + autofocus_dz / 2))
+        if len(focused_path) <=6:
+            logger.info("We're just starting, so doing a full autofocus")
+            if start == 'centre':
+                stage.move_relative(x = 0, y = 0, z = -(200 + autofocus_dz / 2))
+                stage.move_relative(x = 0, y = 0, z = 200)
+            elif start == 'base':
+                stage.move_relative(x = 0, y = 0, z = -200)
+                stage.move_relative(x = 0, y = 0, z = 200)
+            m = autofocus.move_and_measure(dz = [0,autofocus_dz])
+            stage.move_relative(x = 0, y = 0, z = -(200 + autofocus_dz))
             stage.move_relative(x = 0, y = 0, z = 200)
-        elif start == 'base':
-            stage.move_relative(x = 0, y = 0, z = -200)
-            stage.move_relative(x = 0, y = 0, z = 200)
-        m = autofocus.move_and_measure(dz = [0,autofocus_dz])
-        stage.move_relative(x = 0, y = 0, z = -(200 + autofocus_dz))
-        stage.move_relative(x = 0, y = 0, z = 200)
-        
-        _, heights, sizes = self.move_data(len(m.stage_positions)-2, data = m)
-        stage.move_absolute(
-            x = stage.position['x'],
-            y = stage.position['y'],
-            z = heights[np.argmax(sizes)] - ((2 + stack_height - 1) / 2)*stack_dz
-            )
-        
+            
+            _, heights, sizes = self.move_data(len(m.stage_positions)-2, data = m)
+            stage.move_absolute(
+                x = stage.position['x'],
+                y = stage.position['y'],
+                z = heights[np.argmax(sizes)] - ((2 + stack_height - 1) / 2)*stack_dz
+                )
+        else:
+            logger.info("We've got a good idea where we should be skipping autofocus")
         captures = 0
         sharpnesses = []
         capture_heights = []
