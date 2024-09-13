@@ -440,7 +440,9 @@ class SmartScanThing(Thing):
         """
         loc = [path[0][0], path[0][1]]
         path.remove(path[0])
-        if len(focused_path) > 6:
+        x_positions = len(set([i[0] for i in focused_path]))
+        y_positions = len(set([i[1] for i in focused_path]))
+        if x_positions >= 3 and y_positions >= 3:
             z = self.fit_next_z(loc, focused_path)
             # just so the stage.move line still works....
             z = z + self.autofocus_dz / 2 - 400
@@ -1223,7 +1225,10 @@ class SmartScanThing(Thing):
             except Exception as e:
                 logger.error(f"An error occurred while saving {name}: {e}", exc_info=e)
 
-        if len(focused_path) <=6:
+        x_positions = len(set([i[0] for i in focused_path]))
+        y_positions = len(set([i[1] for i in focused_path]))
+        logger.info(focused_path)
+        if x_positions < 3 or y_positions < 3:
             logger.info("We're just starting, so doing a full autofocus")
             if start == 'centre':
                 stage.move_relative(x = 0, y = 0, z = -(200 + autofocus_dz / 2))
@@ -1243,6 +1248,7 @@ class SmartScanThing(Thing):
                 )
         else:
             logger.info("We've got a good idea where we should be skipping autofocus")
+            stage.move_relative(z = 100)
         captures = 0
         sharpnesses = []
         capture_heights = []
