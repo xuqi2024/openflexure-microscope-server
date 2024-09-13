@@ -1161,6 +1161,7 @@ class SmartScanThing(Thing):
         raw_image = None,
         focused_path = []
     ):
+        #TODO delete some failed images
         if raw_image is None:
             raw_image = cam.capture_array(stream_name="raw")
         #TODO: assert the image is 10-bit packed, or deal with other formats!
@@ -1227,7 +1228,6 @@ class SmartScanThing(Thing):
 
         x_positions = len(set([i[0] for i in focused_path]))
         y_positions = len(set([i[1] for i in focused_path]))
-        logger.info(focused_path)
         if x_positions < 3 or y_positions < 3:
             logger.info("We're just starting, so doing a full autofocus")
             if start == 'centre':
@@ -1273,6 +1273,7 @@ class SmartScanThing(Thing):
         return capture_heights[np.argmax(sharpnesses)]
 
     def test_sharpnesses(self, sharpnesses, logger):
+        #TODO reimplement chebychev
         if np.argmax(sharpnesses) <= 2:
             return False
         if np.argmax(sharpnesses) >= 7:
