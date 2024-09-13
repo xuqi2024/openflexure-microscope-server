@@ -14,14 +14,12 @@ from labthings_sangaboard import SangaboardThing
 from labthings_picamera2.thing import StreamingPiCamera2
 from labthings_fastapi.types.numpy import NDArray, denumpify, DenumpifyingDict
 from openflexure_microscope_server.things.autofocus import AutofocusThing
-from openflexure_microscope_server.things.micat import MicatThing
 from openflexure_microscope_server.things.camera_stage_mapping import CameraStageMapper
 
 StageDep = direct_thing_client_dependency(SangaboardThing, "/stage/")
 CamDep = direct_thing_client_dependency(StreamingPiCamera2, "/camera/")
 CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
 AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
-MicatDep = direct_thing_client_dependency(MicatThing, "/micat/")
 
 class RangeofMotionThing(Thing):
     @thing_action
@@ -32,8 +30,7 @@ class RangeofMotionThing(Thing):
         cam: CamDep,
         csm: CSMDep,
         cancel: CancelHook,
-        logger: InvocationLogger,
-        micat: MicatDep
+        logger: InvocationLogger
     ):
         """Recentre the stage, based on the focal plane
         Measure the range of motion of the stage, by moving along
@@ -55,8 +52,8 @@ class RangeofMotionThing(Thing):
             }
 
             minimum_offset = {
-                'x' : int(step_sizes['x'] * 0.9),
-                'y' : int(step_sizes['y'] * 0.9),
+                'x' : int(step_sizes['x'] * 0.8),
+                'y' : int(step_sizes['y'] * 0.8),
             }
 
             this_step_size = {}
