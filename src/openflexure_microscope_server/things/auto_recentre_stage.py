@@ -5,6 +5,7 @@ import json
 from PIL import Image
 import time
 from typing import Annotated, Any, Callable, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
+from scipy.optimize import curve_fit
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
@@ -20,6 +21,9 @@ StageDep = direct_thing_client_dependency(SangaboardThing, "/stage/")
 CamDep = direct_thing_client_dependency(StreamingPiCamera2, "/camera/")
 CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
 AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
+
+def function(x, a, b, c):
+    return a * x**2 + b * x + c
 
 class RangeofMotionThing(Thing):
     @thing_action
@@ -88,14 +92,11 @@ class RangeofMotionThing(Thing):
                         'x':10001,
                         'y':10001
                     }
-                    tot_dis_xpos = 0
-                    displacement_xpos = []
-                    displacement_y = []
-                    dis_mag_xpos = []
-                    tot_mag_xpos = 0
-                    steps_xpos = []
+                    focused_positions = []
+                    # TODO clean these up
                     totMag_eachStep_xpos = [] #This variable tracks the total distance travelled after each movement
-                    stage_coord_xpos = []
+                    stage_coords = []
+
                     # TODO add retry failed move, just in case
                     while np.abs(delta[axs]) > minimum_offset[axs]:  #loop will continue until pixel distance is less than some value
                         pos = stage.position
@@ -103,25 +104,43 @@ class RangeofMotionThing(Thing):
                             logging.warning("Break limit met")
                             break
                         
+                        # Capture the base image
                         image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
                         image1=image1.tolist()
 
-                        if len(stage_coord_xpos) > 1:
-                            z_diff = stage_coord_xpos[-1][2] - stage_coord_xpos[-2][2]
+                        # Plan the next move
+                        # xy offset is regular, z is calculated
+                        if len(focused_positions) >= 4:
+                            lateral_positions = [i[axs] for i in focused_positions]
+                            logger.info(f'Lateral locs are {lateral_positions}')
+                            z_positions = [i['z'] for i in focused_positions]
+                            logger.info(f'Lateral locs are {z_positions}')
+                            parameters, covariance = curve_fit(function, lateral_positions, z_positions)
+                            relative_move = stage_coords[1][axs] - stage_coords[0][axs]
+                            z_dest = function(stage.position[axs] + relative_move, *parameters)
+                            logger.info(f'z destination is {z_dest} for lateral position {stage.position[axs] + relative_move}')
+                            z_diff = z_dest - stage.position['z']
+                        elif len(stage_coords) > 1:
+                            z_diff = stage_coords[-1]['z'] - stage_coords[-2]['z']
                         else:
                             z_diff = 0
                         
+                        logger.info(f'path is {stage_coords}')
+                        logger.info(f'current position is {stage.position}')
                         # TODO combine these into one move
                             
                         # Move down first to avoid hitting sample
                         stage.move_relative(z = z_diff)
                         csm.move_in_image_coordinates(x = this_step_size['x'], y = this_step_size['y'])
                         
-
-                        steps_xpos.append(stage.position[axs])
                         failure_count = 0
                         while failure_count < 4:
-                            autofocus.looping_autofocus(dz = 1500)
+                            # if failure_count > 0 or len(focused_positions) < 4:
+                            focused = 1
+                            autofocus.looping_autofocus(dz = 800)
+                            # else:
+                            #     focused = 0
+                            #     logger.info('skipping autofocus')
 
                             image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
                             
@@ -129,20 +148,17 @@ class RangeofMotionThing(Thing):
                             offset = [x * 1 for x in csm.get_displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
                             delta['x'] = int(offset[1])
                             delta['y'] = int(offset[0])
-                            logger.info(f"Most recent move was {delta}. Threshold is {minimum_offset}")
+                            logger.info(f"Most recent move was {delta}. Target is {this_step_size}. Threshold is {minimum_offset}")
                             if np.abs(delta[axs]) > minimum_offset[axs]:
-                                failure_count = 10
+                                if focused:
+                                    focused_positions.append(stage.position)
+                                break
                             else:
                                 failure_count += 1
                                 logger.info(f'Looks like that move failed. Going to retry. Attempt {failure_count} out of 4')
 
-                        displacement_xpos.append(delta['x'] * pixel_um) #converts to um
-                        displacement_y.append(delta['y'] * pixel_um) #converts to um 
-                        tot_dis_xpos = tot_dis_xpos + (delta['y'] * pixel_um) #This just takes x-axis data not magnitude
-                        dis_mag_xpos.append(np.sqrt((delta['y'])**2+(delta['x'])**2)) #magnitude of displacement
-                        tot_mag_xpos = tot_mag_xpos + (np.sqrt((delta['y'])**2+(delta['x'])**2)*pixel_um) #converts to um
-                        totMag_eachStep_xpos.append(tot_mag_xpos)
-                        stage_coord_xpos.append(list(stage.position.values()))
+                        totMag_eachStep_xpos.append(offset)
+                        stage_coords.append(stage.position)
 
                     
                     #TODO: make this move to the centre instead of the start
@@ -151,14 +167,13 @@ class RangeofMotionThing(Thing):
                     logger.info(f"Loop {i} done")
                     
                     results[axs][dir] = {
-                        "stage_lateral_steps" : steps_xpos,
                         "correlation_lateral_steps": totMag_eachStep_xpos,
-                        "stage_positions": stage_coord_xpos
+                        "stage_positions": stage_coords
                     }
                     
-                z_pos_list = [pos[2] for pos in stage_coord_xpos]
+                z_pos_list = [pos['z'] for pos in stage_coords]
                 max_index = np.argmax(z_pos_list)
-                x_max_pos = stage_coord_xpos[max_index][0]
+                x_max_pos = stage_coords[max_index]['x']
                 logging.info(f'Apparent peak was at {x_max_pos}. We started at {starting_pos[0]}')
 
             results['csm'] = csm.image_to_stage_displacement_matrix
