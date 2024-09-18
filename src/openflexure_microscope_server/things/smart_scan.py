@@ -491,6 +491,9 @@ class SmartScanThing(Thing):
         starting_position = None
         capture_thread = None
         self._scan_lock.acquire(timeout=0.1)
+        start_time = time.strftime("%H:%M:%S")
+        logger.info(f'Starting scan at {start_time}')
+        start_time_seconds = time.time()
         try:
             # Before anything else, check that we've got a background set
             # It's annoying to have to wait to find out!
@@ -586,12 +589,14 @@ class SmartScanThing(Thing):
             # We also pre-calculate a normalisation image based on the LST and white balance
             raw_image = cam.capture_array(stream_name="raw")
             #TODO: assert the image is 10-bit packed, or deal with other formats!
-            rgb = rggb2rgb(raw2rggb(raw_image))
-            lst = dict(cam.lens_shading_tables)
-            lum = np.array(lst["luminance"])
-            Cr = np.array(lst["Cr"])
-            Cb = np.array(lst["Cb"])
-            gr, gb = cam.colour_gains
+            norm_inputs = self.set_normalisation(cam = cam, raw_image = raw_image)
+            lum = norm_inputs['luminance']
+            Cr = norm_inputs['Cr']
+            Cb = norm_inputs['Cb']
+            gr = norm_inputs["gain_red"]
+            gb = norm_inputs["gain_blue"]
+            rgb = norm_inputs["rgb"]
+            
             G = 1/lum
             R = G/Cr/gr*np.min(Cr)  # The extra /np.max(Cr) emulates the quirky handling of Cr in
             B = G/Cb/gb*np.min(Cb)   # the picamera2 pipeline
@@ -602,6 +607,13 @@ class SmartScanThing(Thing):
             contrast_algorithm = cam.tuning["algorithms"][9]["rpi.contrast"]
             gamma = np.array(contrast_algorithm["gamma_curve"]).reshape((-1,2))
             gamma_8bit = interp1d(gamma[:, 0]/255, gamma[:, 1]/255)
+
+            capture_inputs = {}
+            capture_inputs['norm_inputs'] = norm_inputs
+            capture_inputs['colour_correction_matrix'] = colour_correction_matrix
+            capture_inputs['gamma_8bit'] = gamma_8bit
+            capture_inputs['white_norm'] = white_norm
+
             def process_raw_image(img):
                 normed = img/white_norm
                 corrected = np.dot(colour_correction_matrix, normed.reshape((-1, 3)).T).T.reshape(normed.shape)
@@ -612,13 +624,7 @@ class SmartScanThing(Thing):
                 f"Generated normalisation image with shape {white_norm.shape}, "
                 f"max {white_norm.max(axis=(0,1))}, min {white_norm.min(axis=(0,1))}"
             )
-            norm_inputs = {
-                "luminance": lum,
-                "Cr": Cr,
-                "Cb": Cb,
-                "gain_red": gr,
-                "gain_blue": gb,
-            }
+            
             def capture_and_save(acquired: Event, name: str) -> None:
                 """Capture an image and save it to disk
                 
@@ -703,8 +709,8 @@ class SmartScanThing(Thing):
                                     autofocus_dz = 2000,
                                     stack_height = 9,
                                     stack_dz = 50,
-                                    raw_image = raw_image,
-                                    focused_path = focused_path
+                                    focused_path = focused_path,
+                                    capture_inputs = capture_inputs
                                     )
 
                     focused_path.append([stage.position["x"], stage.position["y"], focused_height])
@@ -712,8 +718,8 @@ class SmartScanThing(Thing):
                 # add the current position to the list of all positions visited
                 true_path.append(loc)
                 
-                if len(true_path) == self.max_image_count:
-                    logger.info(f'Now captured {len(true_path)} images, ending scan.')
+                if len(focused_path) == self.max_image_count:
+                    logger.info(f'Now captured {len(focused_path)} images, ending scan.')
                     break
 
                 #if len(names) > 1:
@@ -756,6 +762,7 @@ class SmartScanThing(Thing):
             finally:
                 self._scan_lock.release()
             self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
+            logger.info(f'Scan duration was {round(time.time()-start_time_seconds)} seconds. Captured {len(focused_path)} images')
             logger.info("Processing images, please wait")
             self.preview_stitch_wait()
             self.correlate_wait()
@@ -1144,6 +1151,27 @@ class SmartScanThing(Thing):
         
         return zip
 
+    def set_normalisation(self, cam, raw_image = None):
+        if raw_image is None:
+            raw_image = cam.capture_array(stream_name="raw")
+        #TODO: assert the image is 10-bit packed, or deal with other formats!
+        rgb = rggb2rgb(raw2rggb(raw_image))
+        lst = dict(cam.lens_shading_tables)
+        lum = np.array(lst["luminance"])
+        Cr = np.array(lst["Cr"])
+        Cb = np.array(lst["Cb"])
+        gr, gb = cam.colour_gains
+
+        norm_inputs = {
+            "luminance": lum,
+            "Cr": Cr,
+            "Cb": Cb,
+            "gain_red": gr,
+            "gain_blue": gb,
+            "rgb": rgb,
+        }
+        return norm_inputs
+
     @thing_action
     def smart_stack(
         self,
@@ -1158,43 +1186,33 @@ class SmartScanThing(Thing):
         autofocus_dz = 2000,
         stack_height = 9,
         stack_dz = 50,
-        raw_image = None,
-        focused_path = []
+        focused_path = [],
+        capture_inputs = None
     ):
+        start_t = time.time()
         #TODO delete some failed images
-        if raw_image is None:
-            raw_image = cam.capture_array(stream_name="raw")
-        #TODO: assert the image is 10-bit packed, or deal with other formats!
-        rgb = rggb2rgb(raw2rggb(raw_image))
-        lst = dict(cam.lens_shading_tables)
-        lum = np.array(lst["luminance"])
-        Cr = np.array(lst["Cr"])
-        Cb = np.array(lst["Cb"])
-        gr, gb = cam.colour_gains
-        G = 1/lum
-        R = G/Cr/gr*np.min(Cr)  # The extra /np.max(Cr) emulates the quirky handling of Cr in
-        B = G/Cb/gb*np.min(Cb)   # the picamera2 pipeline
-        white_norm_lores = np.stack([R, G, B], axis=2)
-        zoom_factors = [i/n for i, n in zip(rgb[...,:3].shape, white_norm_lores.shape)]
-        white_norm = zoom(white_norm_lores, zoom_factors, order=1)[:rgb.shape[0], :rgb.shape[1], :]  # Could use some work
-        colour_correction_matrix = np.array(cam.colour_correction_matrix).reshape((3,3))
-        contrast_algorithm = cam.tuning["algorithms"][9]["rpi.contrast"]
-        gamma = np.array(contrast_algorithm["gamma_curve"]).reshape((-1,2))
-        gamma_8bit = interp1d(gamma[:, 0]/255, gamma[:, 1]/255)
+        norm_inputs = capture_inputs['norm_inputs']
+        lum = norm_inputs['luminance']
+        Cr = norm_inputs['Cr']
+        Cb = norm_inputs['Cb']
+        gr = norm_inputs["gain_red"]
+        gb = norm_inputs["gain_blue"]
+        rgb = norm_inputs["rgb"]
+
+        gamma_8bit = capture_inputs["gamma_8bit"]
+        colour_correction_matrix = capture_inputs["colour_correction_matrix"]
+        white_norm = capture_inputs["white_norm"]
+
+
         def process_raw_image(img):
             normed = img/white_norm
             corrected = np.dot(colour_correction_matrix, normed.reshape((-1, 3)).T).T.reshape(normed.shape)
             corrected[corrected < 0] = 0
             corrected[corrected > 255] = 255
             return gamma_8bit(corrected)
-        norm_inputs = {
-            "luminance": lum,
-            "Cr": Cr,
-            "Cb": Cb,
-            "gain_red": gr,
-            "gain_blue": gb,
-        }
-        def capture_and_save(name: str) -> None:
+
+
+        def capture_image():
             """Capture an image and save it to disk
             
             This will set the event `acquired` once the image has been acquired, so
@@ -1204,7 +1222,13 @@ class SmartScanThing(Thing):
                 capture_start = time.time()
                 metadata = metadata_getter()
                 raw_image = cam.capture_array(stream_name="raw")
-                acquisition_time = time.time()
+                return raw_image, metadata
+            except Exception as e:
+                logger.error(f"An error occurred while capturing: {e}", exc_info=e)
+                return 0, 0
+
+        def save_capture(name, raw_image, metadata):
+            try:    
                 # Save the raw image
                 # np.savez(os.path.join(raw_images_folder, name + ".npz"), raw_image=raw_image, **norm_inputs)
                 # Process it into 8 bit RGB
@@ -1250,6 +1274,8 @@ class SmartScanThing(Thing):
             logger.info("We've got a good idea where we should be skipping autofocus")
             stage.move_relative(z = 100)
         captures = 0
+        capture_list = []
+        metadata_list = []
         sharpnesses = []
         capture_heights = []
         max_stack_height = 15
@@ -1257,20 +1283,27 @@ class SmartScanThing(Thing):
             current_sharpness = cam.grab_jpeg_size(stream_name='lores')
             sharpnesses.append(current_sharpness)
             capture_heights.append(stage.position['z'])
-            capture_and_save(f"{stage.position['x']}_{stage.position['y']}_{stage.position['z']}_{captures}.jpeg")
+            img_array, img_metadata = capture_image()
+            capture_list.append(img_array)
+            metadata_list.append(img_metadata)
+            # capture_and_save(f"{stage.position['x']}_{stage.position['y']}_{stage.position['z']}_{captures}.jpeg")
             captures += 1
             stage.move_relative(
                 x = 0,
                 y = 0,
                 z = stack_dz
             )
+            time.sleep(0.1)
             if len(sharpnesses) >= 9:
                 result = self.test_sharpnesses(sharpnesses[-9:], logger)
                 if result:
                     break
             if captures == max_stack_height:
                 logger.warning(f"Could't find focus. Took {len(sharpnesses)} images and the best one was at {np.argmax(sharpnesses)}")
-        return capture_heights[np.argmax(sharpnesses)]
+        sharpest_index = np.argmax(sharpnesses)
+        save_capture(f"{stage.position['x']}_{stage.position['y']}.jpeg", capture_list[sharpest_index], metadata_list[sharpest_index])
+        logger.info(f'Captured image number {sharpest_index} in the list. z stack and capture took {round(time.time()-start_t,3)} seconds')
+        return capture_heights[sharpest_index]
 
     def test_sharpnesses(self, sharpnesses, logger):
         #TODO reimplement chebychev
