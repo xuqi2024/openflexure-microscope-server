@@ -756,6 +756,7 @@ class SmartScanThing(Thing):
             if capture_thread:
                 capture_thread.join()
             try:
+                #TODO print where the centre actually is
                 logger.info("Returning to starting position.")
                 if starting_position is not None:
                     stage.move_absolute(**starting_position, block_cancellation=True)
@@ -982,6 +983,7 @@ class SmartScanThing(Thing):
             self._preview_stitch_popen = Popen(
                 [self._script, "--stitching_mode", "only_stage_stitch", images_folder]
             )
+            #TODO: remove the previous scan preview when a new one starts
 
     def preview_stitch_running(self) -> bool:
         """Whether there is a preview stitch running in a subprocess"""
@@ -1298,6 +1300,20 @@ class SmartScanThing(Thing):
                 result = self.test_sharpnesses(sharpnesses[-9:], logger)
                 if result:
                     break
+                elif np.argmax(sharpnesses[-9]) <= 2:
+                    logger.warning(f"Could't find focus. Gone too far. Autofocusing")
+                    stage.move_relative(x = 0, y = 0, z = -(200 + autofocus_dz / 2))
+                    stage.move_relative(x = 0, y = 0, z = 200)
+                    m = autofocus.move_and_measure(dz = [0,autofocus_dz])
+                    stage.move_relative(x = 0, y = 0, z = -(200 + autofocus_dz))
+                    stage.move_relative(x = 0, y = 0, z = 200)
+                    
+                    _, heights, sizes = self.move_data(len(m.stage_positions)-2, data = m)
+                    stage.move_absolute(
+                        x = stage.position['x'],
+                        y = stage.position['y'],
+                        z = heights[np.argmax(sizes)] - ((2 + stack_height - 1) / 2)*stack_dz
+                        )
             if captures == max_stack_height:
                 logger.warning(f"Could't find focus. Took {len(sharpnesses)} images and the best one was at {np.argmax(sharpnesses)}")
         sharpest_index = np.argmax(sharpnesses)
