@@ -728,7 +728,7 @@ class SmartScanThing(Thing):
                         ):
                             path.append(pos)
 
-                    focused_height = self.smart_stack(cancel = cancel,
+                    focused_height, new_save_thread = self.smart_stack(cancel = cancel,
                                     logger = logger,
                                     autofocus = autofocus,
                                     stage = stage,
@@ -742,6 +742,15 @@ class SmartScanThing(Thing):
                                     focused_path = focused_path,
                                     capture_inputs = capture_inputs
                                     )
+                    # save images in the background
+                    if capture_thread:  # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
+                        if capture_thread.is_alive():
+                            wait_start = time.time()
+                            capture_thread.join()
+                            wait_time = time.time() - wait_start
+                            logger.info(f"Waited {wait_time:.1f}s for the previous capture to finish saving.")
+                    capture_thread = new_save_thread
+                    capture_thread.start()
 
                     focused_path.append([stage.position["x"], stage.position["y"], focused_height])
 
@@ -1374,18 +1383,22 @@ class SmartScanThing(Thing):
         sharpest_index = np.argmax(sharpnesses)
         start_index = int(sharpest_index - (image_stack_height - 1) / 2)
         end_index = int(sharpest_index + (image_stack_height - 1) / 2)
-        if not os.path.isdir(os.path.join(images_folder, f"{stage.position['x']}_{stage.position['y']}")):
-            os.makedirs(os.path.join(images_folder, f"{stage.position['x']}_{stage.position['y']}"))
-        for i in range(start_index, end_index+1):
-            save_capture(f"{stage.position['x']}_{stage.position['y']}/{i}.jpeg", capture_list[i], metadata_list[i])
-
+        current_site_folder = f"{stage.position['x']}_{stage.position['y']}"
+        if not os.path.isdir(os.path.join(images_folder, current_site_folder)):
+            os.makedirs(os.path.join(images_folder, current_site_folder))
         if not os.path.isdir(os.path.join(images_folder, "use")):
             os.makedirs(os.path.join(images_folder, "use"))
-        focused_image_name = os.path.join('/var/openflexure/', images_folder, 'use', f"{stage.position['x']}_{stage.position['y']}.jpeg")
+        focused_image_name = os.path.join('use', f"{stage.position['x']}_{stage.position['y']}.jpeg")
 
-        save_capture(focused_image_name, capture_list[sharpest_index], metadata_list[sharpest_index])
+        def save_captures():
+            save_capture(focused_image_name, capture_list[sharpest_index], metadata_list[sharpest_index])
+            for i in range(start_index, end_index+1):
+                save_capture(os.path.join(current_site_folder, f"{i}.jpeg"), capture_list[i], metadata_list[i])
+        save_thread = Thread(
+            target = save_captures
+        )
 
-        return capture_heights[sharpest_index]
+        return capture_heights[sharpest_index], save_thread
 
     @thing_property
     def stack_dz(self) -> int:
