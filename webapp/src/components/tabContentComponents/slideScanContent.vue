@@ -27,6 +27,20 @@
               <div class="uk-margin">
                 <propertyControl
                   thing-name="smart_scan"
+                  property-name="stack_dz"
+                  label="Stack dz (steps)"
+                />
+              </div>
+              <div class="uk-margin">
+                <propertyControl
+                  thing-name="smart_scan"
+                  property-name="stack_height"
+                  label="Images in stack"
+                />
+              </div>
+              <div class="uk-margin">
+                <propertyControl
+                  thing-name="smart_scan"
                   property-name="overlap"
                   label="Image overlap (0-1)"
                 />
