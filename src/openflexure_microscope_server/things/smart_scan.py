@@ -445,7 +445,9 @@ class SmartScanThing(Thing):
         if x_positions >= 3 and y_positions >= 3:
             z = self.fit_next_z(loc, focused_path)
             # just so the stage.move line still works....
-            z = z + self.autofocus_dz / 2 - 400
+            # TODO parameterise this with properties - for now, we'll say 400 for dz = 50, 1800 for dz = 200
+            # z = z + self.autofocus_dz / 2 - 400
+            z = z + self.autofocus_dz / 2 - 5*self.stack_dz
             # 400 is our undershoot: 100 to move back up, and then we start the 
             # stack at predicted peak, minus 6 steps
         elif len(focused_path) > 1:
@@ -458,6 +460,26 @@ class SmartScanThing(Thing):
             x=int(loc[0]), y=int(loc[1]), z = z - self.autofocus_dz / 2
         )
         return loc + [z]
+
+    def update_thumbnail(self, images_folder, logger):
+        target_width = 200
+    
+        file_path = os.path.join(images_folder, 'stitched.jpg')
+        if os.path.isfile(file_path):
+            img = cv2.imread(file_path, -1)
+        else:
+            file_path = os.path.join(images_folder, 'stitched_from_stage.jpg')
+            if os.path.isfile(file_path):
+                img = cv2.imread(file_path, -1)
+            else:
+                logger.info(f'No scan image to downsample yet')
+                return 0
+        img_height, img_width = img.shape[:2]
+        ratio = target_width / img_width
+
+        thumbnail = cv2.resize(img, dsize=(0,0), fx=ratio, fy=ratio)
+        cv2.imwrite(os.path.join(images_folder, 'stitched_thumbnail.jpg'), thumbnail)
+        return 1
 
     @thing_action
     def sample_scan(
@@ -492,6 +514,11 @@ class SmartScanThing(Thing):
         capture_thread = None
         self._scan_lock.acquire(timeout=0.1)
         start_time = time.strftime("%H:%M:%S")
+        if self.stack_height % 2 == 0:
+            logger.error("Stack height should be odd")
+            raise RuntimeError(
+                "Stack height should be odd"
+            )
         logger.info(f'Starting scan at {start_time}')
         start_time_seconds = time.time()
         try:
@@ -577,7 +604,9 @@ class SmartScanThing(Thing):
                 'dx' : dx,
                 'dy' : dy,
                 'start time' : start_time,
-                'skipping background' : self.skip_background 
+                'skipping background' : self.skip_background,
+                'stack_dz' : self.stack_dz,
+                'stack_height' : self.stack_height 
             }
 
             with open(os.path.join(images_folder, 'scan_inputs.json'), 'w', encoding='utf-8') as f:
@@ -665,10 +694,10 @@ class SmartScanThing(Thing):
             while len(path) > 0:
                 loc = self.move_to_next_point(stage, logger, path=path, focused_path=focused_path)
                 if not self.preview_stitch_running():
-                    self.preview_stitch_start(images_folder)
+                    self.preview_stitch_start(os.path.join(images_folder, 'use'))
                 if self.stitch_automatically:
                     if not self.correlate_running():
-                        self.correlate_start(images_folder, overlap=overlap)
+                        self.correlate_start(os.path.join(images_folder, 'use'), overlap=overlap)
 
                 ensure_free_disk_space(scan_folder)
 
@@ -706,9 +735,9 @@ class SmartScanThing(Thing):
                                     metadata_getter = metadata_getter,
                                     images_folder = images_folder,
                                     start = 'base',
-                                    autofocus_dz = 2000,
-                                    stack_height = 9,
-                                    stack_dz = 50,
+                                    autofocus_dz = self.autofocus_dz,
+                                    image_stack_height = self.stack_height,
+                                    stack_dz = self.stack_dz,
                                     focused_path = focused_path,
                                     capture_inputs = capture_inputs
                                     )
@@ -726,6 +755,8 @@ class SmartScanThing(Thing):
                 #    generate_config(images_folder, positions, names, CSM, csm_calibration_width, img_width, logger)
 
                 temp_path = []
+
+                self.update_thumbnail(os.path.join(images_folder, 'use'), logger)
 
                 for i in path:
                     if distance_to_site(i, true_path[0][:2]) < max_dist:
@@ -756,6 +787,7 @@ class SmartScanThing(Thing):
             if capture_thread:
                 capture_thread.join()
             try:
+                #TODO print where the centre actually is
                 logger.info("Returning to starting position.")
                 if starting_position is not None:
                     stage.move_absolute(**starting_position, block_cancellation=True)
@@ -938,13 +970,14 @@ class SmartScanThing(Thing):
     @property
     def latest_preview_stitch_path(self):
         """The path of the latest preview stitched image"""
-        stage_path = os.path.join(self.images_folder(), "stitched_from_stage.jpg")
-        stitch_path = os.path.join(self.images_folder(), self.latest_scan_name + "_stitched.jpg")
+<<<<<<< src/openflexure_microscope_server/things/smart_scan.py
+        stage_path = os.path.join(self.images_folder(), "use", "stitched_from_stage.jpg")
+        stitch_path = os.path.join(self.images_folder(), "use", self.latest_scan_name + "_stitched.jpg")
         # The lines below are a hack so we see the stitched image at the end of a scan.
         if os.path.exists(stage_path) and os.path.exists(stitch_path):
             if os.path.getmtime(stitch_path) > os.path.getmtime(stage_path):
                 return stitch_path
-        return os.path.join(self.images_folder(), "stitched_from_stage.jpg")
+        return os.path.join(self.images_folder(), "use", "stitched_from_stage.jpg")
 
     @thing_property
     def latest_preview_stitch_time(self) -> Optional[datetime]:
@@ -988,6 +1021,7 @@ class SmartScanThing(Thing):
             self._preview_stitch_popen = Popen(
                 [self._script, "--stitching_mode", "only_stage_stitch", images_folder]
             )
+            #TODO: remove the previous scan preview when a new one starts
 
     def preview_stitch_running(self) -> bool:
         """Whether there is a preview stitch running in a subprocess"""
@@ -1190,12 +1224,14 @@ class SmartScanThing(Thing):
         images_folder,
         start = 'base',
         autofocus_dz = 2000,
-        stack_height = 9,
+        image_stack_height = 9,
         stack_dz = 50,
         focused_path = [],
         capture_inputs = None
     ):
         start_t = time.time()
+        undershoot = 5
+        stack_height = 5
         #TODO delete some failed images
         norm_inputs = capture_inputs['norm_inputs']
         lum = norm_inputs['luminance']
@@ -1274,17 +1310,22 @@ class SmartScanThing(Thing):
             stage.move_absolute(
                 x = stage.position['x'],
                 y = stage.position['y'],
-                z = heights[np.argmax(sizes)] - ((2 + stack_height - 1) / 2)*stack_dz
+                z = heights[np.argmax(sizes)] - (undershoot*stack_dz)
+                # This is the height of the sharpest point, minus the height of half the stack. Better to be too low than too high, so we go an extra 4 steps lower
                 )
         else:
             logger.info("We've got a good idea where we should be skipping autofocus")
-            stage.move_relative(z = 100)
         captures = 0
         capture_list = []
         metadata_list = []
         sharpnesses = []
         capture_heights = []
-        max_stack_height = 15
+        max_stack_height = 17
+
+        buffer = (image_stack_height - 1) / 2
+        start_index = buffer
+        end_index = stack_height-buffer-1
+
         while captures < max_stack_height:
             current_sharpness = cam.grab_jpeg_size(stream_name='lores')
             sharpnesses.append(current_sharpness)
@@ -1299,23 +1340,84 @@ class SmartScanThing(Thing):
                 y = 0,
                 z = stack_dz
             )
-            time.sleep(0.1)
-            if len(sharpnesses) >= 9:
-                result = self.test_sharpnesses(sharpnesses[-9:], logger)
+            time.sleep(0.2)
+            if len(sharpnesses) >= stack_height:
+                result = self.test_sharpnesses(sharpnesses[-stack_height:], logger, start_index, end_index)
                 if result:
                     break
+                elif np.argmax(sharpnesses[-stack_height:]) <= start_index:
+                    logger.warning(f"Could't find focus. Gone too far. Peak was image {np.argmax(sharpnesses)} Autofocusing")
+                    logger.warning(f"{sharpnesses}")
+                    stage.move_relative(x = 0, y = 0, z = -(500+max_stack_height*stack_dz))
+                    # stage.move_relative(x = 0, y = 0, z = 200)
+                    m = autofocus.move_and_measure(dz = [0,500+max_stack_height*stack_dz])
+                    stage.move_relative(x = 0, y = 0, z = -(500+max_stack_height*stack_dz))
+                    stage.move_relative(x = 0, y = 0, z = 100)
+                    
+                    _, heights, sizes = self.move_data(len(m.stage_positions)-2, data = m)
+                    stage.move_absolute(
+                        x = stage.position['x'],
+                        y = stage.position['y'],
+                        z = heights[np.argmax(sizes)] - undershoot*stack_dz
+                        )
+                    #NEED TO CLEAR THE LISTS AT THIS POINT!
+                    sharpnesses = []
+                    capture_heights = []
+                    capture_list = []
+                    metadata_list = []
+                    captures = 0
+
             if captures == max_stack_height:
                 logger.warning(f"Could't find focus. Took {len(sharpnesses)} images and the best one was at {np.argmax(sharpnesses)}")
         sharpest_index = np.argmax(sharpnesses)
-        save_capture(f"{stage.position['x']}_{stage.position['y']}.jpeg", capture_list[sharpest_index], metadata_list[sharpest_index])
+        start_index = int(sharpest_index - (image_stack_height - 1) / 2)
+        end_index = int(sharpest_index + (image_stack_height - 1) / 2)
+        if not os.path.isdir(os.path.join(images_folder, f"{stage.position['x']}_{stage.position['y']}")):
+            os.makedirs(os.path.join(images_folder, f"{stage.position['x']}_{stage.position['y']}"))
+        for i in range(start_index, end_index+1):
+            save_capture(f"{stage.position['x']}_{stage.position['y']}/{i}.jpeg", capture_list[i], metadata_list[i])
         logger.info(f'Captured image number {sharpest_index} in the list. z stack and capture took {round(time.time()-start_t,3)} seconds')
+
+
+        if not os.path.isdir(os.path.join(images_folder, "use")):
+            os.makedirs(os.path.join(images_folder, "use"))
+        focused_image_name = os.path.join('/var/openflexure/', images_folder, 'use', f"{stage.position['x']}_{stage.position['y']}.jpeg")
+        
+        logger.info(focused_image_name)
+
+        save_capture(focused_image_name, capture_list[sharpest_index], metadata_list[sharpest_index])
+
         return capture_heights[sharpest_index]
 
-    def test_sharpnesses(self, sharpnesses, logger):
+    @thing_property
+    def stack_dz(self) -> int:
+        """Space in steps between images in a z-stack
+        Suggested is 50 for 60-100x
+        100 for 40x
+        200 for 20x"""
+        return self.thing_settings.get("stack_dz", 50)
+    
+    @stack_dz.setter
+    def stack_dz(self, value: int) -> None:
+        self.thing_settings["stack_dz"] = value
+
+    @thing_property
+    def stack_height(self) -> int:
+        """The number of images to capture in a stack
+        Suggested is 9 for 60-100x
+        7 for 40x
+        5 for 20x"""
+        return self.thing_settings.get("stack_height", 7)
+    
+    @stack_height.setter
+    def stack_height(self, value: int) -> None:
+        self.thing_settings["stack_height"] = value
+
+    def test_sharpnesses(self, sharpnesses, logger, start_index, end_index):
         #TODO reimplement chebychev
-        if np.argmax(sharpnesses) <= 2:
+        if np.argmax(sharpnesses) <= start_index:
             return False
-        if np.argmax(sharpnesses) >= 7:
+        if np.argmax(sharpnesses) >= end_index:
             return False
         max_loc = np.argmax(sharpnesses)
         approach = sharpnesses[:max_loc]

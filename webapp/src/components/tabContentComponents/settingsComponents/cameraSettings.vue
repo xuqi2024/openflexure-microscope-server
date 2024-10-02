@@ -30,6 +30,12 @@
                     thing-name="camera"
                     :read-back-delay="1000"
                   />
+                  <PropertyControl
+                    label="Colour correction matrix"
+                    property-name="colour_correction_matrix"
+                    thing-name="camera"
+                    :read-back-delay="1000"
+                  />
                 </div>
               </li>
               <li class="uk-open">
