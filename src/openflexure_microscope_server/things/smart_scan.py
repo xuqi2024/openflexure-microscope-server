@@ -447,17 +447,17 @@ class SmartScanThing(Thing):
             # just so the stage.move line still works....
             # TODO parameterise this with properties - for now, we'll say 400 for dz = 50, 1800 for dz = 200
             # z = z + self.autofocus_dz / 2 - 400
-            z = z + self.autofocus_dz / 2 - 5*self.stack_dz
+            z = z - 5*self.stack_dz
             # 400 is our undershoot: 100 to move back up, and then we start the 
             # stack at predicted peak, minus 6 steps
         elif len(focused_path) > 1:
             z_index = closest(loc, focused_path)
-            z = int(focused_path[z_index][2])
+            z = int(focused_path[z_index][2]) - 8*self.stack_dz
         else:
-            z = stage.position["z"]
+            z = stage.position["z"] - 8*self.stack_dz
         logger.debug(f"Moving to {loc}")
         stage.move_absolute(
-            x=int(loc[0]), y=int(loc[1]), z = z - self.autofocus_dz / 2
+            x=int(loc[0]), y=int(loc[1]), z = z
         )
         return loc + [z]
 
@@ -1099,7 +1099,7 @@ class SmartScanThing(Thing):
                 overlap = data_loaded['overlap']
             except:
                 overlap = 0.1
-        self.run_subprocess(logger, [self._script, "--stitching_mode", "all", f"{tiff_arg}", "--minimum_overlap", f"{round(overlap*0.9,2)}", "--resize", "1", images_folder])
+        self.run_subprocess(logger, [self._script, "--stitching_mode", "all", f"{tiff_arg}", "--minimum_overlap", f"{round(overlap*0.9,2)}", "--resize", "1", os.path.join(images_folder, 'use')])
     
     @thing_action
     def create_zip_of_scan(self, logger: InvocationLogger, scan_name: Optional[str]=None, download_zip = True) -> ZipBlob:
@@ -1289,23 +1289,23 @@ class SmartScanThing(Thing):
         y_positions = len(set([i[1] for i in focused_path]))
         if x_positions < 3 or y_positions < 3:
             logger.info("We're just starting, so doing a full autofocus")
-            if start == 'centre':
-                stage.move_relative(x = 0, y = 0, z = -(200 + autofocus_dz / 2))
-                stage.move_relative(x = 0, y = 0, z = 200)
-            elif start == 'base':
-                stage.move_relative(x = 0, y = 0, z = -200)
-                stage.move_relative(x = 0, y = 0, z = 200)
-            m = autofocus.move_and_measure(dz = [0,autofocus_dz])
-            stage.move_relative(x = 0, y = 0, z = -(200 + autofocus_dz))
-            stage.move_relative(x = 0, y = 0, z = 200)
+            # if start == 'centre':
+            #     stage.move_relative(x = 0, y = 0, z = -(200 + autofocus_dz / 2))
+            #     stage.move_relative(x = 0, y = 0, z = 200)
+            # elif start == 'base':
+            #     stage.move_relative(x = 0, y = 0, z = -200)
+            #     stage.move_relative(x = 0, y = 0, z = 200)
+            # m = autofocus.move_and_measure(dz = [0,autofocus_dz])
+            # stage.move_relative(x = 0, y = 0, z = -(200 + autofocus_dz))
+            # stage.move_relative(x = 0, y = 0, z = 200)
             
-            _, heights, sizes = self.move_data(len(m.stage_positions)-2, data = m)
-            stage.move_absolute(
-                x = stage.position['x'],
-                y = stage.position['y'],
-                z = heights[np.argmax(sizes)] - (undershoot*stack_dz)
-                # This is the height of the sharpest point, minus the height of half the stack. Better to be too low than too high, so we go an extra 4 steps lower
-                )
+            # _, heights, sizes = self.move_data(len(m.stage_positions)-2, data = m)
+            # stage.move_absolute(
+            #     x = stage.position['x'],
+            #     y = stage.position['y'],
+            #     z = heights[np.argmax(sizes)] - (undershoot*stack_dz)
+            #     # This is the height of the sharpest point, minus the height of half the stack. Better to be too low than too high, so we go an extra 4 steps lower
+            #     )
         else:
             logger.info("We've got a good idea where we should be skipping autofocus")
         captures = 0
