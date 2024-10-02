@@ -970,7 +970,14 @@ class SmartScanThing(Thing):
     @property
     def latest_preview_stitch_path(self):
         """The path of the latest preview stitched image"""
-        return os.path.join(os.path.join(self.images_folder(), 'use'), "stitched_from_stage.jpg")
+<<<<<<< src/openflexure_microscope_server/things/smart_scan.py
+        stage_path = os.path.join(self.images_folder(), "use", "stitched_from_stage.jpg")
+        stitch_path = os.path.join(self.images_folder(), "use", self.latest_scan_name + "_stitched.jpg")
+        # The lines below are a hack so we see the stitched image at the end of a scan.
+        if os.path.exists(stage_path) and os.path.exists(stitch_path):
+            if os.path.getmtime(stitch_path) > os.path.getmtime(stage_path):
+                return stitch_path
+        return os.path.join(self.images_folder(), "use", "stitched_from_stage.jpg")
 
     @thing_property
     def latest_preview_stitch_time(self) -> Optional[datetime]:
