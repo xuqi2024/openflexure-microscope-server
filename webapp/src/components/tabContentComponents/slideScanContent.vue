@@ -5,7 +5,7 @@
   <!-- Grid managing tab content -->
   <div v-else uk-grid class="uk-height-1-1 uk-margin-remove uk-padding-remove">
     <div class="control-component uk-padding-small">
-      <div v-show="!scanning">
+      <div v-show="!scanning" class="uk-padding-small">
         <ul uk-accordion="multiple: true">
           <li>
             <a class="uk-accordion-title" href="#">Configure</a>
