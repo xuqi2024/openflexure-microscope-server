@@ -440,21 +440,19 @@ class SmartScanThing(Thing):
         """
         loc = [path[0][0], path[0][1]]
         path.remove(path[0])
+        logger.debug(f"Moving to {loc}")
         x_positions = len(set([i[0] for i in focused_path]))
         y_positions = len(set([i[1] for i in focused_path]))
         if x_positions >= 3 and y_positions >= 3:
-            z = self.fit_next_z(loc, focused_path)
-            # just so the stage.move line still works....
-            # TODO parameterise this with properties - for now, we'll say 400 for dz = 50, 1800 for dz = 200
-            # z = z + self.autofocus_dz / 2 - 400
-            z = z - 5*self.stack_dz
-            # 400 is our undershoot: 100 to move back up, and then we start the 
-            # stack at predicted peak, minus 6 steps
+            z = int(self.fit_next_z(loc, focused_path))
+            logger.info(f"{loc}, {z}")
+            z = z - ((self.stack_test_height-1)/2 +4)*self.stack_dz
         elif len(focused_path) > 1:
             z_index = closest(loc, focused_path)
-            z = int(focused_path[z_index][2]) - 8*self.stack_dz
+            z = int(focused_path[z_index][2]) - ((self.stack_test_height-1)/2 +6)*self.stack_dz
         else:
-            z = stage.position["z"] - 8*self.stack_dz
+            z = stage.position["z"] - ((self.stack_test_height-1)/2 +7)*self.stack_dz
+            # z = stage.position['z'] - 700
         logger.debug(f"Moving to {loc}")
         stage.move_absolute(
             x=int(loc[0]), y=int(loc[1]), z = z
@@ -472,13 +470,16 @@ class SmartScanThing(Thing):
             if os.path.isfile(file_path):
                 img = cv2.imread(file_path, -1)
             else:
-                logger.info(f'No scan image to downsample yet')
+                logger.debug(f'No scan image to downsample yet')
                 return 0
-        img_height, img_width = img.shape[:2]
-        ratio = target_width / img_width
+        try:
+            img_height, img_width = img.shape[:2]
+            ratio = target_width / img_width
 
-        thumbnail = cv2.resize(img, dsize=(0,0), fx=ratio, fy=ratio)
-        cv2.imwrite(os.path.join(images_folder, 'stitched_thumbnail.jpg'), thumbnail)
+            thumbnail = cv2.resize(img, dsize=(0,0), fx=ratio, fy=ratio)
+            cv2.imwrite(os.path.join(images_folder, 'stitched_thumbnail.jpg'), thumbnail)
+        except:
+            return 0
         return 1
 
     @thing_action
@@ -1229,9 +1230,10 @@ class SmartScanThing(Thing):
         capture_inputs = None
     ):
         start_t = time.time()
-        undershoot = 5
-        stack_height = 5
-        #TODO delete some failed images
+        # This is the number of images we test.
+        stack_height = self.stack_test_height
+        undershoot = (self.stack_test_height-1)/2 + 5
+        
         norm_inputs = capture_inputs['norm_inputs']
         lum = norm_inputs['luminance']
         Cr = norm_inputs['Cr']
@@ -1294,26 +1296,9 @@ class SmartScanThing(Thing):
         x_positions = len(set([i[0] for i in focused_path]))
         y_positions = len(set([i[1] for i in focused_path]))
         if x_positions < 3 or y_positions < 3:
-            logger.info("We're just starting, so doing a full autofocus")
-            # if start == 'centre':
-            #     stage.move_relative(x = 0, y = 0, z = -(200 + autofocus_dz / 2))
-            #     stage.move_relative(x = 0, y = 0, z = 200)
-            # elif start == 'base':
-            #     stage.move_relative(x = 0, y = 0, z = -200)
-            #     stage.move_relative(x = 0, y = 0, z = 200)
-            # m = autofocus.move_and_measure(dz = [0,autofocus_dz])
-            # stage.move_relative(x = 0, y = 0, z = -(200 + autofocus_dz))
-            # stage.move_relative(x = 0, y = 0, z = 200)
-            
-            # _, heights, sizes = self.move_data(len(m.stage_positions)-2, data = m)
-            # stage.move_absolute(
-            #     x = stage.position['x'],
-            #     y = stage.position['y'],
-            #     z = heights[np.argmax(sizes)] - (undershoot*stack_dz)
-            #     # This is the height of the sharpest point, minus the height of half the stack. Better to be too low than too high, so we go an extra 4 steps lower
-            #     )
+            logger.debug("We're just starting, so doing a full autofocus")
         else:
-            logger.info("We've got a good idea where we should be skipping autofocus")
+            logger.debug("We've got a good idea where we should be skipping autofocus")
         captures = 0
         capture_list = []
         metadata_list = []
@@ -1321,9 +1306,9 @@ class SmartScanThing(Thing):
         capture_heights = []
         max_stack_height = 17
 
-        buffer = (image_stack_height - 1) / 2
-        start_index = buffer
-        end_index = stack_height-buffer-1
+        # So for testing a stack of 5 images, we need (5-1)/2=2 images before the peak
+        # and 2 after the peak
+        start_index = (stack_height - 1) / 2 
 
         while captures < max_stack_height:
             current_sharpness = cam.grab_jpeg_size(stream_name='lores')
@@ -1341,12 +1326,11 @@ class SmartScanThing(Thing):
             )
             time.sleep(0.2)
             if len(sharpnesses) >= stack_height:
-                result = self.test_sharpnesses(sharpnesses[-stack_height:], logger, start_index, end_index)
-                if result:
+                result = self.test_sharpnesses(sharpnesses[-stack_height:], logger, start_index)
+                if result == 'success':
                     break
-                elif np.argmax(sharpnesses[-stack_height:]) <= start_index:
-                    logger.warning(f"Could't find focus. Gone too far. Peak was image {np.argmax(sharpnesses)} Autofocusing")
-                    logger.warning(f"{sharpnesses}")
+                elif np.argmax(sharpnesses[-stack_height:]) < start_index:
+                    logger.info(f"Could't find focus. Gone too far. Peak was image {np.argmax(sharpnesses)}. List is {sharpnesses}")
                     stage.move_relative(x = 0, y = 0, z = -(500+max_stack_height*stack_dz))
                     # stage.move_relative(x = 0, y = 0, z = 200)
                     m = autofocus.move_and_measure(dz = [0,500+max_stack_height*stack_dz])
@@ -1365,9 +1349,28 @@ class SmartScanThing(Thing):
                     capture_list = []
                     metadata_list = []
                     captures = 0
-
-            if captures == max_stack_height:
-                logger.warning(f"Could't find focus. Took {len(sharpnesses)} images and the best one was at {np.argmax(sharpnesses)}")
+                elif captures == max_stack_height:
+                    logger.info(f"Could't find focus. Took {len(sharpnesses)} images and the best one was at {np.argmax(sharpnesses)}. List is {sharpnesses}")
+                    stage.move_absolute(z = capture_heights[np.argmax(sharpnesses)])
+                    stage.move_relative(x = 0, y = 0, z = -(500+max_stack_height*stack_dz))
+                    # stage.move_relative(x = 0, y = 0, z = 200)
+                    m = autofocus.move_and_measure(dz = [0,500+max_stack_height*stack_dz])
+                    stage.move_relative(x = 0, y = 0, z = -(500+max_stack_height*stack_dz))
+                    stage.move_relative(x = 0, y = 0, z = 100)
+                    
+                    _, heights, sizes = self.move_data(len(m.stage_positions)-2, data = m)
+                    stage.move_absolute(
+                        x = stage.position['x'],
+                        y = stage.position['y'],
+                        z = heights[np.argmax(sizes)] - undershoot*stack_dz
+                        )
+                    #NEED TO CLEAR THE LISTS AT THIS POINT!
+                    logger.debug(sharpnesses)
+                    sharpnesses = []
+                    capture_heights = []
+                    capture_list = []
+                    metadata_list = []
+                    captures = 0
         sharpest_index = np.argmax(sharpnesses)
         start_index = int(sharpest_index - (image_stack_height - 1) / 2)
         end_index = int(sharpest_index + (image_stack_height - 1) / 2)
@@ -1375,14 +1378,10 @@ class SmartScanThing(Thing):
             os.makedirs(os.path.join(images_folder, f"{stage.position['x']}_{stage.position['y']}"))
         for i in range(start_index, end_index+1):
             save_capture(f"{stage.position['x']}_{stage.position['y']}/{i}.jpeg", capture_list[i], metadata_list[i])
-        logger.info(f'Captured image number {sharpest_index} in the list. z stack and capture took {round(time.time()-start_t,3)} seconds')
-
 
         if not os.path.isdir(os.path.join(images_folder, "use")):
             os.makedirs(os.path.join(images_folder, "use"))
         focused_image_name = os.path.join('/var/openflexure/', images_folder, 'use', f"{stage.position['x']}_{stage.position['y']}.jpeg")
-        
-        logger.info(focused_image_name)
 
         save_capture(focused_image_name, capture_list[sharpest_index], metadata_list[sharpest_index])
 
@@ -1401,31 +1400,39 @@ class SmartScanThing(Thing):
         self.thing_settings["stack_dz"] = value
 
     @thing_property
+    def stack_test_height(self) -> int:
+        """Number of images in the stack to test"""
+        return self.thing_settings.get("stack_test_height", 7)
+    
+    @stack_test_height.setter
+    def stack_test_height(self, value: int) -> None:
+        self.thing_settings["stack_test_height"] = value
+
+    @thing_property
     def stack_height(self) -> int:
-        """The number of images to capture in a stack
-        Suggested is 9 for 60-100x
-        7 for 40x
-        5 for 20x"""
-        return self.thing_settings.get("stack_height", 7)
+        """The number of images to capture and save in a stack
+        Defaults to 1 unless you need to see either side of focus"""
+        return self.thing_settings.get("stack_height", 1)
     
     @stack_height.setter
     def stack_height(self, value: int) -> None:
         self.thing_settings["stack_height"] = value
 
-    def test_sharpnesses(self, sharpnesses, logger, start_index, end_index):
+    def test_sharpnesses(self, sharpnesses, logger, start_index):
         #TODO reimplement chebychev
-        if np.argmax(sharpnesses) <= start_index:
+        if np.argmax(sharpnesses) < start_index:
             return False
-        if np.argmax(sharpnesses) >= end_index:
+        if len(sharpnesses) - 1 - np.argmax(sharpnesses) < start_index:
             return False
         max_loc = np.argmax(sharpnesses)
         approach = sharpnesses[:max_loc]
         recede = sharpnesses[max_loc:]
         if sorted(approach) == approach and sorted(recede, reverse = True):
-            logger.info('really good')
+            logger.debug('really good')
         else:
-            logger.info('Good enough')
-        return True
+            # logger.info('Good enough')
+            return False
+        return 'success'
 
     def move_data(
         self, istart: int, istop: Optional[int] = None, data: Optional[dict] = None
