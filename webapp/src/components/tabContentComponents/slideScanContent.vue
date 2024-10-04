@@ -35,7 +35,14 @@
                 <propertyControl
                   thing-name="smart_scan"
                   property-name="stack_height"
-                  label="Images in stack"
+                  label="Images in stack to capture"
+                />
+              </div>
+              <div class="uk-margin">
+                <propertyControl
+                  thing-name="smart_scan"
+                  property-name="stack_test_height"
+                  label="Images in stack to test"
                 />
               </div>
               <div class="uk-margin">
@@ -115,11 +122,13 @@
           :log="log"
           :task-status="taskStatus"
         />
+        <div class="uk-padding-small">
         <action-progress-bar :progress="progress" :task-status="taskStatus" />
         <button
           v-if="cancellable"
           type="button"
-          class="uk-button uk-button-danger uk-width-1-1"
+          style="margin:auto;"
+          class="uk-button uk-button-danger uk-width-1-2"
           @click="$refs.smartScanButton.terminateTask()"
         >
           Cancel
@@ -151,8 +160,11 @@
             @error="modalError"
           />
         </div>
+        </div>
       </div>
+      <div class="uk-padding-small">
       <h3 v-if="scanning">Scan ID: {{ lastScanName }}</h3>
+      </div>
     </div>
     <div class="view-image uk-width-expand uk-height-1-1">
       <img

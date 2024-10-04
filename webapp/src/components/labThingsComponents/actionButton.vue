@@ -330,7 +330,7 @@ export default {
   justify-content: flex-start;
   align-content: stretch;
   align-items: center;
-  width: 100%;
+  width: 90%;
 }
 
 #progress-and-cancel-row .stretchy {
