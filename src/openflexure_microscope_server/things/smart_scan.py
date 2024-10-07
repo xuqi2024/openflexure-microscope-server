@@ -333,6 +333,7 @@ class ScanInfo(BaseModel):
 
 DOWNLOADABLE_SCAN_FILES = (
     "images.zip",
+    "stitched_thumbnail.jpg"
 )
 
 class JPEGBlob(BlobOutput):
@@ -481,6 +482,29 @@ class SmartScanThing(Thing):
         except:
             return 0
         return 1
+
+        
+    @fastapi_endpoint(
+            "get",
+            "scans/stitched_thumbnail.jpg",
+            responses = {
+                200: {
+                    "description": "A thumbnail-quality stitched image",
+                    "content": {"image/jpeg": {}}
+                },
+                404: {"description": "File not found"}
+            },
+        )
+    def get_scan_thumbnail(self, scan_name: str) -> FileResponse:
+        """Retrieve a file from a scan.
+        
+        This endpoint allows files to be downloaded from a scan.
+        """
+        path = os.path.join(self.scans_folder_path, scan_name, "images", "use", "stitched_thumbnail.jpg")
+        if not os.path.isfile(path):
+            raise HTTPException(404, "File not found")
+        return FileResponse(path)
+
 
     @thing_action
     def sample_scan(

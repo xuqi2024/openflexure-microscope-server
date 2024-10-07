@@ -436,6 +436,13 @@ html {
   overflow-y: clip;
 }
 
+.thumbnail-fit {
+  max-height: 120px;
+  object-fit: contain;
+  overflow-y: hidden;
+}
+
+
 .section-content {
   padding: 0;
   height: 100%;
