@@ -9,7 +9,7 @@
         <form @submit.prevent="applySettingsRequest">
           <div class="uk-margin-small-bottom">
             <ul uk-accordion="multiple: true">
-              <li class="uk-open">
+              <li>
                 <a class="uk-accordion-title" href="#">Pi Camera Settings</a>
                 <div class="uk-accordion-content">
                   <PropertyControl
@@ -38,7 +38,7 @@
                   />
                 </div>
               </li>
-              <li class="uk-open">
+              <li>
                 <a class="uk-accordion-title" href="#">Image Quality</a>
                 <div class="uk-accordion-content">
                   <PropertyControl

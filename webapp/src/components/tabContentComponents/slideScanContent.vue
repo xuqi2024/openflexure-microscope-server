@@ -269,7 +269,7 @@ export default {
 
 <style scoped>
 #log-display {
-  height: 15em;
+  height: 10em;
 }
 .control-component {
   width: 33%;

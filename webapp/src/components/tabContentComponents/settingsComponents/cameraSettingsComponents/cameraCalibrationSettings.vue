@@ -56,7 +56,7 @@
     <div
       v-show="showExtraSettings"
       v-if="'flatten_lens_shading_table' in actions"
-      class="uk-child-width-expand"
+      class="uk-margin-small"
     >
       <action-button
         :can-terminate="false"
@@ -71,7 +71,7 @@
     <div
       v-show="showExtraSettings"
       v-if="'reset_lens_shading' in actions"
-      class="uk-child-width-expand"
+      class="uk-margin-small"
     >
       <action-button
         :can-terminate="false"
@@ -84,7 +84,7 @@
       />
       <div
       v-show="showExtraSettings"
-      class="uk-child-width-expand"
+      class="uk-margin-small"
       >
       <action-button
         :can-terminate="false"
