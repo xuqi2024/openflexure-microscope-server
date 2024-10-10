@@ -212,14 +212,14 @@ export default {
           await new Promise(r => setTimeout(r, this.readBackDelay));
           let newVal = await this.readProperty();
           if (newVal == requestedValue) {
-            await this.modalNotify(`Set ${this.label} to ${newVal}.`);
+            await this.modalNotify(`Set ${this.label}`);
           } else {
             await this.modalNotify(
-              `Set ${this.label} to ${newVal} (requested ${requestedValue}).`
+              `Set ${this.label}`
             );
           }
         } else {
-          await this.modalNotify(`Set ${this.label} to ${this.value}.`);
+          await this.modalNotify(`Set ${this.label}`);
         }
       } catch (error) {
         this.modalError(error); // Let mixin handle error
