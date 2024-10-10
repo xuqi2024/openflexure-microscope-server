@@ -119,6 +119,7 @@
         <mini-stream-display v-if="displayImageOnRight" />
         <action-log-display
           id="log-display"
+          style="margin-top:10px"
           :log="log"
           :task-status="taskStatus"
         />
