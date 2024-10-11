@@ -15,14 +15,14 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 dependencies = [
-  "labthings-fastapi",
+  "labthings-fastapi[server] == 0.0.5",
   "labthings-sangaboard",
   "labthings-picamera2",
+  #"camera-stage-mapping @ git+https://gitlab.com/openflexure/microscope-extensions/camera-stage-mapping.git@31dc6dfffc4f6be3998dbf5671dcc8cc65e4bf44",
   "camera-stage-mapping ~= 0.1.6",
-  "numpy ~= 1.20",
+  "numpy >= 1.20",
   "scipy ~= 1.6",
   "opencv-python ~= 4.7.0",
-  "anyio ~= 4.0",
 ]
 
 [project.optional-dependencies]

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 from fastapi import Response
-from labthings_fastapi.thing_server import ThingServer
+from labthings_fastapi.server import ThingServer
 from labthings_sangaboard import SangaboardThing
 from labthings_picamera2.thing import StreamingPiCamera2
 from socket import gethostname
