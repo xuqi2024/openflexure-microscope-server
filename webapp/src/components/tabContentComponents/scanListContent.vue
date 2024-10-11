@@ -33,6 +33,47 @@
       </div>
     </nav>
 
+    <!-- Modal for scan display -->
+    <div id="scan-modal" ref="scanModal" uk-modal>
+      <div class="uk-modal-dialog uk-modal-body" v-if="selectedScan">
+        <h2 class="uk-modal-title">{{ selectedScan.name }}</h2>
+        <action-button
+          thing="smart_scan"
+          action="create_zip_of_scan"
+          submit-label="Download ZIP"
+          :can-terminate="false"
+          :submit-data="{ scan_name: selectedScan.name }"
+          :button-primary="true"
+          @response="downloadZipFile"
+          @error="modalError"
+        />
+        <button class="uk-button" @click="deleteScan(selectedScan.name)">
+          Delete
+        </button>
+        <action-button
+          submit-label="Stitch Images"
+          thing="smart_scan"
+          action="stitch_scan"
+          :can-terminate="false"
+          :submit-data="{ scan_name: selectedScan.name }"
+          :button-primary="false"
+          :modal-progress="true"
+          @error="modalError"
+        />
+        <ul>
+          <li>{{ selectedScan.number_of_images }} images</li>
+          <li>created {{ formatDate(selectedScan.created) }}</li>
+          <li>modified {{ formatDate(selectedScan.modified) }}</li>
+        </ul>
+        <div id="viewer_container" class="uk-margin-remove">
+          <OpenSeadragonViewer
+            src="https://images.openflexure.org/cap_demo/images/PAP.dzi"
+            id="openseadragon"
+          />
+        </div>
+      </div>
+    </div>
+
     <!-- Gallery -->
     <div
       v-if="$store.getters.ready"
@@ -42,32 +83,10 @@
       <!-- Gallery capture cards -->
       <div class="gallery-grid uk-grid-match" uk-grid>
         <div v-for="item in scans" :key="item.id">
-          <div class="uk-card">
+          <div class="uk-card" @click="showScan(item)">
             <div class="uk-card-body">
               <h3 class="uk-card-title">{{ item.name }}</h3>
-              <action-button
-                thing="smart_scan"
-                action="create_zip_of_scan"
-                submit-label="Download ZIP"
-                :can-terminate="false"
-                :submit-data="{ scan_name: item.name }"
-                :button-primary="true"
-                @response="downloadZipFile"
-                @error="modalError"
-              />
-              <button class="uk-button" @click="deleteScan(item.name)">
-                Delete
-              </button>
-              <action-button
-                submit-label="Stitch Images"
-                thing="smart_scan"
-                action="stitch_scan"
-                :can-terminate="false"
-                :submit-data="{ scan_name: item.name }"
-                :button-primary="false"
-                :modal-progress="true"
-                @error="modalError"
-              />
+
               <ul>
                 <li>{{ item.number_of_images }} images</li>
                 <li>created {{ formatDate(item.created) }}</li>
@@ -89,16 +108,20 @@
 
 <script>
 import axios from "axios";
+import UIkit from "uikit";
 import actionButton from "../labThingsComponents/actionButton.vue";
+import OpenSeadragonViewer from "./scanListComponents/openSeadragonViewer.vue";
 
 // Export main app
 export default {
   name: "ScanListContent",
-  components: { actionButton },
+  components: { actionButton, OpenSeadragonViewer },
 
   data: function() {
     return {
-      scans: []
+      scans: [],
+      selectedScan: null,
+      osdViewer: null
     };
   },
 
@@ -220,6 +243,10 @@ export default {
       console.log(link);
       document.body.appendChild(link);
       link.click();
+    },
+    showScan(scan) {
+      this.selectedScan = scan;
+      UIkit.modal(this.$refs.scanModal).show();
     }
   }
 };
@@ -235,6 +262,19 @@ export default {
 .gallery-navbar,
 .gallery-folder-heading {
   margin-bottom: 30px;
+}
+#openseadragon {
+  width: 100%;
+  height: 400px;
+}
+#info-panel {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background-color: rgba(255, 255, 255, 0.7);
+    padding: 5px;
+    border-radius: 1px;
+    z-index: 1000;
 }
 /*
 .gallery-grid {
