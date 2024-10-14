@@ -447,17 +447,18 @@ class SmartScanThing(Thing):
         if x_positions >= 3 and y_positions >= 3:
             z = int(self.fit_next_z(loc, focused_path))
             logger.info(f"{loc}, {z}")
-            z = z - ((self.stack_test_height-1)/2 +4)*self.stack_dz
+            # z = z - ((self.stack_test_height-1)/2 +4)*self.stack_dz
         elif len(focused_path) > 1:
             z_index = closest(loc, focused_path)
-            z = int(focused_path[z_index][2]) - ((self.stack_test_height-1)/2 +6)*self.stack_dz
+            z = int(focused_path[z_index][2]) # - ((self.stack_test_height-1)/2 +6)*self.stack_dz
         else:
-            z = stage.position["z"] - ((self.stack_test_height-1)/2 +7)*self.stack_dz
-            # z = stage.position['z'] - 700
-        logger.debug(f"Moving to {loc}")
+            z = stage.position["z"]  # - ((self.stack_test_height-1)/2 +7)*self.stack_dz
         stage.move_absolute(
-            x=int(loc[0]), y=int(loc[1]), z = z
+            x=int(loc[0]), y=int(loc[1]), z = z - 35
         )
+        # stage.move_relative(
+        #     x=0, y=0, z = 200
+        # )
         return loc + [z]
 
     def update_thumbnail(self, images_folder, logger):
@@ -729,6 +730,8 @@ class SmartScanThing(Thing):
                 # Check if the image is background
                 if self.skip_background:
                     image_is_sample = background_detect.image_is_sample()
+                    # image_is_sample = cam.grab_jpeg_size(stream_name="lores") >= 18000
+                    # logger.info(cam.grab_jpeg_size(stream_name="lores"))
                 else:
                     image_is_sample = True
 
@@ -779,7 +782,7 @@ class SmartScanThing(Thing):
                     focused_path.append([stage.position["x"], stage.position["y"], focused_height])
 
                 # add the current position to the list of all positions visited
-                true_path.append(loc)
+                true_path.append([loc[0], loc[1], focused_height])
                 
                 if len(focused_path) == self.max_image_count:
                     logger.info(f'Now captured {len(focused_path)} images, ending scan.')
@@ -1330,19 +1333,24 @@ class SmartScanThing(Thing):
         y_positions = len(set([i[1] for i in focused_path]))
         if x_positions < 3 or y_positions < 3:
             logger.debug("We're just starting, so doing a full autofocus")
+            undershoot_z = - ((self.stack_test_height-1)/2 +6)*self.stack_dz - 300
         else:
             logger.debug("We've got a good idea where we should be skipping autofocus")
+            undershoot_z = - ((self.stack_test_height-1)/2 +4)*self.stack_dz - 300
+        stage.move_relative(z = undershoot_z)
+        stage.move_relative(z = 200)
         captures = 0
         capture_list = []
         metadata_list = []
         sharpnesses = []
         capture_heights = []
-        max_stack_height = 17
+        #TODO: This should probably also be an actual motor height
+        max_stack_height = 27
 
         # So for testing a stack of 5 images, we need (5-1)/2=2 images before the peak
         # and 2 after the peak
         start_index = (stack_height - 1) / 2 
-
+        time.sleep(0.2)
         while captures < max_stack_height:
             current_sharpness = cam.grab_jpeg_size(stream_name='lores')
             sharpnesses.append(current_sharpness)
@@ -1360,6 +1368,7 @@ class SmartScanThing(Thing):
             time.sleep(0.2)
             if len(sharpnesses) >= stack_height:
                 result = self.test_sharpnesses(sharpnesses[-stack_height:], logger, start_index)
+                logger.info(sharpnesses[-stack_height:])
                 if result == 'success':
                     break
                 elif np.argmax(sharpnesses[-stack_height:]) < start_index:
