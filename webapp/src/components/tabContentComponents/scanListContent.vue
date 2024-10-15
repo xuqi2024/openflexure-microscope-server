@@ -69,7 +69,7 @@
         </ul>
         <div id="viewer_container" class="uk-margin-remove">
           <OpenSeadragonViewer
-            src="https://images.openflexure.org/cap_demo/images/PAP.dzi"
+            :src="selectedScanDZI"
             id="openseadragon"
           />
         </div>
@@ -144,6 +144,13 @@ export default {
         "readproperty",
         true
       );
+    },
+    selectedScanDZI() {
+      if (this.selectedScan) {
+        return `${this.scansURI}/${this.selectedScan.name}/use/stitched.dzi`
+      } else {
+        return null
+      }
     }
   },
 
