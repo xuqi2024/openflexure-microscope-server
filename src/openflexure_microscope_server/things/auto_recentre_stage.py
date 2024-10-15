@@ -46,6 +46,7 @@ class RangeofMotionThing(Thing):
 
         try:
             logger.info("Using the stage to measure the range of motion")
+            start_time = time.time()
 
             lateral_offset = 60 #By what percentage of the image/stream resolution the stage moves
             stream_resolution = cam.stream_resolution
@@ -231,8 +232,6 @@ class RangeofMotionThing(Thing):
                                 image1=image1.tolist()
                                 logger.info(f'Image 1 Captured')
                                 
-                                logger.info(f'path is {stage_coords}')
-                                logger.info(f'current position is {stage.position}')
                                 # TODO combine these into one move
                                     
                                 logger.info(f'Move pending for small movement {loop + 1}/3')
@@ -287,6 +286,9 @@ class RangeofMotionThing(Thing):
                 max_index = np.argmax(z_pos_list)
                 x_max_pos = stage_coords[max_index]['x']
                 logging.info(f'Apparent peak was at {x_max_pos}. We started at {starting_pos[0]}')
+                end_time = time.time()
+                total_time = (end_time - start_time)/60 #converting to minutes
+                logger.info(f"Range of motion measurement took {int(total_time)} minutes.")
 
             results['csm'] = csm.image_to_stage_displacement_matrix
             
@@ -295,6 +297,9 @@ class RangeofMotionThing(Thing):
         
         except:
             logger.error("Stopping measurement because it was cancelled by the user")
+            end_time = time.time()
+            total_time = (end_time - start_time)/60 #converting to minutes
+            logger.info(f"Cancelled range of motion measurement after {int(total_time)} minutes.")
             stage.move_absolute(x = starting_position[0], y = starting_position[1], z = starting_position[2], block_cancellation=True)
             raise Exception
             
