@@ -330,6 +330,7 @@ class ScanInfo(BaseModel):
     created: datetime
     modified: datetime
     number_of_images: int
+    dzi: Optional[str]
 
 
 DOWNLOADABLE_SCAN_FILES = (
@@ -930,12 +931,17 @@ class SmartScanThing(Thing):
                     number_of_images = len(os.listdir(images_folder))
                 else:
                     number_of_images = 0
+                if os.path.isfile(os.path.join(images_folder, "use", "stitched.dzi")):
+                    dzi = "images/use/stitched.dzi"
+                else:
+                    dzi = None
                 scans.append(
                     ScanInfo(
                         name = f,
                         created = os.path.getctime(path),
                         modified = os.path.getmtime(path),
                         number_of_images = number_of_images,
+                        dzi = dzi,
                     )
                 )
         return scans
