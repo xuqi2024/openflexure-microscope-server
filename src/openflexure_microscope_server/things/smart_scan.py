@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 import numpy as np
 import os
 import time
+from pathlib import Path
 from PIL import Image
 from pydantic import BaseModel
 from scipy.stats import norm
@@ -941,7 +942,7 @@ class SmartScanThing(Thing):
     
     @fastapi_endpoint(
             "get",
-            "scans/{scan_name}/{file}",
+            "scans/{scan_name}/{file:path}",
             responses = {
                 200: {
                     "description": "Successfully downloading file",
@@ -958,11 +959,14 @@ class SmartScanThing(Thing):
         reasons, there is a list of allowable filenames, and paths with additional
         slashes are not permitted.
         """
-        if file not in DOWNLOADABLE_SCAN_FILES:
-            raise HTTPException(
-                403, f"You may only download files named {DOWNLOADABLE_SCAN_FILES}"
-            )
-        path = os.path.join(self.scans_folder_path, scan_name, file)
+        #if file not in DOWNLOADABLE_SCAN_FILES:
+        #    raise HTTPException(
+        #        403, f"You may only download files named {DOWNLOADABLE_SCAN_FILES}"
+        #    )
+        scan = Path(self.scans_folder_path) / scan_name
+        path = scan / file
+        if scan not in path.parents:
+            raise HTTPException(403, "File not permitted")
         if not os.path.isfile(path):
             raise HTTPException(404, "File not found")
         return FileResponse(path)
