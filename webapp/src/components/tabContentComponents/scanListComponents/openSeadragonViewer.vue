@@ -1,9 +1,6 @@
 <template>
     <div v-observe-visibility="visibilityChanged">
-        <div id="openseadragon">
-            
-        </div>
-        <button class="button" @click="openFullscreen();">Open Fullscreen</button>
+        <div id="openseadragon"></div>
     </div>
 </template>
 
@@ -69,7 +66,7 @@ export default {
         maxZoomPixelRatio: 2,
         gestureSettingsMouse: {
             clickToZoom: false
-        }
+        },
       });
     },
     openFullscreen() {

@@ -38,41 +38,61 @@
     <!-- Modal for scan display -->
     <div id="scan-modal" ref="scanModal" uk-modal>
       <div class="uk-modal-dialog uk-modal-body" v-if="selectedScan">
-        <h2 class="uk-modal-title">{{ selectedScan.name }}</h2>
-        <action-button
-          thing="smart_scan"
-          action="create_zip_of_scan"
-          submit-label="Download ZIP"
-          :can-terminate="false"
-          :submit-data="{ scan_name: selectedScan.name }"
-          :button-primary="true"
-          @response="downloadZipFile"
-          @error="modalError"
-        />
-        <button class="uk-button" @click="deleteScan(selectedScan.name)">
-          Delete
-        </button>
-        <action-button
-          submit-label="Stitch Images"
-          thing="smart_scan"
-          action="stitch_scan"
-          :can-terminate="false"
-          :submit-data="{ scan_name: selectedScan.name }"
-          :button-primary="false"
-          :modal-progress="true"
-          @error="modalError"
-        />
+        <h2 class="uk-modal-title">
+          {{ selectedScan.name }}
+          <button class="uk-modal-close uk-float-right" type="button"><span class="material-symbols-outlined">close</span></button>
+          <button class="uk-float-right" type="button" @click="goFullscreen"><span class="material-symbols-outlined">fullscreen</span></button>
+        </h2>
+        <div class="button-container">
+          <action-button
+            thing="smart_scan"
+            action="create_zip_of_scan"
+            submit-label="Download ZIP"
+            :can-terminate="false"
+            :submit-data="{ scan_name: selectedScan.name }"
+            :button-primary="true"
+            @response="downloadZipFile"
+            @error="modalError"
+          />
+      </div>
+        <div class="button-container">
+          <button class="uk-button" @click="deleteScan(selectedScan.name)">
+            Delete
+          </button>
+        </div>
+        <div class="button-container">
+          <action-button
+            submit-label="Stitch Images"
+            thing="smart_scan"
+            action="stitch_scan"
+            :can-terminate="false"
+            :submit-data="{ scan_name: selectedScan.name }"
+            :button-primary="false"
+            :modal-progress="true"
+            @error="modalError"
+          />
+        </div>
+        <div id="viewer_container" class="uk-margin-remove">
+          <OpenSeadragonViewer
+            v-if="selectedScanDZI"
+            :src="selectedScanDZI"
+            id="openseadragon"
+            ref="openseadragon"
+          />
+          
+          <img
+            v-else
+            id="thumbnail-stitched-image"
+            class="thumbnail-fit"
+            :src=thumbnailPath(item.name)
+            onerror="this.src='/favicon-32x32.png';"
+          />
+        </div>
         <ul>
           <li>{{ selectedScan.number_of_images }} images</li>
           <li>created {{ formatDate(selectedScan.created) }}</li>
           <li>modified {{ formatDate(selectedScan.modified) }}</li>
         </ul>
-        <div id="viewer_container" class="uk-margin-remove">
-          <OpenSeadragonViewer
-            :src="selectedScanDZI"
-            id="openseadragon"
-          />
-        </div>
       </div>
     </div>
 
@@ -132,7 +152,8 @@ export default {
     return {
       scans: [],
       selectedScan: null,
-      osdViewer: null
+      osdViewer: null,
+      selectedScanDZIAvailable: false
     };
   },
 
@@ -147,9 +168,9 @@ export default {
     },
     selectedScanDZI() {
       if (this.selectedScan) {
-        return `${this.scansURI}/${this.selectedScan.name}/use/stitched.dzi`
+        return `${this.$store.getters.baseUri}/smart_scan/scans/${this.selectedScan.name}/images/use/stitched.dzi`;
       } else {
-        return null
+        return null;
       }
     }
   },
@@ -199,6 +220,9 @@ export default {
       if (isVisible) {
         this.updateScans();
       }
+    },
+    goFullscreen() {
+      this.$refs.openseadragon.openFullscreen();
     },
     async updateScans() {
       let scans = await this.readThingProperty("smart_scan", "scans");
@@ -296,6 +320,13 @@ export default {
     padding: 5px;
     border-radius: 1px;
     z-index: 1000;
+}
+#scan-modal .button-container {
+  width: 33%;
+  display: inline-block;
+}
+#scan-modal .button-container button {
+  width: 100%;
 }
 /*
 .gallery-grid {
