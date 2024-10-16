@@ -663,15 +663,29 @@ class SmartScanThing(Thing):
             gamma = np.array(contrast_algorithm["gamma_curve"]).reshape((-1,2))
             gamma_8bit = interp1d(gamma[:, 0]/255, gamma[:, 1]/255)
 
+            U_path = os.path.join(os.path.dirname(__file__), "picamera_v2.1_unmixing_matrix.npz")
+            U = np.load(U_path)["unmixing_matrix"]
+            unmixing_matrix = zoom(U, (4, 4, 1, 1), order=1)
+            assert rgb.shape == unmixing_matrix.shape[:3]
+            unmixing_and_ccm = np.sum(  # multiply CCM by unmixing matrix to save time later
+                (
+                    unmixing_matrix[:, :, :, np.newaxis, :]
+                    * colour_correction_matrix[np.newaxis, np.newaxis, np.newaxis, :, :]
+                ),
+                axis=-1,
+            )
+
             capture_inputs = {}
             capture_inputs['norm_inputs'] = norm_inputs
             capture_inputs['colour_correction_matrix'] = colour_correction_matrix
+            capture_inputs['unmixing_matrix'] = unmixing_matrix
+            capture_inputs['unmixing_and_ccm'] = unmixing_and_ccm
             capture_inputs['gamma_8bit'] = gamma_8bit
             capture_inputs['white_norm'] = white_norm
 
             def process_raw_image(img):
                 normed = img/white_norm
-                corrected = np.dot(colour_correction_matrix, normed.reshape((-1, 3)).T).T.reshape(normed.shape)
+                corrected = np.sum(unmixing_and_ccm * normed[:, :, np.newaxis, :], axis=-1)
                 corrected[corrected < 0] = 0
                 corrected[corrected > 255] = 255
                 return gamma_8bit(corrected)
