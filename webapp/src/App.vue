@@ -442,7 +442,6 @@ html {
   overflow-y: hidden;
 }
 
-
 .section-content {
   padding: 0;
   height: 100%;

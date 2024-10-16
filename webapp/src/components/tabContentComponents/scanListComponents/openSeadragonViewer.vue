@@ -1,7 +1,7 @@
 <template>
-    <div v-observe-visibility="visibilityChanged">
-        <div id="openseadragon"></div>
-    </div>
+  <div v-observe-visibility="visibilityChanged">
+    <div id="openseadragon"></div>
+  </div>
 </template>
 
 <script>
@@ -10,7 +10,7 @@ import OpenSeaDragon from "openseadragon";
 // Export main app
 export default {
   name: "OpenSeadragonViewer",
-  components: {  },
+  components: {},
 
   props: {
     src: {
@@ -49,7 +49,7 @@ export default {
     visibilityChanged(isVisible) {
       if (isVisible) {
         this.loadOpenSeaDragon();
-      }else{
+      } else {
         this.osdViewer.destroy();
       }
     },
@@ -60,20 +60,20 @@ export default {
       this.osdViewer = OpenSeaDragon({
         id: "openseadragon",
         //prefixUrl: "https://images.openflexure.org/cap_demo/",
-        crossOriginPolicy: 'Anonymous',
+        crossOriginPolicy: "Anonymous",
         tileSources: this.src,
         showNavigationControl: false,
         maxZoomPixelRatio: 2,
         gestureSettingsMouse: {
-            clickToZoom: false
-        },
+          clickToZoom: false
+        }
       });
     },
     openFullscreen() {
       if (this.osdViewer) {
         this.osdViewer.setFullScreen(true);
       }
-    },
+    }
   }
 };
 </script>
@@ -83,15 +83,15 @@ export default {
   width: 100%;
   height: 100%;
   background-color: black;
-  z-index:1;
+  z-index: 1;
 }
 #info-panel {
-    position: relative;
-    top: 10px;
-    left: 10px;
-    background-color: rgba(255, 255, 255, 0.7);
-    padding: 5px;
-    border-radius: 1px;
-    z-index: 1000;
+  position: relative;
+  top: 10px;
+  left: 10px;
+  background-color: rgba(255, 255, 255, 0.7);
+  padding: 5px;
+  border-radius: 1px;
+  z-index: 1000;
 }
 </style>

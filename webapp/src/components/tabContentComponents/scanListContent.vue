@@ -37,11 +37,15 @@
 
     <!-- Modal for scan display -->
     <div id="scan-modal" ref="scanModal" uk-modal>
-      <div class="uk-modal-dialog uk-modal-body" v-if="selectedScan">
+      <div v-if="selectedScan" class="uk-modal-dialog uk-modal-body">
         <h2 class="uk-modal-title">
           {{ selectedScan.name }}
-          <button class="uk-modal-close uk-float-right" type="button"><span class="material-symbols-outlined">close</span></button>
-          <button class="uk-float-right" type="button" @click="goFullscreen"><span class="material-symbols-outlined">fullscreen</span></button>
+          <button class="uk-modal-close uk-float-right" type="button">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+          <button class="uk-float-right" type="button" @click="goFullscreen">
+            <span class="material-symbols-outlined">fullscreen</span>
+          </button>
         </h2>
         <div class="button-container">
           <action-button
@@ -54,7 +58,7 @@
             @response="downloadZipFile"
             @error="modalError"
           />
-      </div>
+        </div>
         <div class="button-container">
           <button class="uk-button" @click="deleteScan(selectedScan.name)">
             Delete
@@ -74,17 +78,17 @@
         </div>
         <div id="viewer_container" class="uk-margin-remove">
           <OpenSeadragonViewer
-            v-if="selectedScanDZI"
-            :src="selectedScanDZI"
+            v-if="selectedScanDZIAvailable"
             id="openseadragon"
             ref="openseadragon"
+            :src="selectedScanDZI"
           />
-          
+
           <img
             v-else
             id="thumbnail-stitched-image"
             class="thumbnail-fit"
-            :src=thumbnailPath(item.name)
+            :src="thumbnailPath(item.name)"
             onerror="this.src='/favicon-32x32.png';"
           />
         </div>
@@ -107,15 +111,17 @@
         <div v-for="item in scans" :key="item.id">
           <div class="uk-card" @click="showScan(item)">
             <div class="uk-card-body">
-            <div class="uk-card-media-top">
-              <div class="view-image uk-width-expand uk-padding-remove uk-height-1-1">
-                <img
-                  id="thumbnail-stitched-image"
-                  class="thumbnail-fit"
-                  :src=thumbnailPath(item.name)
-                  onerror="this.src='/favicon-32x32.png';"
-                />
-              </div>
+              <div class="uk-card-media-top">
+                <div
+                  class="view-image uk-width-expand uk-padding-remove uk-height-1-1"
+                >
+                  <img
+                    id="thumbnail-stitched-image"
+                    class="thumbnail-fit"
+                    :src="thumbnailPath(item.name)"
+                    onerror="this.src='/favicon-32x32.png';"
+                  />
+                </div>
               </div>
               <h3 class="uk-card-title">{{ item.name }}</h3>
               <ul>
@@ -152,8 +158,7 @@ export default {
     return {
       scans: [],
       selectedScan: null,
-      osdViewer: null,
-      selectedScanDZIAvailable: false
+      osdViewer: null
     };
   },
 
@@ -172,6 +177,9 @@ export default {
       } else {
         return null;
       }
+    },
+    selectedScanDZIAvailable() {
+      return this.selectedScan && this.selectedScan.dzi;
     }
   },
 
@@ -214,7 +222,10 @@ export default {
 
   methods: {
     thumbnailPath(scan_name) {
-      return `${this.$store.getters.baseUri}/smart_scan/scans/stitched_thumbnail.jpg?scan_name=`+scan_name;
+      return (
+        `${this.$store.getters.baseUri}/smart_scan/scans/stitched_thumbnail.jpg?scan_name=` +
+        scan_name
+      );
     },
     visibilityChanged(isVisible) {
       if (isVisible) {
@@ -313,13 +324,13 @@ export default {
   height: 400px;
 }
 #info-panel {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    background-color: rgba(255, 255, 255, 0.7);
-    padding: 5px;
-    border-radius: 1px;
-    z-index: 1000;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background-color: rgba(255, 255, 255, 0.7);
+  padding: 5px;
+  border-radius: 1px;
+  z-index: 1000;
 }
 #scan-modal .button-container {
   width: 33%;

@@ -124,47 +124,47 @@
           :task-status="taskStatus"
         />
         <div class="uk-padding-small">
-        <action-progress-bar :progress="progress" :task-status="taskStatus" />
-        <button
-          v-if="cancellable"
-          type="button"
-          style="margin:auto;"
-          class="uk-button uk-button-danger uk-width-1-2"
-          @click="$refs.smartScanButton.terminateTask()"
-        >
-          Cancel
-        </button>
-        <div
-          v-if="!cancellable"
-          class="uk-margin uk-grid-small uk-child-width-expand"
-          uk-grid
-        >
+          <action-progress-bar :progress="progress" :task-status="taskStatus" />
           <button
+            v-if="cancellable"
             type="button"
-            class="uk-button"
-            @click="
-              scanning = false;
-              lastStitchedImage = null;
-            "
+            style="margin:auto;"
+            class="uk-button uk-button-danger uk-width-1-2"
+            @click="$refs.smartScanButton.terminateTask()"
           >
-            Close
+            Cancel
           </button>
-          <action-button
-            class="uk-button"
-            thing="smart_scan"
-            action="create_zip_of_scan"
-            submit-label="Download ZIP"
-            :can-terminate="false"
-            :submit-data="{ scan_name: lastScanName }"
-            :button-primary="true"
-            @response="downloadZipFile"
-            @error="modalError"
-          />
-        </div>
+          <div
+            v-if="!cancellable"
+            class="uk-margin uk-grid-small uk-child-width-expand"
+            uk-grid
+          >
+            <button
+              type="button"
+              class="uk-button"
+              @click="
+                scanning = false;
+                lastStitchedImage = null;
+              "
+            >
+              Close
+            </button>
+            <action-button
+              class="uk-button"
+              thing="smart_scan"
+              action="create_zip_of_scan"
+              submit-label="Download ZIP"
+              :can-terminate="false"
+              :submit-data="{ scan_name: lastScanName }"
+              :button-primary="true"
+              @response="downloadZipFile"
+              @error="modalError"
+            />
+          </div>
         </div>
       </div>
       <div class="uk-padding-small">
-      <h3 v-if="scanning">Scan ID: {{ lastScanName }}</h3>
+        <h3 v-if="scanning">Scan ID: {{ lastScanName }}</h3>
       </div>
     </div>
     <div class="view-image uk-width-expand uk-height-1-1">
