@@ -575,7 +575,7 @@ class SmartScanThing(Thing):
             # Record the starting position so we can move back there afterwards
             starting_position = stage.position
 
-            autofocus.fast_autofocus(dz = self.autofocus_dz)
+            autofocus.looping_autofocus(dz = self.autofocus_dz)
 
             r = cam.grab_jpeg()
             arr = np.array(Image.open(r.open()))
@@ -721,9 +721,9 @@ class SmartScanThing(Thing):
                 loc = self.move_to_next_point(stage, logger, path=path, focused_path=focused_path)
                 if not self.preview_stitch_running():
                     self.preview_stitch_start(os.path.join(images_folder, 'use'))
-                if self.stitch_automatically:
-                    if not self.correlate_running():
-                        self.correlate_start(os.path.join(images_folder, 'use'), overlap=overlap)
+                # if self.stitch_automatically:
+                if not self.correlate_running():
+                    self.correlate_start(os.path.join(images_folder, 'use'), overlap=overlap)
 
                 ensure_free_disk_space(scan_folder)
 
@@ -828,6 +828,7 @@ class SmartScanThing(Thing):
                 logger.info("Returning to starting position.")
                 if starting_position is not None:
                     stage.move_absolute(**starting_position, block_cancellation=True)
+                    autofocus.looping_autofocus(dz = self.autofocus_dz)
             finally:
                 self._scan_lock.release()
             self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
@@ -1142,7 +1143,7 @@ class SmartScanThing(Thing):
                 overlap = data_loaded['overlap']
             except:
                 overlap = 0.1
-        self.run_subprocess(logger, [self._script, "--stitching_mode", "all", f"{tiff_arg}", "--minimum_overlap", f"{round(overlap*0.9,2)}", "--resize", "1", os.path.join(images_folder, 'use')])
+        self.run_subprocess(logger, [self._script, "--stitching_mode", "all", f"{tiff_arg}", "--minimum_overlap", f"{round(overlap*0.9,2)}", "--resize", "1", "--stitch_dzi", os.path.join(images_folder, 'use')])
     
     @thing_action
     def create_zip_of_scan(self, logger: InvocationLogger, scan_name: Optional[str]=None, download_zip = True) -> ZipBlob:
@@ -1193,7 +1194,8 @@ class SmartScanThing(Thing):
                 elif file in current_zip:
                     # logger.info(f'{file} is already in zip')
                     pass
-                elif ".zip" in file or 'raw' in file:
+                # elif ".zip" in file or 'raw' in file:
+                elif ".zip" in file:
                     # logger.info('Not adding the .zip to itself')
                     pass
                 else:
@@ -1201,7 +1203,7 @@ class SmartScanThing(Thing):
                     zip.write(os.path.join(folder_path, file), arcname=file)
                     
 
-        images_folder = os.path.join(folder_path, 'images')
+        images_folder = os.path.join(folder_path, 'images','use')
         # Promote key files to the top level of the zip only at the end of the scan (when downloading)
         # and finally zip some of the final files
         # TODO: if you download multiple times, you get duplicate files - is this a problem?
@@ -1301,7 +1303,8 @@ class SmartScanThing(Thing):
                 capture_start = time.time()
                 metadata = metadata_getter()
                 raw_image = cam.capture_array(stream_name="raw")
-                return raw_image, metadata
+                hd_image = cam.capture_array(stream_name="main")
+                return raw_image, metadata, hd_image
             except Exception as e:
                 logger.error(f"An error occurred while capturing: {e}", exc_info=e)
                 return 0, 0
@@ -1309,7 +1312,21 @@ class SmartScanThing(Thing):
         def save_capture(name, raw_image, metadata):
             try:    
                 # Save the raw image
-                # np.savez(os.path.join(raw_images_folder, name + ".npz"), raw_image=raw_image, **norm_inputs)
+                try:
+                    np.savez(os.path.join(images_folder, 'raw', name + ".npz"), raw_image=raw_image, **norm_inputs)
+                except:
+                    pass
+                # img = Image.fromarray(hd_image, mode="RGB")
+                # img.save(
+                #     os.path.join(images_folder, f"{name.split('.')[0]}_1.{name.split('.')[1]}"),
+                #     quality=100,
+                #     subsampling=0
+                # )
+                # exif_dict = piexif.load(os.path.join(images_folder, f"{name.split('.')[0]}_1.{name.split('.')[1]}"))
+                # exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
+                #     metadata
+                # ).encode("utf-8")
+                # piexif.insert(piexif.dump(exif_dict), os.path.join(images_folder, f"{name.split('.')[0]}_1.{name.split('.')[1]}"))
                 # Process it into 8 bit RGB
                 processed = process_raw_image(rggb2rgb(raw2rggb(raw_image)))
                 processed[processed > 255] = 255
@@ -1317,7 +1334,7 @@ class SmartScanThing(Thing):
                 img = Image.fromarray(processed.astype(np.uint8), mode="RGB")
                 img.save(
                     os.path.join(images_folder, name),
-                    quality=95,
+                    quality=100,
                     subsampling=0
                 )
                 exif_dict = piexif.load(os.path.join(images_folder, name))
@@ -1338,7 +1355,7 @@ class SmartScanThing(Thing):
             logger.debug("We've got a good idea where we should be skipping autofocus")
             undershoot_z = - ((self.stack_test_height-1)/2 +4)*self.stack_dz - 300
         stage.move_relative(z = undershoot_z)
-        stage.move_relative(z = 200)
+        stage.move_relative(z = 300)
         captures = 0
         capture_list = []
         metadata_list = []
@@ -1352,10 +1369,12 @@ class SmartScanThing(Thing):
         start_index = (stack_height - 1) / 2 
         time.sleep(0.2)
         while captures < max_stack_height:
-            current_sharpness = cam.grab_jpeg_size(stream_name='lores')
+            # current_sharpness = cam.grab_jpeg_size(stream_name='lores')
+            img_array, img_metadata = capture_image()
+            current_sharpness = get_jpeg_size(img_array)
             sharpnesses.append(current_sharpness)
             capture_heights.append(stage.position['z'])
-            img_array, img_metadata = capture_image()
+            
             capture_list.append(img_array)
             metadata_list.append(img_metadata)
             # capture_and_save(f"{stage.position['x']}_{stage.position['y']}_{stage.position['z']}_{captures}.jpeg")
@@ -1365,7 +1384,7 @@ class SmartScanThing(Thing):
                 y = 0,
                 z = stack_dz
             )
-            time.sleep(0.2)
+            time.sleep(0.4)
             if len(sharpnesses) >= stack_height:
                 result = self.test_sharpnesses(sharpnesses[-stack_height:], logger, start_index)
                 logger.info(sharpnesses[-stack_height:])
@@ -1421,6 +1440,8 @@ class SmartScanThing(Thing):
             os.makedirs(os.path.join(images_folder, current_site_folder))
         if not os.path.isdir(os.path.join(images_folder, "use")):
             os.makedirs(os.path.join(images_folder, "use"))
+        if not os.path.isdir(os.path.join(images_folder, 'raw', current_site_folder)):
+            os.makedirs(os.path.join(images_folder, 'raw', current_site_folder))
         focused_image_name = os.path.join('use', f"{stage.position['x']}_{stage.position['y']}.jpeg")
 
         def save_captures():
@@ -1432,6 +1453,19 @@ class SmartScanThing(Thing):
         )
 
         return capture_heights[sharpest_index], save_thread
+
+    def get_jpeg_size(np_array):
+        # Convert NumPy array to PIL Image
+        img = Image.fromarray(np_array)
+
+        # Save the image to an in-memory buffer
+        buffer = io.BytesIO()
+        img.save(buffer, format='JPEG')
+
+        # Get the size of the JPEG data in bytes
+        jpeg_size = buffer.getbuffer().nbytes
+
+        return jpeg_size
 
     @thing_property
     def stack_dz(self) -> int:
