@@ -22,7 +22,7 @@ CamDep = direct_thing_client_dependency(StreamingPiCamera2, "/camera/")
 CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
 AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
 
-def function(x, a, b, c):
+def function(x, a, b, c):   #TODO rename this function
     return a * x**2 + b * x + c
 
 class RangeofMotionThing(Thing):
@@ -43,6 +43,7 @@ class RangeofMotionThing(Thing):
         and breaking if it appears to have undershot.
             """
         starting_position = list(stage.position.values())
+
 
         try:
             logger.info("Using the stage to measure the range of motion")
@@ -184,6 +185,7 @@ class RangeofMotionThing(Thing):
                         if failure_count == 4:
                             logger.info(f'Loop {i} edge may have been found. Moving back to previous position and checking in smaller step sizes.')
                             csm.move_in_image_coordinates(x = -this_step_size['x'], y = -this_step_size['y'])
+                            autofocus.looping_autofocus(dz = 800)
                             lateral_offset_check = 15 #By what percentage of the image/stream resolution the stage moves
                             step_sizes_check = {
                                 'x' : (lateral_offset_check / 100) * stream_resolution[0],
@@ -227,7 +229,6 @@ class RangeofMotionThing(Thing):
                                     break
                                 
                                 # Capture the base image
-                                autofocus.looping_autofocus(dz = 800)
                                 image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
                                 image1=image1.tolist()
                                 logger.info(f'Image 1 Captured')
@@ -286,9 +287,11 @@ class RangeofMotionThing(Thing):
                 max_index = np.argmax(z_pos_list)
                 x_max_pos = stage_coords[max_index]['x']
                 logging.info(f'Apparent peak was at {x_max_pos}. We started at {starting_pos[0]}')
-                end_time = time.time()
-                total_time = (end_time - start_time)/60 #converting to minutes
-                logger.info(f"Range of motion measurement took {int(total_time)} minutes.")
+
+            end_time = time.time()
+            total_time = (end_time - start_time)/60 #converting to minutes
+            logger.info(f"Range of motion measurement took {int(total_time)} minutes.")
+            results['Time(minutes)'] = total_time
 
             results['csm'] = csm.image_to_stage_displacement_matrix
             
