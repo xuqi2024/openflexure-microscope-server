@@ -44,7 +44,6 @@ class RangeofMotionThing(Thing):
             """
         starting_position = list(stage.position.values())
 
-
         try:
             logger.info("Using the stage to measure the range of motion")
             start_time = time.time()
@@ -122,11 +121,8 @@ class RangeofMotionThing(Thing):
                         
                         # Capture the base image
                         image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
+                        test_image1 = cam.grab_jpeg()
                         image1=image1.tolist()
-
-                        """ test_image1 = cam.grab_jpeg()
-                        test_image1.save(f"/var/openflexure/scans/loop{i}_image1.jpeg")
-                        logger.info(f'Image captured for analysis.') """
 
                         # Plan the next move
                         # xy offset is regular, z is calculated
@@ -151,7 +147,9 @@ class RangeofMotionThing(Thing):
                             
                         # Move down first to avoid hitting sample
                         stage.move_relative(z = z_diff)
+                        logger.info('Moved in Z.')
                         csm.move_in_image_coordinates(x = this_step_size['x'], y = this_step_size['y'])
+                        logger.info('Moved in X/Y.')
                         
                         #failure_count = 0
                         while failure_count < 4:
@@ -175,9 +173,11 @@ class RangeofMotionThing(Thing):
                                 break
                             else:
                                 failure_count += 1
-                                """ test_image2 = cam.grab_jpeg()
+                                
+                                test_image1.save(f"/var/openflexure/scans/loop{i}_image1.jpeg")
+                                test_image2 = cam.grab_jpeg()
                                 test_image2.save(f"/var/openflexure/scans/loop{i}_image2.jpeg")
-                                logger.info(f'Image captured for analysis.') """
+                                logger.info(f'Image captured for analysis.') 
                                 logger.info(f'Looks like that move failed. Going to retry. Attempt {failure_count} out of 4')
 
 
