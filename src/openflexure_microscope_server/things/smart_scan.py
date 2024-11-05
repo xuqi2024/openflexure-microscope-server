@@ -431,6 +431,9 @@ class SmartScanThing(Thing):
             logger: InvocationLogger,
             path: list[list[int]],
             focused_path: list[list[int]],
+            csm: CSMDep,
+            cam: CamDep,
+            current_pos: list[int]
         ) -> list[int]:
         """Remove the first point from the path, and move there.
         
@@ -454,11 +457,33 @@ class SmartScanThing(Thing):
         else:
             z = stage.position["z"]  # - ((self.stack_test_height-1)/2 +7)*self.stack_dz
         stage.move_absolute(
-            x=int(loc[0]), y=int(loc[1]), z = z - 35
+            x=stage.position["x"], y = stage.position["y"], z = z - 35
         )
-        # stage.move_relative(
-        #     x=0, y=0, z = 200
-        # )
+
+        x_move = loc[0] - current_pos[0]
+        y_move = loc[1] - current_pos[1]
+
+        pixel_move = np.dot(
+            np.array([y_move, x_move]),
+            np.linalg.inv(np.array(csm.image_to_stage_displacement_matrix))
+        )
+
+        if abs(pixel_move[0]) > abs(pixel_move[1]):
+            pixel_move[1] = 0
+        else:
+            pixel_move[0] = 0
+
+        logger.info(pixel_move)
+
+        csm.certify_move_in_image_coordinates(
+            stage = stage,
+            cam = cam,
+            logger = logger,
+            x = -pixel_move[0],
+            y = -pixel_move[1],
+            threshold = 10
+        )
+
         return loc + [z]
 
     def update_thumbnail(self, images_folder, logger):
@@ -599,8 +624,17 @@ class SmartScanThing(Thing):
 
             overlap = self.overlap
 
-            dx = int(np.abs(np.dot(np.array([0, arr.shape[1] * (1 - overlap)]), CSM)[0]))
-            dy = int(np.abs(np.dot(np.array([arr.shape[0] * (1 - overlap), 0]), CSM)[1]))
+            steps_per_pixel_x = CSM[0][1]
+            steps_per_pixel_y = CSM[1][0]
+
+            dx = int(steps_per_pixel_x * 820 * (1 - overlap))
+            dy = int(steps_per_pixel_y * 616 * (1 - overlap))
+
+            logger.info(dx)
+            logger.info(dy)
+
+            # dx = int(np.abs(np.dot(np.array([0, arr.shape[1] * (1 - overlap)]), CSM)[0]))
+            # dy = int(np.abs(np.dot(np.array([arr.shape[0] * (1 - overlap), 0]), CSM)[1]))
 
             logger.info(f"Running a scan with an overlap between images of {overlap}")
             logger.debug(f"Overlap of {overlap}, movements of {dx}, {dy}")
@@ -714,13 +748,19 @@ class SmartScanThing(Thing):
                 except Exception as e:
                     logger.error(f"An error occurred while saving {name}: {e}", exc_info=e)
             
+            current_pos = path[0]
+
             # At the start of the loop, we simultaneously capture an image and move to the next scan point.
             # We skip capturing on the first run, because we've not focused yet - and also we skip capturing if
             # it looks like background.
             while len(path) > 0:
-                loc = self.move_to_next_point(stage, logger, path=path, focused_path=focused_path)
+                loc = self.move_to_next_point(stage, logger, path=path, focused_path=focused_path, csm = csm, cam = cam, current_pos = current_pos)
+                current_pos = loc
                 if not self.preview_stitch_running():
-                    self.preview_stitch_start(os.path.join(images_folder, 'use'))
+                    preview_csm = CSM
+                    preview_csm[0][0] = 0
+                    preview_csm[1][1] = 0
+                    self.preview_stitch_start(os.path.join(images_folder, 'use'), preview_csm)
                 # if self.stitch_automatically:
                 if not self.correlate_running():
                     self.correlate_start(os.path.join(images_folder, 'use'), overlap=overlap)
@@ -743,10 +783,10 @@ class SmartScanThing(Thing):
                     capture_image = True
                     # if not, it's sample. run an autofocus and use the updated height
                     new_pos = [
-                        [stage.position["x"] - dx, stage.position["y"]],
-                        [stage.position["x"] + dx, stage.position["y"]],
-                        [stage.position["x"], stage.position["y"] - dy],
-                        [stage.position["x"], stage.position["y"] + dy],
+                        [current_pos[0] - dx, current_pos[1]],
+                        [current_pos[0] + dx, current_pos[1]],
+                        [current_pos[0], current_pos[1] - dy],
+                        [current_pos[0], current_pos[1] + dy],
                     ]
                     for pos in new_pos:
                         if (
@@ -767,7 +807,8 @@ class SmartScanThing(Thing):
                                     image_stack_height = self.stack_height,
                                     stack_dz = self.stack_dz,
                                     focused_path = focused_path,
-                                    capture_inputs = capture_inputs
+                                    capture_inputs = capture_inputs,
+                                    current_pos = current_pos
                                     )
                     # save images in the background
                     if capture_thread:  # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
@@ -779,7 +820,7 @@ class SmartScanThing(Thing):
                     capture_thread = new_save_thread
                     capture_thread.start()
 
-                    focused_path.append([stage.position["x"], stage.position["y"], focused_height])
+                    focused_path.append([loc[0], loc[1], focused_height])
 
                 # add the current position to the list of all positions visited
                 true_path.append([loc[0], loc[1], focused_height])
@@ -1050,13 +1091,13 @@ class SmartScanThing(Thing):
         return FileResponse(path)
     
     _preview_stitch_popen = None
-    def preview_stitch_start(self, images_folder: str) -> None:
+    def preview_stitch_start(self, images_folder: str, preview_csm) -> None:
         """Start stitching a preview of the scan in a subprocess"""
         if self.preview_stitch_running():
             raise RuntimeError("Only one subprocess is allowed at a time")
         with self._preview_stitch_popen_lock:
             self._preview_stitch_popen = Popen(
-                [self._script, "--stitching_mode", "only_stage_stitch", images_folder]
+                [self._script, "--stitching_mode", "only_stage_stitch", "--csm_matrix", str(preview_csm), images_folder]
             )
             #TODO: remove the previous scan preview when a new one starts
 
@@ -1265,7 +1306,8 @@ class SmartScanThing(Thing):
         image_stack_height = 9,
         stack_dz = 50,
         focused_path = [],
-        capture_inputs = None
+        capture_inputs = None,
+        current_pos = 0
     ):
         start_t = time.time()
         # This is the number of images we test.
@@ -1302,32 +1344,22 @@ class SmartScanThing(Thing):
             try:
                 capture_start = time.time()
                 metadata = metadata_getter()
+                metadata['/stage/']['position']['x'] = current_pos[0]
+                metadata['/stage/']['position']['y'] = current_pos[1]
+                metadata['/stage/']['position']['z'] = stage.position['z']
                 raw_image = cam.capture_array(stream_name="raw")
-                hd_image = cam.capture_array(stream_name="main")
-                return raw_image, metadata, hd_image
+                return raw_image, metadata
             except Exception as e:
                 logger.error(f"An error occurred while capturing: {e}", exc_info=e)
                 return 0, 0
 
-        def save_capture(name, raw_image, metadata):
+        def save_capture(name, raw_image, metadata, current_pos):
             try:    
                 # Save the raw image
                 try:
                     np.savez(os.path.join(images_folder, 'raw', name + ".npz"), raw_image=raw_image, **norm_inputs)
                 except:
                     pass
-                # img = Image.fromarray(hd_image, mode="RGB")
-                # img.save(
-                #     os.path.join(images_folder, f"{name.split('.')[0]}_1.{name.split('.')[1]}"),
-                #     quality=100,
-                #     subsampling=0
-                # )
-                # exif_dict = piexif.load(os.path.join(images_folder, f"{name.split('.')[0]}_1.{name.split('.')[1]}"))
-                # exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
-                #     metadata
-                # ).encode("utf-8")
-                # piexif.insert(piexif.dump(exif_dict), os.path.join(images_folder, f"{name.split('.')[0]}_1.{name.split('.')[1]}"))
-                # Process it into 8 bit RGB
                 processed = process_raw_image(rggb2rgb(raw2rggb(raw_image)))
                 processed[processed > 255] = 255
                 processed[processed < 0] = 0
@@ -1369,9 +1401,8 @@ class SmartScanThing(Thing):
         start_index = (stack_height - 1) / 2 
         time.sleep(0.2)
         while captures < max_stack_height:
-            # current_sharpness = cam.grab_jpeg_size(stream_name='lores')
+            current_sharpness = cam.grab_jpeg_size(stream_name='lores')
             img_array, img_metadata = capture_image()
-            current_sharpness = get_jpeg_size(img_array)
             sharpnesses.append(current_sharpness)
             capture_heights.append(stage.position['z'])
             
@@ -1384,10 +1415,9 @@ class SmartScanThing(Thing):
                 y = 0,
                 z = stack_dz
             )
-            time.sleep(0.4)
+            time.sleep(0.2)
             if len(sharpnesses) >= stack_height:
                 result = self.test_sharpnesses(sharpnesses[-stack_height:], logger, start_index)
-                logger.info(sharpnesses[-stack_height:])
                 if result == 'success':
                     break
                 elif np.argmax(sharpnesses[-stack_height:]) < start_index:
@@ -1435,38 +1465,24 @@ class SmartScanThing(Thing):
         sharpest_index = np.argmax(sharpnesses)
         start_index = int(sharpest_index - (image_stack_height - 1) / 2)
         end_index = int(sharpest_index + (image_stack_height - 1) / 2)
-        current_site_folder = f"{stage.position['x']}_{stage.position['y']}"
+        current_site_folder = f"{current_pos[0]}_{current_pos[1]}"
         if not os.path.isdir(os.path.join(images_folder, current_site_folder)):
             os.makedirs(os.path.join(images_folder, current_site_folder))
         if not os.path.isdir(os.path.join(images_folder, "use")):
             os.makedirs(os.path.join(images_folder, "use"))
         if not os.path.isdir(os.path.join(images_folder, 'raw', current_site_folder)):
             os.makedirs(os.path.join(images_folder, 'raw', current_site_folder))
-        focused_image_name = os.path.join('use', f"{stage.position['x']}_{stage.position['y']}.jpeg")
+        focused_image_name = os.path.join('use', f"{current_pos[0]}_{current_pos[1]}.jpeg")
 
         def save_captures():
-            save_capture(focused_image_name, capture_list[sharpest_index], metadata_list[sharpest_index])
+            save_capture(focused_image_name, capture_list[sharpest_index], metadata_list[sharpest_index], current_pos)
             for i in range(start_index, end_index+1):
-                save_capture(os.path.join(current_site_folder, f"{i}.jpeg"), capture_list[i], metadata_list[i])
+                save_capture(os.path.join(current_site_folder, f"{i}.jpeg"), capture_list[i], metadata_list[i], current_pos)
         save_thread = Thread(
             target = save_captures
         )
 
         return capture_heights[sharpest_index], save_thread
-
-    def get_jpeg_size(np_array):
-        # Convert NumPy array to PIL Image
-        img = Image.fromarray(np_array)
-
-        # Save the image to an in-memory buffer
-        buffer = io.BytesIO()
-        img.save(buffer, format='JPEG')
-
-        # Get the size of the JPEG data in bytes
-        jpeg_size = buffer.getbuffer().nbytes
-
-        return jpeg_size
-
     @thing_property
     def stack_dz(self) -> int:
         """Space in steps between images in a z-stack
