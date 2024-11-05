@@ -6,6 +6,7 @@ import cv2
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
 import numpy as np
+import numpy.polynomial.chebyshev as cheb
 import os
 import time
 from PIL import Image
@@ -15,7 +16,7 @@ from scipy.ndimage import zoom
 from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
 from subprocess import CompletedProcess, Popen, PIPE, SubprocessError, run, STDOUT
 from threading import Event, Thread
 import glob
@@ -653,7 +654,9 @@ class SmartScanThing(Thing):
             scan_folder = self.new_scan_folder(scan_name)
             images_folder = os.path.join(scan_folder, "images")
             os.mkdir(images_folder)
-            raw_images_folder = os.path.join(images_folder, "raw")
+            use_folder = os.path.join(images_folder, "use")
+            os.mkdir(use_folder)
+            raw_images_folder = os.path.join(images_folder, "use", "raw")
             os.mkdir(raw_images_folder)
             logger.info(f"Saving images to {images_folder}")
 
@@ -873,7 +876,7 @@ class SmartScanThing(Thing):
             finally:
                 self._scan_lock.release()
             self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
-            logger.info(f'Scan duration was {round(time.time()-start_time_seconds)} seconds. Captured {len(focused_path)} images')
+            logger.info(f'Scan duration was {timedelta(seconds = round(time.time()-start_time_seconds))} seconds. Captured {len(focused_path)} images')
             logger.info("Processing images, please wait")
             self.preview_stitch_wait()
             self.correlate_wait()
@@ -1235,8 +1238,7 @@ class SmartScanThing(Thing):
                 elif file in current_zip:
                     # logger.info(f'{file} is already in zip')
                     pass
-                # elif ".zip" in file or 'raw' in file:
-                elif ".zip" in file:
+                elif ".zip" in file: # or 'raw' in file:
                     # logger.info('Not adding the .zip to itself')
                     pass
                 else:
@@ -1356,10 +1358,8 @@ class SmartScanThing(Thing):
         def save_capture(name, raw_image, metadata, current_pos):
             try:    
                 # Save the raw image
-                try:
-                    np.savez(os.path.join(images_folder, 'raw', name + ".npz"), raw_image=raw_image, **norm_inputs)
-                except:
-                    pass
+                np.savez(os.path.join(images_folder, name + ".npz"), raw_image=raw_image, **norm_inputs)
+                # Process it into 8 bit RGB
                 processed = process_raw_image(rggb2rgb(raw2rggb(raw_image)))
                 processed[processed > 255] = 255
                 processed[processed < 0] = 0
@@ -1394,12 +1394,13 @@ class SmartScanThing(Thing):
         sharpnesses = []
         capture_heights = []
         #TODO: This should probably also be an actual motor height
-        max_stack_height = 27
+        max_stack_height = 47
 
         # So for testing a stack of 5 images, we need (5-1)/2=2 images before the peak
         # and 2 after the peak
         start_index = (stack_height - 1) / 2 
         time.sleep(0.2)
+        failures = 0
         while captures < max_stack_height:
             current_sharpness = cam.grab_jpeg_size(stream_name='lores')
             img_array, img_metadata = capture_image()
@@ -1417,7 +1418,8 @@ class SmartScanThing(Thing):
             )
             time.sleep(0.2)
             if len(sharpnesses) >= stack_height:
-                result = self.test_sharpnesses(sharpnesses[-stack_height:], logger, start_index)
+                result = self.test_sharpnesses(capture_heights[-stack_height:], sharpnesses[-stack_height:], logger, start_index, failures > 3)
+                # logger.info(sharpnesses[-stack_height:])
                 if result == 'success':
                     break
                 elif np.argmax(sharpnesses[-stack_height:]) < start_index:
@@ -1440,6 +1442,7 @@ class SmartScanThing(Thing):
                     capture_list = []
                     metadata_list = []
                     captures = 0
+                    failures += 1
                 elif captures == max_stack_height:
                     logger.info(f"Could't find focus. Took {len(sharpnesses)} images and the best one was at {np.argmax(sharpnesses)}. List is {sharpnesses}")
                     stage.move_absolute(z = capture_heights[np.argmax(sharpnesses)])
@@ -1462,6 +1465,7 @@ class SmartScanThing(Thing):
                     capture_list = []
                     metadata_list = []
                     captures = 0
+                    failures += 1
         sharpest_index = np.argmax(sharpnesses)
         start_index = int(sharpest_index - (image_stack_height - 1) / 2)
         end_index = int(sharpest_index + (image_stack_height - 1) / 2)
@@ -1470,9 +1474,8 @@ class SmartScanThing(Thing):
             os.makedirs(os.path.join(images_folder, current_site_folder))
         if not os.path.isdir(os.path.join(images_folder, "use")):
             os.makedirs(os.path.join(images_folder, "use"))
-        if not os.path.isdir(os.path.join(images_folder, 'raw', current_site_folder)):
-            os.makedirs(os.path.join(images_folder, 'raw', current_site_folder))
-        focused_image_name = os.path.join('use', f"{current_pos[0]}_{current_pos[1]}.jpeg")
+            os.makedirs(os.path.join(images_folder, "use", "raw"))
+        focused_image_name = os.path.join('use', f"{stage.position['x']}_{stage.position['y']}.jpeg")
 
         def save_captures():
             save_capture(focused_image_name, capture_list[sharpest_index], metadata_list[sharpest_index], current_pos)
@@ -1514,21 +1517,45 @@ class SmartScanThing(Thing):
     def stack_height(self, value: int) -> None:
         self.thing_settings["stack_height"] = value
 
-    def test_sharpnesses(self, sharpnesses, logger, start_index):
+    def test_sharpnesses(self, heights, sharpnesses, logger, start_index, accept_chevy = False):
         #TODO reimplement chebychev
         if np.argmax(sharpnesses) < start_index:
             return False
         if len(sharpnesses) - 1 - np.argmax(sharpnesses) < start_index:
             return False
         max_loc = np.argmax(sharpnesses)
-        approach = sharpnesses[:max_loc]
+        approach = sharpnesses[:max_loc+1]
         recede = sharpnesses[max_loc:]
-        if sorted(approach) == approach and sorted(recede, reverse = True):
-            logger.debug('really good')
-        else:
-            # logger.info('Good enough')
-            return False
-        return 'success'
+        if sorted(approach) == approach and sorted(recede, reverse = True) == recede:
+            logger.info('really good')
+            logger.info(sharpnesses)
+            return "success"
+        elif accept_chevy:
+            logger.info("testing cheby")
+            dz = heights[1] - heights[0]
+            centre_index = len(heights) // 2
+            x = np.linspace(min(heights) - 1000, max(heights) + 1000, 1000)
+
+            chevylevy = np.polynomial.chebyshev.chebfit(heights, sharpnesses, 4)
+            sharpness_curve = cheb.chebval(x, chevylevy)
+
+            der_chevy = cheb.chebder(chevylevy)
+            dder_chevy = cheb.chebder(der_chevy)
+            turning = cheb.chebroots(der_chevy)
+            turning = turning[np.isreal(turning)]
+            nature = np.asarray([np.real(cheb.chebval(point, dder_chevy)) for point in turning])
+            maxima = turning[np.where(nature<0)]
+
+            peak_height = ''
+            
+            if np.count_nonzero(np.logical_and(np.real(turning) >= heights[1], np.real(turning) <= heights[-2])) == 1:
+                if np.count_nonzero(np.logical_and(maxima >= (heights[centre_index] - 1.5 * dz), maxima<=(heights[centre_index] + 1.5 * dz))) == 1:
+                    for maximum in maxima:
+                        if maximum >= heights[centre_index] - 1.5 * dz and maximum <= heights[centre_index] + 1.5 * dz:
+                            peak_height = maximum
+                            return "success"
+
+        return False
 
     def move_data(
         self, istart: int, istop: Optional[int] = None, data: Optional[dict] = None
