@@ -310,6 +310,7 @@ class CameraStageMapper(Thing):
         self,
         stage: Stage,
         cam: Camera,
+        logger: InvocationLogger,
         x: float,
         y: float,
         threshold: int = 5
@@ -335,18 +336,18 @@ class CameraStageMapper(Thing):
         #TODO limit move to one FOV
         if np.abs(x) > cam.stream_resolution[0] or np.abs(y) > cam.stream_resolution[1]:
             raise InsufficientOverlapError()
-        if np.abs(x) > cam.stream_resolution[0] * 0.6 or np.abs(y) > cam.stream_resolution[1] * 0.6:
-            logging.warning("The overlap is likely to be too small for this to be reliable")
+        if np.abs(x) > cam.stream_resolution[0] * 0.8 or np.abs(y) > cam.stream_resolution[1] * 0.8:
+            logger.warning("The overlap is likely to be too small for this to be reliable")
 
         resize = 1
-        undershoot = 0.95
+        undershoot = 0.9
         image_0 = Image.open(cam.grab_jpeg().open())
 
         y_move = y
         x_move = x
         attempts = 0
         while attempts < 5 and [x_move, y_move] != [0,0]:
-            logging.info(f'Trying to move by {x_move} {y_move}')
+            logger.info(f'Trying to move by {x_move} {y_move}')
             relative_move: np.ndarray = np.dot(
                 np.array([y_move, x_move]),
                 np.array(self.image_to_stage_displacement_matrix)
@@ -357,31 +358,34 @@ class CameraStageMapper(Thing):
 
             offset = [int(i / resize) for i in self.get_displacement_between_images(image_1, image_0)][::-1]
 
-            logging.info(f"Measured offset is {offset}")
+            logger.info(f"Measured offset is {offset}")
 
             if np.all(np.abs(np.subtract(offset, [x, y])) < threshold):
-                logging.info('Good move')
+                # logger.info('Good move')
                 break
-            elif np.any(np.abs(offset/ np.array([x, y])) < 0.5) or np.any(offset > np.max(np.array([[x,5],[y,5]]))* 1.3):
-                logging.info(offset < np.array([x, y])* 0.5)
-                logging.info(offset > np.max(np.array([[x,5],[y,5]]))* 1.3)
-                logging.info(np.max(np.array([[x,5],[y,5]])))
-                logging.info("Correlation didn't look good, retrying")
+            elif np.any(np.abs(offset/ np.array([x, y])) < 0.05) or np.any(offset > np.max(np.array([[x,30],[y,30]]))* 1.3):
+                logger.info("Correlation didn't look good, retrying")
                 stage.move_relative(x=-relative_move[0] * undershoot, y=-relative_move[1] * undershoot)
                 attempts += 1
+                undershoot *= 0.95
             else:
                 x_move = x - offset[0]
                 y_move = y - offset[1]
 
-                logging.info(f'Missed in x by {x_move}')
-                logging.info(f'Missed in y by {y_move}')
-
-                attempts += 1
+                # logger.info(f'Missed in x by {x_move}')
+                # logger.info(f'Missed in y by {y_move}')
                 
-                if x_move / (x+0.0001) < 0 or np.abs(offset[0] - x) < threshold:
+                if x_move / (x+0.0001) < 0:# or np.abs(offset[0] - x) < threshold:
                     x_move = 0
-                if y_move / (y+0.0001) < 0 or np.abs(offset[1] - y) < threshold:
+                if y_move / (y+0.0001) < 0:# or np.abs(offset[1] - y) < threshold:
                     y_move = 0
+                if np.abs(x_move) < threshold and np.abs(y_move) < threshold:
+                    x_move = 0
+                    y_move = 0
+                undershoot *= 0.95
+        if attempts >= 5:
+            logger.warning("Looks crap")
+            stage.move_relative(x=relative_move[0] * 1, y=relative_move[1] * 1)
 
 
     @thing_action
