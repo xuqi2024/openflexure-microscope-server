@@ -450,7 +450,6 @@ class SmartScanThing(Thing):
         y_positions = len(set([i[1] for i in focused_path]))
         if x_positions >= 3 and y_positions >= 3:
             z = int(self.fit_next_z(loc, focused_path))
-            logger.info(f"{loc}, {z}")
             # z = z - ((self.stack_test_height-1)/2 +4)*self.stack_dz
         elif len(focused_path) > 1:
             z_index = closest(loc, focused_path)
@@ -474,8 +473,6 @@ class SmartScanThing(Thing):
         else:
             pixel_move[0] = 0
 
-        logger.info(pixel_move)
-
         csm.certify_move_in_image_coordinates(
             stage = stage,
             cam = cam,
@@ -484,6 +481,13 @@ class SmartScanThing(Thing):
             y = -pixel_move[1],
             threshold = 10
         )
+
+        # TODO: when do we just want to use this? Definitely if the current FOV was background
+        # csm.move_in_image_coordinates(
+        #     stage = stage,
+        #     x = -pixel_move[0],
+        #     y = -pixel_move[1]
+        # )
 
         return loc + [z]
 
@@ -717,40 +721,6 @@ class SmartScanThing(Thing):
                 f"max {white_norm.max(axis=(0,1))}, min {white_norm.min(axis=(0,1))}"
             )
             
-            def capture_and_save(acquired: Event, name: str) -> None:
-                """Capture an image and save it to disk
-                
-                This will set the event `acquired` once the image has been acquired, so
-                that the stage may be moved while it's saved.
-                """
-                try:
-                    capture_start = time.time()
-                    metadata = metadata_getter()
-                    raw_image = cam.capture_array(stream_name="raw")
-                    acquired.set()
-                    acquisition_time = time.time()
-                    # Save the raw image
-                    np.savez(os.path.join(raw_images_folder, name + ".npz"), raw_image=raw_image, **norm_inputs)
-                    # Process it into 8 bit RGB
-                    processed = process_raw_image(rggb2rgb(raw2rggb(raw_image)))
-                    processed[processed > 255] = 255
-                    processed[processed < 0] = 0
-                    img = Image.fromarray(processed.astype(np.uint8), mode="RGB")
-                    img.save(
-                        os.path.join(images_folder, name),
-                        quality=95,
-                        subsampling=0
-                    )
-                    exif_dict = piexif.load(os.path.join(images_folder, name))
-                    exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
-                        metadata
-                    ).encode("utf-8")
-                    piexif.insert(piexif.dump(exif_dict), os.path.join(images_folder, name))
-                    save_time = time.time()
-                    logger.debug(f"Acquired {name} in {acquisition_time-capture_start:.1f}s then {save_time-acquisition_time:.1f}s saving to disk")
-                except Exception as e:
-                    logger.error(f"An error occurred while saving {name}: {e}", exc_info=e)
-            
             current_pos = path[0]
 
             # At the start of the loop, we simultaneously capture an image and move to the next scan point.
@@ -872,11 +842,11 @@ class SmartScanThing(Thing):
                 logger.info("Returning to starting position.")
                 if starting_position is not None:
                     stage.move_absolute(**starting_position, block_cancellation=True)
+                    logger.info(f'Scan duration was {timedelta(seconds = round(time.time()-start_time_seconds))} seconds. Captured {len(focused_path)} images')
                     autofocus.looping_autofocus(dz = self.autofocus_dz)
             finally:
                 self._scan_lock.release()
             self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
-            logger.info(f'Scan duration was {timedelta(seconds = round(time.time()-start_time_seconds))} seconds. Captured {len(focused_path)} images')
             logger.info("Processing images, please wait")
             self.preview_stitch_wait()
             self.correlate_wait()
@@ -899,7 +869,7 @@ class SmartScanThing(Thing):
     @thing_property
     def max_image_count(self) -> int:
         """The maximum number of images to capture before we break"""
-        return self.thing_settings.get("max_image_count", 0)
+        return self.thing_settings.get("max_image_count", 225)
 
     @max_image_count.setter
     def max_image_count(self, value: int) -> None:
@@ -938,7 +908,7 @@ class SmartScanThing(Thing):
     @thing_property
     def overlap(self) -> float:
         """The z distance to perform an autofocus"""
-        return self.thing_settings.get("overlap", 0.45)
+        return self.thing_settings.get("overlap", 0.35)
 
     @overlap.setter
     def overlap(self, value: float) -> None:
@@ -1125,7 +1095,7 @@ class SmartScanThing(Thing):
             raise RuntimeError("Only one subprocess is allowed at a time")
         with self._correlate_popen_lock:
             self._correlate_popen = Popen(
-                [self._script, "--stitching_mode", "only_correlate", "--minimum_overlap", f"{round(overlap*0.9, 2)}", "--resize", "1", images_folder]
+                [self._script, "--stitching_mode", "only_correlate", "--minimum_overlap", f"{round(overlap*0.9, 2)}", "--resize", "1", "--max_stage_discrepancy", "200", images_folder]
             )
 
     def correlate_running(self) -> bool:
@@ -1311,7 +1281,6 @@ class SmartScanThing(Thing):
         capture_inputs = None,
         current_pos = 0
     ):
-        start_t = time.time()
         # This is the number of images we test.
         stack_height = self.stack_test_height
         undershoot = (self.stack_test_height-1)/2 + 5
@@ -1399,14 +1368,12 @@ class SmartScanThing(Thing):
         # So for testing a stack of 5 images, we need (5-1)/2=2 images before the peak
         # and 2 after the peak
         start_index = (stack_height - 1) / 2 
-        time.sleep(0.2)
         failures = 0
         while captures < max_stack_height:
             current_sharpness = cam.grab_jpeg_size(stream_name='lores')
-            img_array, img_metadata = capture_image()
             sharpnesses.append(current_sharpness)
             capture_heights.append(stage.position['z'])
-            
+            img_array, img_metadata = capture_image()
             capture_list.append(img_array)
             metadata_list.append(img_metadata)
             # capture_and_save(f"{stage.position['x']}_{stage.position['y']}_{stage.position['z']}_{captures}.jpeg")
@@ -1416,9 +1383,9 @@ class SmartScanThing(Thing):
                 y = 0,
                 z = stack_dz
             )
-            time.sleep(0.2)
+            time.sleep(0.3)
             if len(sharpnesses) >= stack_height:
-                result = self.test_sharpnesses(capture_heights[-stack_height:], sharpnesses[-stack_height:], logger, start_index, failures > 3)
+                result = self.test_sharpnesses(capture_heights[-stack_height:], sharpnesses[-stack_height:], logger, start_index, failures > -1)
                 # logger.info(sharpnesses[-stack_height:])
                 if result == 'success':
                     break
@@ -1484,7 +1451,6 @@ class SmartScanThing(Thing):
         save_thread = Thread(
             target = save_captures
         )
-
         return capture_heights[sharpest_index], save_thread
     @thing_property
     def stack_dz(self) -> int:
@@ -1492,7 +1458,7 @@ class SmartScanThing(Thing):
         Suggested is 50 for 60-100x
         100 for 40x
         200 for 20x"""
-        return self.thing_settings.get("stack_dz", 50)
+        return self.thing_settings.get("stack_dz", 100)
     
     @stack_dz.setter
     def stack_dz(self, value: int) -> None:
@@ -1501,7 +1467,7 @@ class SmartScanThing(Thing):
     @thing_property
     def stack_test_height(self) -> int:
         """Number of images in the stack to test"""
-        return self.thing_settings.get("stack_test_height", 7)
+        return self.thing_settings.get("stack_test_height", 9)
     
     @stack_test_height.setter
     def stack_test_height(self, value: int) -> None:
@@ -1511,7 +1477,7 @@ class SmartScanThing(Thing):
     def stack_height(self) -> int:
         """The number of images to capture and save in a stack
         Defaults to 1 unless you need to see either side of focus"""
-        return self.thing_settings.get("stack_height", 1)
+        return self.thing_settings.get("stack_height", 9)
     
     @stack_height.setter
     def stack_height(self, value: int) -> None:
