@@ -340,8 +340,8 @@ class CameraStageMapper(Thing):
         if np.abs(x) > cam.stream_resolution[0] * 0.8 or np.abs(y) > cam.stream_resolution[1] * 0.8:
             logger.warning("The overlap is likely to be too small for this to be reliable")
 
-        resize = 0.1
-        undershoot = 0.9
+        resize = 0.2
+        undershoot = 0.8
         image_0 = Image.open(cam.grab_jpeg().open())
 
         y_move = y
@@ -354,23 +354,24 @@ class CameraStageMapper(Thing):
                 np.array(self.image_to_stage_displacement_matrix)
             )
 
-            stage.move_relative(x=relative_move[0] * undershoot, y=relative_move[1] * undershoot)
+            stage.move_relative(x=int(relative_move[0] * undershoot), y=int(relative_move[1] * undershoot))
             image_1 = Image.open(cam.grab_jpeg().open())
 
             offset = [int(i / resize) for i in self.get_displacement_between_images(image_1, image_0, resize = resize)][::-1]
 
-            logger.debug(f"Measured offset is {offset}. Processing took {time.time() - start}")
+            logger.debug(f"Measured offset is {offset}")
 
             if np.all(np.abs(np.subtract(offset, [x, y])) < threshold):
                 # logger.info('Good move')
                 break
+            #TODO: safe divide to avoid div/0
             elif np.any(np.abs(offset/ np.array([x, y])) < 0.05) or np.any(offset > np.max(np.array([[x,30],[y,30]]))* 1.3):
                 logger.debug("Correlation didn't look good, retrying")
-                stage.move_relative(x=-relative_move[0] * undershoot, y=-relative_move[1] * undershoot)
+                stage.move_relative(x=int(-relative_move[0] * undershoot), y=int(-relative_move[1] * undershoot))
                 attempts += 1
                 if attempts >= 5:
                     logger.warning("Closed loop move didn't look successful")
-                    stage.move_relative(x=relative_move[0] * 1, y=relative_move[1] * 1)
+                    stage.move_relative(x=int(relative_move[0] * 1), y=int(relative_move[1] * 1))
                     break
                 undershoot *= 0.95
             else:
