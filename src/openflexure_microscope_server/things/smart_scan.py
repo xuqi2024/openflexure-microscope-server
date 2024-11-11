@@ -20,7 +20,6 @@ from datetime import datetime, timedelta
 from subprocess import CompletedProcess, Popen, PIPE, SubprocessError, run, STDOUT
 from threading import Event, Thread
 import glob
-import zipfile
 import json
 import piexif
 
@@ -35,6 +34,7 @@ from labthings_picamera2.thing import StreamingPiCamera2
 from openflexure_microscope_server.things.autofocus import AutofocusThing
 from openflexure_microscope_server.things.camera_stage_mapping import CameraStageMapper
 from openflexure_microscope_server.things.auto_recentre_stage import RecentringThing
+from .settings_manager import SettingsManager
 
 StageDep = direct_thing_client_dependency(SangaboardThing, "/stage/")
 CamDep = direct_thing_client_dependency(StreamingPiCamera2, "/camera/")
@@ -42,6 +42,7 @@ CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mappin
 AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
 RecentreStage = direct_thing_client_dependency(RecentringThing, "/auto_recentre_stage/")
 
+Settings = direct_thing_client_dependency(SettingsManager, "/settings/")
 
 def closest(current, focused_path):
     """Finds the index of the closest x-y position in a list from the current position,
@@ -473,20 +474,22 @@ class SmartScanThing(Thing):
         else:
             pixel_move[0] = 0
 
+        closed_loop_ratio = 1.0
+
         csm.certify_move_in_image_coordinates(
             stage = stage,
             cam = cam,
             logger = logger,
-            x = -pixel_move[0],
-            y = -pixel_move[1],
+            x = -pixel_move[0]*closed_loop_ratio,
+            y = -pixel_move[1]*closed_loop_ratio,
             threshold = 10
         )
 
         # TODO: when do we just want to use this? Definitely if the current FOV was background
         # csm.move_in_image_coordinates(
         #     stage = stage,
-        #     x = -pixel_move[0],
-        #     y = -pixel_move[1]
+            # x = -pixel_move[0]*(1-closed_loop_ratio),
+            # y = -pixel_move[1]*(1-closed_loop_ratio)
         # )
 
         return loc + [z]
@@ -549,6 +552,7 @@ class SmartScanThing(Thing):
         csm: CSMDep,
         background_detect: BackgroundDep,
         recentre: RecentreStage,
+        settings: Settings,
         scan_name: str=""
     ):
         """Move the stage to cover an area, taking images that can be tiled together.
@@ -578,6 +582,15 @@ class SmartScanThing(Thing):
         logger.info(f'Starting scan at {start_time}')
         start_time_seconds = time.time()
         try:
+            scan_folder = self.new_scan_folder(scan_name)
+            scan_name = os.path.basename(scan_folder)
+            images_folder = os.path.join(scan_folder, "images")
+            os.mkdir(images_folder)
+            use_folder = os.path.join(images_folder, "use")
+            os.mkdir(use_folder)
+            raw_images_folder = os.path.join(images_folder, "use", "raw")
+            os.mkdir(raw_images_folder)
+            logger.info(f"Saving images to {images_folder}")
             # Before anything else, check that we've got a background set
             # It's annoying to have to wait to find out!
             max_dist = self.max_range
@@ -655,15 +668,6 @@ class SmartScanThing(Thing):
             ids = []
             start_time = time.strftime("%H_%M_%S-%d_%m_%Y")
 
-            scan_folder = self.new_scan_folder(scan_name)
-            images_folder = os.path.join(scan_folder, "images")
-            os.mkdir(images_folder)
-            use_folder = os.path.join(images_folder, "use")
-            os.mkdir(use_folder)
-            raw_images_folder = os.path.join(images_folder, "use", "raw")
-            os.mkdir(raw_images_folder)
-            logger.info(f"Saving images to {images_folder}")
-
             data = {
                 'scan_name' : scan_name,
                 'overlap' : overlap,
@@ -673,7 +677,8 @@ class SmartScanThing(Thing):
                 'start time' : start_time,
                 'skipping background' : self.skip_background,
                 'stack_dz' : self.stack_dz,
-                'stack_height' : self.stack_height 
+                'stack_height' : self.stack_height,
+                'microscope_hostname': settings.hostname
             }
 
             with open(os.path.join(images_folder, 'scan_inputs.json'), 'w', encoding='utf-8') as f:
@@ -841,8 +846,8 @@ class SmartScanThing(Thing):
                 #TODO print where the centre actually is
                 logger.info("Returning to starting position.")
                 if starting_position is not None:
-                    stage.move_absolute(**starting_position, block_cancellation=True)
                     logger.info(f'Scan duration was {timedelta(seconds = round(time.time()-start_time_seconds))} seconds. Captured {len(focused_path)} images')
+                    stage.move_absolute(**starting_position, block_cancellation=True)
                     autofocus.looping_autofocus(dz = self.autofocus_dz)
             finally:
                 self._scan_lock.release()
@@ -1306,7 +1311,7 @@ class SmartScanThing(Thing):
             return gamma_8bit(corrected)
 
 
-        def capture_image():
+        def capture_image(stage):
             """Capture an image and save it to disk
             
             This will set the event `acquired` once the image has been acquired, so
@@ -1315,6 +1320,7 @@ class SmartScanThing(Thing):
             try:
                 capture_start = time.time()
                 metadata = metadata_getter()
+                metadata['/stage/']['true_stage_position'] = dict(stage.position)
                 metadata['/stage/']['position']['x'] = current_pos[0]
                 metadata['/stage/']['position']['y'] = current_pos[1]
                 metadata['/stage/']['position']['z'] = stage.position['z']
@@ -1373,7 +1379,7 @@ class SmartScanThing(Thing):
             current_sharpness = cam.grab_jpeg_size(stream_name='lores')
             sharpnesses.append(current_sharpness)
             capture_heights.append(stage.position['z'])
-            img_array, img_metadata = capture_image()
+            img_array, img_metadata = capture_image(stage = stage)
             capture_list.append(img_array)
             metadata_list.append(img_metadata)
             # capture_and_save(f"{stage.position['x']}_{stage.position['y']}_{stage.position['z']}_{captures}.jpeg")
