@@ -56,6 +56,8 @@ class RangeofMotionThing(Thing):
                 'y' : (lateral_offset / 100) * stream_resolution[1],
             }
 
+            
+
             minimum_offset = { #minimum we expect the stage to move each time?
                 'x' : int(step_sizes['x'] * 0.8),
                 'y' : int(step_sizes['y'] * 0.8),
@@ -99,6 +101,7 @@ class RangeofMotionThing(Thing):
                     totMag_eachStep_xpos = [] #This variable tracks the total distance travelled after each movement
                     stage_coords = []
                     failure_count = 0
+                    wrong_axis_detect = False
 
                     while np.abs(delta[axs]) > minimum_offset[axs] and failure_count < 4:  #loop will continue until pixel distance is less than some value
                         pos = stage.position
@@ -114,9 +117,7 @@ class RangeofMotionThing(Thing):
                             logging.warning("Break limit met")
                             break
 
-                        #Check for extreme movement in the wrong axis
-                        if np.abs(delta[wrong_delta]) > wrong_axis_max:
-                            logger.info('Erroneous motion in the wrong axis detected. Edge found.')
+                        if wrong_axis_detect == True:
                             break
                         
                         # Capture the base image
@@ -167,6 +168,13 @@ class RangeofMotionThing(Thing):
                             delta['x'] = int(offset[1])
                             delta['y'] = int(offset[0])
                             logger.info(f"Most recent move was {delta}. Target is {this_step_size}. Threshold is {minimum_offset}")
+
+                            #Check for extreme movement in the wrong axis
+                            if np.abs(delta[wrong_delta]) > wrong_axis_max:
+                                logger.info('Erroneous motion in the wrong axis detected. Edge found.')
+                                wrong_axis_detect = True
+                                break
+
                             if np.abs(delta[axs]) > minimum_offset[axs]:
                                 if focused:
                                     focused_positions.append(stage.position)
@@ -174,9 +182,9 @@ class RangeofMotionThing(Thing):
                             else:
                                 failure_count += 1
                                 
-                                test_image1.save(f"/var/openflexure/scans/loop{i}_image1.jpeg")
+                                test_image1.save(f"/var/openflexure/scans/loop{i}_image1_initial_fail.jpeg")
                                 test_image2 = cam.grab_jpeg()
-                                test_image2.save(f"/var/openflexure/scans/loop{i}_image2.jpeg")
+                                test_image2.save(f"/var/openflexure/scans/loop{i}_image2_initial_fail.jpeg")
                                 logger.info(f'Image captured for analysis.') 
                                 logger.info(f'Looks like that move failed. Going to retry. Attempt {failure_count} out of 4')
 
@@ -185,6 +193,7 @@ class RangeofMotionThing(Thing):
                         if failure_count == 4:
                             logger.info(f'Loop {i} edge may have been found. Moving back to previous position and checking in smaller step sizes.')
                             csm.move_in_image_coordinates(x = -this_step_size['x'], y = -this_step_size['y'])
+                            logger.info(f'current position is {stage.position}')
                             autofocus.looping_autofocus(dz = 800)
                             lateral_offset_check = 15 #By what percentage of the image/stream resolution the stage moves
                             step_sizes_check = {
@@ -231,10 +240,13 @@ class RangeofMotionThing(Thing):
                                 # Capture the base image
                                 image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
                                 image1=image1.tolist()
+                                test_image1 = cam.grab_jpeg()
+                                test_image1.save(f"/var/openflexure/scans/loop{i}_image1_retry.jpeg")
                                 logger.info(f'Image 1 Captured')
                                 
                                 # TODO combine these into one move
-                                    
+                                
+                                logger.info(f'current position is {stage.position}')
                                 logger.info(f'Move pending for small movement {loop + 1}/3')
                                 csm.move_in_image_coordinates(x = this_step_size_check['x'], y = this_step_size_check['y'])
                                 
@@ -245,6 +257,9 @@ class RangeofMotionThing(Thing):
 
                                     image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
                                     image2=image2.tolist()
+
+                                    test_image2 = cam.grab_jpeg()
+                                    test_image2.save(f"/var/openflexure/scans/loop{i}_image2_retry.jpeg")
 
                                     logger.info(f'Image 2 captured.')
 
