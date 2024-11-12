@@ -191,8 +191,31 @@ class RangeofMotionThing(Thing):
 
                         #Beginning of the second attempt to validate the move
                         if failure_count == 4:
+
+                            step_sizes_backlash = {
+
+                                'x' : ((lateral_offset / 100) * stream_resolution[0]) + 300,
+                                'y' : ((lateral_offset / 100) * stream_resolution[1]) + 300
+
+                            }
+
+                            this_step_size_backlash = {
+                                'x':0,
+                                'y':0
+                            }
+
+                            this_step_size_backlash[axs] = step_sizes_backlash[axs] * dir
+
+                            return_move = {
+                                'x':0,
+                                'y':0
+                            }
+
+                            return_move[axs] = (return_move[axs] + 300) * dir
+
                             logger.info(f'Loop {i} edge may have been found. Moving back to previous position and checking in smaller step sizes.')
-                            csm.move_in_image_coordinates(x = -this_step_size['x'], y = -this_step_size['y'])
+                            csm.move_in_image_coordinates(x = -this_step_size_backlash['x'], y = -this_step_size_backlash['y'])
+                            csm.move_in_image_coordiantes(x = return_move['x'], y = return_move['y'])
                             logger.info(f'current position is {stage.position}')
                             autofocus.looping_autofocus(dz = 800)
                             lateral_offset_check = 15 #By what percentage of the image/stream resolution the stage moves
