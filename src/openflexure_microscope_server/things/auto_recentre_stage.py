@@ -95,8 +95,16 @@ class RangeofMotionThing(Thing):
             
             break_limit = 190000
 
-            #logger.info(f"Maximum allowed movement in wrong axis is x:{wrong_axis_max['x']} and y:{wrong_axis_max['y']}")
-            #wrong_axis_max = 40
+            wrong_axis_max_z = {
+                'x':z_steps['x'] * 0.1,
+                'y':z_steps['y'] * 0.1
+            }
+
+            wrong_axis_max_small = {
+                'x':step_sizes_small['x'] * 0.1,
+                'y':step_sizes_small['y'] * 0.1
+            }
+            
             results = {}
             i = 0
 
@@ -116,6 +124,7 @@ class RangeofMotionThing(Thing):
                     'x':0,
                     'y':0
                 }
+
                 for dir in [1, -1]:
                     i += 1
                     this_big_step_size[axs] = step_sizes_big[axs] * dir
@@ -123,6 +132,8 @@ class RangeofMotionThing(Thing):
                     z_cal_step[axs] = z_steps[axs] * dir 
 
                     autofocus.looping_autofocus(dz = 1000)
+
+                    axis_error = False
 
                     starting_pos = list(stage.position.values())
                     logger.info(f"Starting at {starting_pos}")
@@ -133,6 +144,13 @@ class RangeofMotionThing(Thing):
                         'x':10001,
                         'y':10001
                     }
+
+                    if axs == 'x':
+                        wrong_axis = 'y'
+                        delta[wrong_axis] = 0
+                    else:
+                        wrong_axis = 'x'
+                        delta[wrong_axis] = 0
 
                     z_delta = {}
 
@@ -170,27 +188,26 @@ class RangeofMotionThing(Thing):
                         delta['y'] = int(offset[0])
                         logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_z[axs]}")
                         focused_positions.append(stage.position)  #focused_positions is used for z calibration
-                        #if np.abs(delta[axs]) < minimum_offset_z[axs]:  #this means the edge has been found
-                            #logger.info(f"Something is wrong with the correlation.")
-                            #axis_fail = True
-                            #break
-                            
-                    #if axis_fail == True:
-                        #break
+                        if np.abs(delta[wrong_axis]) > wrong_axis_max_z[wrong_axis]:
+                            logger.info(f"Parasitic motion in the wrong axis detected. Displacement in {wrong_axis} was found as {delta[wrong_axis]}.")
+                            axis_error = True
+                            break 
                     
                     z_delta['x'] = int(offset[1])
                     z_delta['y'] = int(offset[0])
 
-                    lateral_positions = [i[axs] for i in focused_positions]
-                    logger.info(f"Lateral positions for loop {i} are {lateral_positions}")
-                    z_positions = [i['z'] for i in focused_positions]
-                    logger.info(f"z_positions for loop {i} are {z_positions}")
-                    parameters, covariance = curve_fit(quadratic, lateral_positions, z_positions)
-                    logger.info(f"Parameters for loop {i} are {parameters}")
+                    if axis_error == False:
 
-                    logger.info(f"Z calibration complete.")
+                        lateral_positions = [i[axs] for i in focused_positions]
+                        logger.info(f"Lateral positions for loop {i} are {lateral_positions}")
+                        z_positions = [i['z'] for i in focused_positions]
+                        logger.info(f"z_positions for loop {i} are {z_positions}")
+                        parameters, covariance = curve_fit(quadratic, lateral_positions, z_positions)
+                        logger.info(f"Parameters for loop {i} are {parameters}")
 
-                    while np.abs(delta[axs]) > minimum_offset_small[axs] and np.abs(z_delta[axs]) > minimum_offset_z[axs]:  #loop will continue until pixel distance is less than some value
+                        logger.info(f"Z calibration complete.")
+
+                    while np.abs(delta[axs]) > minimum_offset_small[axs] and np.abs(z_delta[axs]) > minimum_offset_z[axs] and axis_error == False:  #loop will continue until pixel distance is less than some value
                         pos = stage.position
 
                         if np.abs(pos[axs] - starting_pos[2]) >= break_limit:
@@ -241,6 +258,10 @@ class RangeofMotionThing(Thing):
                             logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_small[axs]}")
                             logger.info(f"Current position is {stage.position}")
                             cor_lat_steps.append(offset)
+                            if np.abs(delta[wrong_axis]) > wrong_axis_max_small[wrong_axis]:
+                                logger.info(f"Parasitic motion in the wrong axis detected. Displacement in {wrong_axis} was found as {delta[wrong_axis]}.")
+                                axis_error = True
+                                break 
 
                             #Refocuses and tests new image to check that the focus wasn't just off
                             while np.abs(delta[axs]) < minimum_offset_small[axs] and failure_count < 3:
@@ -365,6 +386,7 @@ class RecentringThing(Thing):
         self,
         autofocus: AutofocusDep,
         stage: StageDep,
+        cam: CamDep,
         logging: InvocationLogger,
         max_steps=15,
         lateral_distance=2000
@@ -390,9 +412,11 @@ class RecentringThing(Thing):
         much between these sites, making the procedure more sensitive
         to noise or a failed autofocus.
         """
-
+        
         max_steps = 20
         dx = lateral_distance
+
+        filepath = "/var/openflexure/"
 
         centre = list(stage.position.values())
 
@@ -403,6 +427,8 @@ class RecentringThing(Thing):
 
         logging.info(f"The intervals between steps is {dx}.")
         logging.info(f"Starting position is {centre}")
+
+        results = {"Interval": dx}
 
         for direction in [0, 1]:
             # Start off with the current position, and moving in the positive direction
@@ -446,7 +472,7 @@ class RecentringThing(Thing):
                     )
                     break
 
-                if len(focused_pos[direction]) > 4:
+                if len(focused_pos[direction]) > 6:
                     logging.info("Calculating turning point.")
                     all_heights = [x[2] for x in focused_pos[direction]] #Extracting all focused z positions
                     direction_index = [x[direction] for x in focused_pos[direction]] #Extracting all x/y positions depending on direction of travel
@@ -464,7 +490,7 @@ class RecentringThing(Thing):
                     logging.info(f"Output of deriv function is {turning}")
 
                     turning_loc = -turning[0] / (turning[1]) #The [0] refers to the first coefficient ie A in Ax + C where C is a constant term
-
+                    
                     logging.warning(sorted_all_heights)
                     if (                                       #Breaks the loop if the index of the maximum is anywhere but the start of the array
                         np.argmax(sorted_all_heights) != 0
@@ -487,6 +513,8 @@ class RecentringThing(Thing):
                             # plt.plot(sorted_lateral, quad_fit_func(sorted_lateral))
                             # plt.show()
                             pass
+                    
+                    
                     break
 
             # Centre value is replaced by the maximum value recorded in that axis
@@ -497,16 +525,14 @@ class RecentringThing(Thing):
             logging.info(f"Moving to new center position {centre}")
             stage.move_absolute(x=centre[0], y=centre[1], z=centre[2])
             autofocus.looping_autofocus()
+            test_image = cam.grab_jpeg()
+            test_image.save(f"{filepath}recentre_pos{i}.jpeg")
 
         logging.info(f"Centre of ROM is at {centre, stage.position['z']} \n")
 
-        results = {
-            "Calculated Centre": centre,
-            "Positions": sorted_all_heights,
-            "Interval": dx
-        }
+        results["Calculated Centre"] = centre
 
-        with open("/var/openflexure/recentre_results.json", 'w') as file_object:
+        with open(f"/var/openflexure/recentre_results{i}.json", 'w') as file_object:
             json.dump(results, file_object, indent = 3)
 
         return focused_pos
