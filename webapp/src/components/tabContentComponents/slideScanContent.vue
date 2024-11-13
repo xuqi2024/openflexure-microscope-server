@@ -110,6 +110,11 @@
             @update:progress="progress = $event"
             @update:log="log = $event"
           />
+          <action-button
+            thing="smart_scan"
+            action="eject_usb_storage"
+            submit-label="Eject USB storage"
+          />
         </div>
       </div>
       <div v-show="scanning">

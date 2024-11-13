@@ -16,14 +16,18 @@ from typing import Annotated, Any, Callable, Dict, List, Mapping, NamedTuple, Op
 from fastapi import Depends, HTTPException
 
 import numpy as np
+from PIL import Image
 from pydantic import BaseModel
 from camera_stage_mapping.camera_stage_calibration_1d import (
     calibrate_backlash_1d,
     image_to_stage_displacement_from_1d,
 )
 from camera_stage_mapping.camera_stage_tracker import Tracker
+import camera_stage_mapping.fft_image_tracking
 from labthings_picamera2.thing import StreamingPiCamera2
 from labthings_sangaboard import SangaboardThing
+from openflexure_microscope_server.things.autofocus import AutofocusThing
+import cv2
 
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
 from labthings_fastapi.dependencies.invocation import InvocationCancelledError, InvocationLogger
@@ -33,6 +37,7 @@ from labthings_fastapi.thing import Thing
 
 Camera = direct_thing_client_dependency(StreamingPiCamera2, "/camera/")
 Stage = direct_thing_client_dependency(SangaboardThing, "/stage/")
+AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
 
 CoordinateType = Tuple[float, float, float]
 XYCoordinateType = Tuple[float, float]
@@ -146,6 +151,17 @@ class CSMUncalibratedError(HTTPException):
             )
         )
 
+class InsufficientOverlapError(HTTPException):
+    def __init__(self):
+        HTTPException.__init__(
+            self,
+            503,
+            (
+                "The overlap you're requesting isn't enough to reliably align. "
+                "Reduce the distance or split the move into multiple smaller moves."
+            )
+        )
+
 
 class CameraStageMapper(Thing):
     """A Thing to manage mapping between image and stage coordinates"""
@@ -171,6 +187,10 @@ class CameraStageMapper(Thing):
         try:
             result: dict = calibrate_backlash_1d(tracker, move, direction_array, logger=logger)
         except InvocationCancelledError as e:
+            logger.info("Returning to starting position")
+            stage.move_absolute(**starting_position, block_cancellation=True)
+            raise e
+        except Exception as e:
             logger.info("Returning to starting position")
             stage.move_absolute(**starting_position, block_cancellation=True)
             raise e
@@ -285,6 +305,146 @@ class CameraStageMapper(Thing):
         )
         stage.move_relative(x=relative_move[0], y=relative_move[1])
 
+
+    @thing_action
+    def certify_move_in_image_coordinates(
+        self,
+        stage: Stage,
+        cam: Camera,
+        logger: InvocationLogger,
+        x: float,
+        y: float,
+        threshold: int = 5
+    ):
+        """Move by a given number of pixels on the camera and verify using cross correlation
+        
+        NB x and y here refer to what is usually understood to be the horizontal and
+        vertical axes of the image. In many toolkits, "matrix indices" are used, which
+        swap the order of these coordinates. This includes opencv and PIL. So, don't be
+        surprised if you find it necessary to swap x and y around.
+
+        As a general rule, `x` usually corresponds to the longer dimension of the image,
+        and `y` to the shorter one. Checking what shape your chosen toolkit reports for
+        an image usually helps resolve any ambiguity.
+
+        The move it attempts will try to undershoot by 5% of move - it's easier to keep moving
+        than to turn around. Once it gets within "threshold" pixels of the target position, it'll
+        break. Currently doesn't do anything useful if it overshoots, just logs the problem but
+        stays there.
+        """
+        self.assert_calibrated()
+
+        #TODO limit move to one FOV
+        if np.abs(x) > cam.stream_resolution[0] or np.abs(y) > cam.stream_resolution[1]:
+            raise InsufficientOverlapError()
+        if np.abs(x) > cam.stream_resolution[0] * 0.8 or np.abs(y) > cam.stream_resolution[1] * 0.8:
+            logger.warning("The overlap is likely to be too small for this to be reliable")
+
+        resize = 0.2
+        undershoot = 0.8
+        image_0 = Image.open(cam.grab_jpeg().open())
+
+        y_move = y
+        x_move = x
+        attempts = 0
+        while attempts < 5 and [x_move, y_move] != [0,0]:
+            logger.debug(f'Trying to move by {x_move} {y_move}')
+            relative_move: np.ndarray = np.dot(
+                np.array([y_move, x_move]),
+                np.array(self.image_to_stage_displacement_matrix)
+            )
+
+            stage.move_relative(x=int(relative_move[0] * undershoot), y=int(relative_move[1] * undershoot))
+            image_1 = Image.open(cam.grab_jpeg().open())
+
+            offset = [int(i / resize) for i in self.get_displacement_between_images(image_1, image_0, resize = resize)][::-1]
+
+            logger.debug(f"Measured offset is {offset}")
+
+            if np.all(np.abs(np.subtract(offset, [x, y])) < threshold):
+                # logger.info('Good move')
+                break
+            #TODO: safe divide to avoid div/0
+            elif np.any(np.abs(offset/ np.array([x, y])) < 0.05) or np.any(offset > np.max(np.array([[x,30],[y,30]]))* 1.3):
+                logger.debug("Correlation didn't look good, retrying")
+                stage.move_relative(x=int(-relative_move[0] * undershoot), y=int(-relative_move[1] * undershoot))
+                attempts += 1
+                if attempts >= 5:
+                    logger.warning("Closed loop move didn't look successful")
+                    stage.move_relative(x=int(relative_move[0] * undershoot), y=int(relative_move[1] * undershoot))
+                    break
+                undershoot *= 0.95
+            else:
+                x_move = x - offset[0]
+                y_move = y - offset[1]
+
+                # logger.info(f'Missed in x by {x_move}')
+                # logger.info(f'Missed in y by {y_move}')
+                
+                if x_move / (x+0.0001) < 0:# or np.abs(offset[0] - x) < threshold:
+                    x_move = 0
+                if y_move / (y+0.0001) < 0:# or np.abs(offset[1] - y) < threshold:
+                    y_move = 0
+                if np.abs(x_move) < threshold and np.abs(y_move) < threshold:
+                    x_move = 0
+                    y_move = 0
+                undershoot *= 0.95
+                if attempts >= 5:
+                    logger.warning("Closed loop move didn't look successful")
+                    break
+                
+
+
+    @thing_action
+    def split_certified_move_in_image_coordinates(
+        self,
+        stage: Stage,
+        cam: Camera,
+        autofocus: AutofocusDep,
+        x: float,
+        y: float
+    ):
+        """Move by a given number of pixels on the camera and verify using cross correlation
+        
+        NB x and y here refer to what is usually understood to be the horizontal and
+        vertical axes of the image. In many toolkits, "matrix indices" are used, which
+        swap the order of these coordinates. This includes opencv and PIL. So, don't be
+        surprised if you find it necessary to swap x and y around.
+
+        As a general rule, `x` usually corresponds to the longer dimension of the image,
+        and `y` to the shorter one. Checking what shape your chosen toolkit reports for
+        an image usually helps resolve any ambiguity.
+
+        The move it attempts will try to undershoot by 5% of move - it's easier to keep moving
+        than to turn around. Once it gets within "threshold" pixels of the target position, it'll
+        break. Currently doesn't do anything useful if it overshoots, just logs the problem but
+        stays there.
+        """
+        self.assert_calibrated()
+
+        stream_resolution = cam.stream_resolution
+
+        #TODO limit move to one FOV
+        x_count = np.abs(np.floor(x / (0.5 * stream_resolution[0])))
+        x_remainder = x % x_count
+
+        y_count = np.abs(np.floor(y / (0.5 * stream_resolution[1])))
+        y_remainder = y % y_count
+
+        logging.info(f"We're wanting to move {x}, {y}. Splitting it into moving by half the FOV {x_count}, {y_count} times, then an extra {x_remainder}, {y_remainder}")
+        for i in range(int(x_count)):
+            self.certify_move_in_image_coordinates(stage, cam, 0.5*stream_resolution[0], 0)
+            if i % 3 == 2:
+                autofocus.looping_autofocus()
+        for i in range(int(y_count)):
+            self.certify_move_in_image_coordinates(stage, cam, 0, 0.5*stream_resolution[1])
+            if i % 3 == 2:
+                autofocus.looping_autofocus()
+        
+        self.certify_move_in_image_coordinates(stage, cam, x_remainder, 0)
+        self.certify_move_in_image_coordinates(stage, cam, 0, y_remainder)
+
+
     @thing_property
     def thing_state(self) -> dict[str, Any]:
         """Summary metadata describing the current state of the Thing"""
@@ -292,3 +452,9 @@ class CameraStageMapper(Thing):
             k: getattr(self, k)
             for k in ["image_to_stage_displacement_matrix", "image_resolution"]
         }
+
+    @thing_action
+    def get_displacement_between_images(self, image_0, image_1, sigma=10, fractional_threshold=0.1, pad=True, resize=0.1):
+        image_0 = cv2.resize(np.array(image_0), dsize=(0,0), fx = resize, fy=resize)
+        image_1 = cv2.resize(np.array(image_1), dsize=(0,0), fx = resize, fy=resize)
+        return camera_stage_mapping.fft_image_tracking.displacement_between_images(image_0=image_0, image_1=image_1, sigma=10, fractional_threshold=0.1, pad=True).tolist()
