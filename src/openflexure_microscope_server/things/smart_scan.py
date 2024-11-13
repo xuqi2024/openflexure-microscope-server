@@ -411,12 +411,7 @@ class SmartScanThing(Thing):
         get filled in - so there's no guarantee, for now, that the numbers
         will correspond to order of creation. This may change in the future.
         """
-        try:
-            self.mount_usb_storage()
-        except:
-            # This is slightly sub-ideal, but it ensures the log shows the error properly
-            time.sleep(1)
-            raise
+        self.mount_usb_storage()
         if not os.path.exists(self.scans_folder_path):
             os.makedirs(self.scans_folder_path)
         if not scan_name:
@@ -604,6 +599,17 @@ class SmartScanThing(Thing):
         images_folder = None
         starting_position = None
         capture_thread = None
+        # Temporary, for Tanzania trial: ensure a USB disk is connected
+        try:
+            self.mount_usb_storage()
+        except IOError:
+            logger.error(
+                "The USB storage device is not connected. You must connect "
+                "it before starting a scan."
+            )
+            time.sleep(1)
+            raise
+        
         self._scan_lock.acquire(timeout=0.1)
         start_time = time.strftime("%H:%M:%S")
         if self.stack_height % 2 == 0:
