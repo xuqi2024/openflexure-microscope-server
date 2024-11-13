@@ -82,19 +82,16 @@
         @response="onRecalibrateResponse"
         @error="modalError"
       />
-      <div
-      v-show="showExtraSettings"
-      class="uk-margin-small"
-      >
-      <action-button
-        :can-terminate="false"
-        :requires-confirmation="false"
-        thing="camera"
-        action="reset_ccm"
-        :submit-label="'Reset ccm'"
-        @response="onRecalibrateResponse"
-        @error="modalError"
-      />
+      <div v-show="showExtraSettings" class="uk-margin-small">
+        <action-button
+          :can-terminate="false"
+          :requires-confirmation="false"
+          thing="camera"
+          action="reset_ccm"
+          :submit-label="'Reset ccm'"
+          @response="onRecalibrateResponse"
+          @error="modalError"
+        />
       </div>
     </div>
   </div>
