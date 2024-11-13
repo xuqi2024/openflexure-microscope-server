@@ -22,6 +22,8 @@ from threading import Event, Thread
 import glob
 import json
 import piexif
+from labthings_fastapi.client import ThingClient
+import httpx
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.metadata import GetThingStates
@@ -175,6 +177,7 @@ def raw2rggb(raw):
     """Convert packed 10 bit raw to RGGB 8 bit"""
     raw = np.asarray(raw)  # ensure it's an array
     rggb = np.empty((616, 820, 4), dtype=np.uint8)
+    # rggb = np.empty((1232, 1640, 4), dtype=np.uint8) # 
     raw_w = rggb.shape[1]//2*5
     for plane, offset in enumerate([(1,1), (0,1), (1,0), (0,0)]):
         rggb[:, ::2, plane] = raw[offset[0]::2, offset[1]:raw_w+offset[1]:5]
@@ -568,6 +571,10 @@ class SmartScanThing(Thing):
         """
         # Define these variables so we can use them in the finally: block
         # (after testing they are not None)
+        # cam_settings = ThingClient.from_url("/camera/", httpx.Client(base_url="http://localhost:5000/", trust_env=False, timeout=20))
+        # cam.sensor_mode = {"output_size": [3280, 2464], "bit_depth":10}
+        cam.sensor_mode = {"output_size": [1640, 1232], "bit_depth":10}
+
         scan_folder = None
         images_folder = None
         starting_position = None
@@ -588,8 +595,6 @@ class SmartScanThing(Thing):
             os.mkdir(images_folder)
             use_folder = os.path.join(images_folder, "use")
             os.mkdir(use_folder)
-            raw_images_folder = os.path.join(images_folder, "use", "raw")
-            os.mkdir(raw_images_folder)
             logger.info(f"Saving images to {images_folder}")
             # Before anything else, check that we've got a background set
             # It's annoying to have to wait to find out!
@@ -1330,7 +1335,7 @@ class SmartScanThing(Thing):
                 logger.error(f"An error occurred while capturing: {e}", exc_info=e)
                 return 0, 0
 
-        def save_capture(name, raw_image, metadata, current_pos):
+        def save_capture(name, raw_image, metadata, current_pos, processed = None):
             try:    
                 # Save the raw image
                 np.savez(os.path.join(images_folder, name + ".npz"), raw_image=raw_image, **norm_inputs)
@@ -1362,10 +1367,11 @@ class SmartScanThing(Thing):
             logger.debug("We've got a good idea where we should be skipping autofocus")
             undershoot_z = - ((self.stack_test_height-1)/2 +4)*self.stack_dz - 300
         stage.move_relative(z = undershoot_z)
-        stage.move_relative(z = 300)
+        stage.move_relative(z = 260)
         captures = 0
         capture_list = []
         metadata_list = []
+        processed_images = []
         sharpnesses = []
         capture_heights = []
         #TODO: This should probably also be an actual motor height
@@ -1376,20 +1382,22 @@ class SmartScanThing(Thing):
         start_index = (stack_height - 1) / 2 
         failures = 0
         while captures < max_stack_height:
-            current_sharpness = cam.grab_jpeg_size(stream_name='lores')
-            sharpnesses.append(current_sharpness)
             capture_heights.append(stage.position['z'])
             img_array, img_metadata = capture_image(stage = stage)
-            capture_list.append(img_array)
-            metadata_list.append(img_metadata)
-            # capture_and_save(f"{stage.position['x']}_{stage.position['y']}_{stage.position['z']}_{captures}.jpeg")
-            captures += 1
             stage.move_relative(
                 x = 0,
                 y = 0,
                 z = stack_dz
             )
             time.sleep(0.3)
+            # processed_images.append(process_raw_image(rggb2rgb(raw2rggb(img_array))))
+            processed_images.append(0)
+            # _, frame = cv2.imencode('.JPEG', processed_images[-1])
+            # sharpnesses.append(len(frame))
+            sharpnesses.append(cam.grab_jpeg_size(stream_name="lores"))
+            capture_list.append(img_array)
+            metadata_list.append(img_metadata)
+            captures += 1
             if len(sharpnesses) >= stack_height:
                 result = self.test_sharpnesses(capture_heights[-stack_height:], sharpnesses[-stack_height:], logger, start_index, failures > -1)
                 # logger.info(sharpnesses[-stack_height:])
@@ -1410,6 +1418,7 @@ class SmartScanThing(Thing):
                         z = heights[np.argmax(sizes)] - undershoot*stack_dz
                         )
                     #NEED TO CLEAR THE LISTS AT THIS POINT!
+                    processed_images = []
                     sharpnesses = []
                     capture_heights = []
                     capture_list = []
@@ -1433,12 +1442,19 @@ class SmartScanThing(Thing):
                         )
                     #NEED TO CLEAR THE LISTS AT THIS POINT!
                     logger.debug(sharpnesses)
+                    processed_images = []
                     sharpnesses = []
                     capture_heights = []
                     capture_list = []
                     metadata_list = []
                     captures = 0
                     failures += 1
+                elif len(sharpnesses) > stack_height:
+                    processed_images[-(stack_height+1)] = 0
+                    sharpnesses[-(stack_height+1)] = 0
+                    capture_heights[-(stack_height+1)] = 0
+                    capture_list[-(stack_height+1)] = 0
+                    metadata_list[-(stack_height+1)] = 0
         sharpest_index = np.argmax(sharpnesses)
         start_index = int(sharpest_index - (image_stack_height - 1) / 2)
         end_index = int(sharpest_index + (image_stack_height - 1) / 2)
@@ -1447,13 +1463,12 @@ class SmartScanThing(Thing):
             os.makedirs(os.path.join(images_folder, current_site_folder))
         if not os.path.isdir(os.path.join(images_folder, "use")):
             os.makedirs(os.path.join(images_folder, "use"))
-            os.makedirs(os.path.join(images_folder, "use", "raw"))
-        focused_image_name = os.path.join('use', f"{stage.position['x']}_{stage.position['y']}.jpeg")
+        focused_image_name = os.path.join('use', f"{current_pos[0]}_{current_pos[1]}.jpeg")
 
         def save_captures():
-            save_capture(focused_image_name, capture_list[sharpest_index], metadata_list[sharpest_index], current_pos)
+            save_capture(focused_image_name, capture_list[sharpest_index], metadata_list[sharpest_index], current_pos, processed_images[sharpest_index])
             for i in range(start_index, end_index+1):
-                save_capture(os.path.join(current_site_folder, f"{i}.jpeg"), capture_list[i], metadata_list[i], current_pos)
+                save_capture(os.path.join(current_site_folder, f"{i}.jpeg"), capture_list[i], metadata_list[i], current_pos, processed_images[sharpest_index])
         save_thread = Thread(
             target = save_captures
         )
@@ -1464,7 +1479,7 @@ class SmartScanThing(Thing):
         Suggested is 50 for 60-100x
         100 for 40x
         200 for 20x"""
-        return self.thing_settings.get("stack_dz", 100)
+        return self.thing_settings.get("stack_dz", 10)
     
     @stack_dz.setter
     def stack_dz(self, value: int) -> None:
