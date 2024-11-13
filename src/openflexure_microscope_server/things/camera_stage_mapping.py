@@ -371,7 +371,7 @@ class CameraStageMapper(Thing):
                 attempts += 1
                 if attempts >= 5:
                     logger.warning("Closed loop move didn't look successful")
-                    stage.move_relative(x=int(relative_move[0] * 1), y=int(relative_move[1] * 1))
+                    stage.move_relative(x=int(relative_move[0] * undershoot), y=int(relative_move[1] * undershoot))
                     break
                 undershoot *= 0.95
             else:
