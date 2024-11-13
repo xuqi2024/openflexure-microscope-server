@@ -31,6 +31,13 @@
               Refresh Scans
             </button>
           </div>
+          <div>
+            <action-button
+              thing="smart_scan"
+              action="eject_usb_storage"
+              submit-label="Eject USB Storage"
+            />
+          </div>
         </div>
       </div>
     </nav>
@@ -43,18 +50,34 @@
     >
       <!-- Gallery capture cards -->
       <div class="gallery-grid uk-grid-match" uk-grid>
+        <div v-if="scansEmpty">
+          <h2>No scans available</h2>
+          <p>
+            There are no scans available to show. This may be because you are
+            using a USB device to store your scans, and it is not mounted. The
+            button below will activate USB storage if it is attached to the
+            microscope.
+          </p>
+          <action-button
+            thing="smart_scan"
+            action="mount_usb_storage"
+            submit-label="Attach USB Storage"
+          />
+        </div>
         <div v-for="item in scans" :key="item.id">
           <div class="uk-card">
             <div class="uk-card-body">
-            <div class="uk-card-media-top">
-              <div class="view-image uk-width-expand uk-padding-remove uk-height-1-1">
-                <img
-                  id="thumbnail-stitched-image"
-                  class="thumbnail-fit"
-                  :src=thumbnailPath(item.name)
-                  onerror="this.src='/favicon-32x32.png';"
-                />
-              </div>
+              <div class="uk-card-media-top">
+                <div
+                  class="view-image uk-width-expand uk-padding-remove uk-height-1-1"
+                >
+                  <img
+                    id="thumbnail-stitched-image"
+                    class="thumbnail-fit"
+                    :src="thumbnailPath(item.name)"
+                    onerror="this.src='/favicon-32x32.png';"
+                  />
+                </div>
               </div>
               <h3 class="uk-card-title">{{ item.name }}</h3>
               <action-button
@@ -67,7 +90,10 @@
                 @response="downloadZipFile"
                 @error="modalError"
               />
-              <button class="uk-button uk-button-default uk-width-1-1" @click="deleteScan(item.name)">
+              <button
+                class="uk-button uk-button-default uk-width-1-1"
+                @click="deleteScan(item.name)"
+              >
                 Delete
               </button>
               <action-button
@@ -122,6 +148,9 @@ export default {
         "readproperty",
         true
       );
+    },
+    scansEmpty() {
+      return this.scans.length == 0;
     }
   },
 
@@ -164,7 +193,10 @@ export default {
 
   methods: {
     thumbnailPath(scan_name) {
-      return `${this.$store.getters.baseUri}/smart_scan/scans/stitched_thumbnail.jpg?scan_name=`+scan_name;
+      return (
+        `${this.$store.getters.baseUri}/smart_scan/scans/stitched_thumbnail.jpg?scan_name=` +
+        scan_name
+      );
     },
     visibilityChanged(isVisible) {
       if (isVisible) {
@@ -172,18 +204,24 @@ export default {
       }
     },
     async updateScans() {
-      let scans = await this.readThingProperty("smart_scan", "scans");
-      if (!scans | (scans.length == 0)) {
+      try {
+        let scans = await this.readThingProperty("smart_scan", "scans");
+        if (!scans | (scans.length == 0)) {
+          this.scans = scans;
+        }
+        scans.forEach(scan => {
+          scan.modified = Date.parse(scan.modified);
+          scan.created = Date.parse(scan.created);
+        });
+        scans.sort((a, b) => {
+          return b.modified - a.modified;
+        });
         this.scans = scans;
+      } catch (err) {
+        console.log("Failed to refresh scans");
+        console.log(err);
+        this.scans = [];
       }
-      scans.forEach(scan => {
-        scan.modified = Date.parse(scan.modified);
-        scan.created = Date.parse(scan.created);
-      });
-      scans.sort((a, b) => {
-        return b.modified - a.modified;
-      });
-      this.scans = scans;
     },
     formatDate(timestamp) {
       let d = new Date(timestamp);

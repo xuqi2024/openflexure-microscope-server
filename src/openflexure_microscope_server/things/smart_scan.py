@@ -357,7 +357,33 @@ class SmartScanThing(Thing):
         # TODO: This should be determined using sensible configuration.
         # If the working directory is `/var/openflexure` this will result
         # in scans being saved at `/var/openflexure/scans/`
-        return "scans"
+        return "/mnt/openflexure-data/scans"
+    
+    @thing_action
+    def mount_usb_storage(self):
+        """Mount (start using) a USB stick used for storing scans"""
+        if self.usb_storage_mounted:
+            return
+        try:
+            run(["mount", "/mnt/openflexure-data"], check=True)
+        except SubprocessError:
+            raise IOError(
+                    "Cannot access scans: most likely this means the microscope "
+                    "is configured to save to a USB drive, and no USB drive "
+                    "is inserted."
+                )
+
+    @thing_action
+    def eject_usb_storage(self):
+        """Eject a USB stick used for storing scans"""
+        if self.usb_storage_mounted:
+            run(["umount", "/mnt/openflexure-data"], check=True)
+
+    @thing_property
+    def usb_storage_mounted(self) -> bool:
+        """Check whether a USB storage device is mounted for storing scans on."""
+        p = run(["mountpoint", "/mnt/openflexure-data"], check=False)
+        return p.returncode == 0
     
     _latest_scan_name = None
     @thing_property
@@ -385,6 +411,12 @@ class SmartScanThing(Thing):
         get filled in - so there's no guarantee, for now, that the numbers
         will correspond to order of creation. This may change in the future.
         """
+        try:
+            self.mount_usb_storage()
+        except:
+            # This is slightly sub-ideal, but it ensures the log shows the error properly
+            time.sleep(1)
+            raise
         if not os.path.exists(self.scans_folder_path):
             os.makedirs(self.scans_folder_path)
         if not scan_name:
@@ -939,6 +971,8 @@ class SmartScanThing(Thing):
         in the `images` folder.
         """
         scans: list[ScanInfo] = []
+        if not os.path.isdir(self.scans_folder_path):
+            self.mount_usb_storage()
         if not os.path.isdir(self.scans_folder_path):
             return scans
         for f in os.listdir(self.scans_folder_path):
