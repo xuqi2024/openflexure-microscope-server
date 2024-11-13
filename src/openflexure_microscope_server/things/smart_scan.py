@@ -693,14 +693,11 @@ class SmartScanThing(Thing):
             dx = int(steps_per_pixel_x * 820 * (1 - overlap))
             dy = int(steps_per_pixel_y * 616 * (1 - overlap))
 
-            logger.info(dx)
-            logger.info(dy)
-
             # dx = int(np.abs(np.dot(np.array([0, arr.shape[1] * (1 - overlap)]), CSM)[0]))
             # dy = int(np.abs(np.dot(np.array([arr.shape[0] * (1 - overlap), 0]), CSM)[1]))
 
             logger.info(f"Running a scan with an overlap between images of {overlap}")
-            logger.debug(f"Overlap of {overlap}, movements of {dx}, {dy}")
+            logger.info(f"Overlap of {overlap}, movements of {dx}, {dy}")
             logger.debug(f"Autofocus range is {self.autofocus_dz}")
             logger.debug(f"Skipping background is {self.skip_background}")
 
