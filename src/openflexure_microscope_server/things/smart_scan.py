@@ -864,7 +864,7 @@ class SmartScanThing(Thing):
                         logger.info(f'Rejected moving to {i} as it is out of range')
                 path = temp_path.copy()
                 path = sorted(path, key=lambda x: (steps_from_centre(x, true_path[0][:2], dx, dy), distance_to_site(loc[:2], x)))
-                self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
+                # self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
 
         except InvocationCancelledError:
             logger.error("Stopping scan because it was cancelled.")
@@ -894,7 +894,7 @@ class SmartScanThing(Thing):
                     autofocus.looping_autofocus(dz = self.autofocus_dz)
             finally:
                 self._scan_lock.release()
-            self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
+            # self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
             logger.info("Processing images, please wait")
             self.preview_stitch_wait()
             self.correlate_wait()
@@ -938,7 +938,7 @@ class SmartScanThing(Thing):
         
         This uses the settings from the `background_detect` Thing.
         """
-        return self.thing_settings.get("skip_background", True)
+        return self.thing_settings.get("skip_background", False)
 
     @skip_background.setter
     def skip_background(self, value: bool) -> None:
