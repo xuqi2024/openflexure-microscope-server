@@ -71,7 +71,15 @@ class RangeofMotionThing(Thing):
                 pixel_um = 0.872 #From USAF resolution test
             
             break_limit = 190000
-            wrong_axis_max = 20
+            
+            wrong_axis_max = {
+                'x': step_sizes['y'] * 0.1,
+                'y': step_sizes['x'] * 0.1
+    
+            }
+
+            logger.info(f"Maximum allowed movement in wrong axis is x:{wrong_axis_max['x']} and y:{wrong_axis_max['y']}")
+            #wrong_axis_max = 40
             results = {}
             i = 0
 
@@ -170,9 +178,12 @@ class RangeofMotionThing(Thing):
                             logger.info(f"Most recent move was {delta}. Target is {this_step_size}. Threshold is {minimum_offset}")
 
                             #Check for extreme movement in the wrong axis
-                            if np.abs(delta[wrong_delta]) > wrong_axis_max:
+                            if np.abs(delta[wrong_delta]) > wrong_axis_max[wrong_delta]:
                                 logger.info('Erroneous motion in the wrong axis detected. Edge found.')
                                 wrong_axis_detect = True
+                                test_image1.save(f"/var/openflexure/scans/loop{i}_image1_error_motion.jpeg")
+                                test_image2 = cam.grab_jpeg()
+                                test_image2.save(f"/var/openflexure/scans/loop{i}_image2_error_motion.jpeg")
                                 break
 
                             if np.abs(delta[axs]) > minimum_offset[axs]:
@@ -191,7 +202,9 @@ class RangeofMotionThing(Thing):
 
                         #Beginning of the second attempt to validate the move
                         if failure_count == 4:
-
+                            
+                            #Moves 300 steps beyond the previous position and back again to account for backlash
+                            #Tidy this up
                             step_sizes_backlash = {
 
                                 'x' : ((lateral_offset / 100) * stream_resolution[0]) + 300,
@@ -215,7 +228,7 @@ class RangeofMotionThing(Thing):
 
                             logger.info(f'Loop {i} edge may have been found. Moving back to previous position and checking in smaller step sizes.')
                             csm.move_in_image_coordinates(x = -this_step_size_backlash['x'], y = -this_step_size_backlash['y'])
-                            csm.move_in_image_coordiantes(x = return_move['x'], y = return_move['y'])
+                            csm.move_in_image_coordinates(x = return_move['x'], y = return_move['y'])
                             logger.info(f'current position is {stage.position}')
                             autofocus.looping_autofocus(dz = 800)
                             lateral_offset_check = 15 #By what percentage of the image/stream resolution the stage moves
