@@ -72,13 +72,13 @@
         </li>
       </ul>
       <div>
-      <action-button
-        thing="settings"
-        action="save_all_thing_settings"
-        submit-label="Save all settings"
-        class="uk-margin"
-      />
-    </div>  
+        <action-button
+          thing="settings"
+          action="save_all_thing_settings"
+          submit-label="Save all settings"
+          class="uk-margin"
+        />
+      </div>
     </div>
     <div class="view-component uk-width-expand uk-padding-small">
       <tabContent

@@ -217,7 +217,7 @@ export default {
         {
           id: "Background",
           icon: "background_replace",
-          component: backgroundDetectContent,
+          component: backgroundDetectContent
         },
         {
           id: "slide scan",

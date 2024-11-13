@@ -214,9 +214,7 @@ export default {
           if (newVal == requestedValue) {
             await this.modalNotify(`Set ${this.label}`);
           } else {
-            await this.modalNotify(
-              `Set ${this.label}`
-            );
+            await this.modalNotify(`Set ${this.label}`);
           }
         } else {
           await this.modalNotify(`Set ${this.label}`);
