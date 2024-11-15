@@ -9,6 +9,7 @@ import numpy as np
 import numpy.polynomial.chebyshev as cheb
 import os
 import time
+from pathlib import Path
 from PIL import Image
 from pydantic import BaseModel
 from scipy.stats import norm
@@ -334,6 +335,7 @@ class ScanInfo(BaseModel):
     created: datetime
     modified: datetime
     number_of_images: int
+    dzi: Optional[str]
 
 
 DOWNLOADABLE_SCAN_FILES = (
@@ -691,14 +693,11 @@ class SmartScanThing(Thing):
             dx = int(steps_per_pixel_x * 820 * (1 - overlap))
             dy = int(steps_per_pixel_y * 616 * (1 - overlap))
 
-            logger.info(dx)
-            logger.info(dy)
-
             # dx = int(np.abs(np.dot(np.array([0, arr.shape[1] * (1 - overlap)]), CSM)[0]))
             # dy = int(np.abs(np.dot(np.array([arr.shape[0] * (1 - overlap), 0]), CSM)[1]))
 
             logger.info(f"Running a scan with an overlap between images of {overlap}")
-            logger.debug(f"Overlap of {overlap}, movements of {dx}, {dy}")
+            logger.info(f"Overlap of {overlap}, movements of {dx}, {dy}")
             logger.debug(f"Autofocus range is {self.autofocus_dz}")
             logger.debug(f"Skipping background is {self.skip_background}")
 
@@ -994,19 +993,24 @@ class SmartScanThing(Thing):
                     number_of_images = len(os.listdir(images_folder))
                 else:
                     number_of_images = 0
+                if os.path.isfile(os.path.join(images_folder, "use", "stitched.dzi")):
+                    dzi = "images/use/stitched.dzi"
+                else:
+                    dzi = None
                 scans.append(
                     ScanInfo(
                         name = f,
                         created = os.path.getctime(path),
                         modified = os.path.getmtime(path),
                         number_of_images = number_of_images,
+                        dzi = dzi,
                     )
                 )
         return scans
     
     @fastapi_endpoint(
             "get",
-            "scans/{scan_name}/{file}",
+            "scans/{scan_name}/{file:path}",
             responses = {
                 200: {
                     "description": "Successfully downloading file",
@@ -1023,11 +1027,14 @@ class SmartScanThing(Thing):
         reasons, there is a list of allowable filenames, and paths with additional
         slashes are not permitted.
         """
-        if file not in DOWNLOADABLE_SCAN_FILES:
-            raise HTTPException(
-                403, f"You may only download files named {DOWNLOADABLE_SCAN_FILES}"
-            )
-        path = os.path.join(self.scans_folder_path, scan_name, file)
+        #if file not in DOWNLOADABLE_SCAN_FILES:
+        #    raise HTTPException(
+        #        403, f"You may only download files named {DOWNLOADABLE_SCAN_FILES}"
+        #    )
+        scan = Path(self.scans_folder_path) / scan_name
+        path = scan / file
+        if scan not in path.parents:
+            raise HTTPException(403, "File not permitted")
         if not os.path.isfile(path):
             raise HTTPException(404, "File not found")
         return FileResponse(path)

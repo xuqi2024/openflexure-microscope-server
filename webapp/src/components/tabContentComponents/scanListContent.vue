@@ -42,6 +42,71 @@
       </div>
     </nav>
 
+    <!-- Modal for scan display -->
+    <div id="scan-modal" ref="scanModal" uk-modal>
+      <div v-if="selectedScan" class="uk-modal-dialog uk-modal-body">
+        <h2 class="uk-modal-title">
+          {{ selectedScan.name }}
+          <button class="uk-modal-close uk-float-right" type="button">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+          <button class="uk-float-right" type="button" @click="goFullscreen">
+            <span class="material-symbols-outlined">fullscreen</span>
+          </button>
+        </h2>
+        <div class="button-container">
+          <action-button
+            thing="smart_scan"
+            action="create_zip_of_scan"
+            submit-label="Download ZIP"
+            :can-terminate="false"
+            :submit-data="{ scan_name: selectedScan.name }"
+            :button-primary="true"
+            @response="downloadZipFile"
+            @error="modalError"
+          />
+        </div>
+        <div class="button-container">
+          <button class="uk-button" @click="deleteScan(selectedScan.name)">
+            Delete
+          </button>
+        </div>
+        <div class="button-container">
+          <action-button
+            submit-label="Stitch Images"
+            thing="smart_scan"
+            action="stitch_scan"
+            :can-terminate="false"
+            :submit-data="{ scan_name: selectedScan.name }"
+            :button-primary="false"
+            :modal-progress="true"
+            @error="modalError"
+          />
+        </div>
+        <div id="viewer_container" class="uk-margin-remove">
+          <OpenSeadragonViewer
+            v-if="selectedScanDZIAvailable"
+            id="openseadragon"
+            ref="openseadragon"
+            :src="selectedScanDZI"
+          />
+
+          <img
+            v-else
+            id="thumbnail-stitched-image"
+            class="thumbnail-fit"
+            :src="thumbnailPath(item.name)"
+            onerror="this.src='/favicon-32x32.png';"
+          />
+        </div>
+        <ul>
+          <li>{{ selectedScan.number_of_images }} images</li>
+          <li>created {{ formatDate(selectedScan.created) }}</li>
+          <li>modified {{ formatDate(selectedScan.modified) }}</li>
+        </ul>
+      </div>
+    </div>
+
     <!-- Gallery -->
     <div
       v-if="$store.getters.ready"
@@ -65,7 +130,7 @@
           />
         </div>
         <div v-for="item in scans" :key="item.id">
-          <div class="uk-card">
+          <div class="uk-card" @click="showScan(item)">
             <div class="uk-card-body">
               <div class="uk-card-media-top">
                 <div
@@ -90,10 +155,7 @@
                 @response="downloadZipFile"
                 @error="modalError"
               />
-              <button
-                class="uk-button uk-button-default uk-width-1-1"
-                @click="deleteScan(item.name)"
-              >
+              <button class="uk-button uk-button-default uk-width-1-1" @click="deleteScan(item.name)">
                 Delete
               </button>
               <action-button
@@ -127,16 +189,20 @@
 
 <script>
 import axios from "axios";
+import UIkit from "uikit";
 import actionButton from "../labThingsComponents/actionButton.vue";
+import OpenSeadragonViewer from "./scanListComponents/openSeadragonViewer.vue";
 
 // Export main app
 export default {
   name: "ScanListContent",
-  components: { actionButton },
+  components: { actionButton, OpenSeadragonViewer },
 
   data: function() {
     return {
-      scans: []
+      scans: [],
+      selectedScan: null,
+      osdViewer: null
     };
   },
 
@@ -151,6 +217,16 @@ export default {
     },
     scansEmpty() {
       return this.scans.length == 0;
+    },
+    selectedScanDZI() {
+      if (this.selectedScan) {
+        return `${this.$store.getters.baseUri}/smart_scan/scans/${this.selectedScan.name}/images/use/stitched.dzi`;
+      } else {
+        return null;
+      }
+    },
+    selectedScanDZIAvailable() {
+      return this.selectedScan && this.selectedScan.dzi;
     }
   },
 
@@ -202,6 +278,9 @@ export default {
       if (isVisible) {
         this.updateScans();
       }
+    },
+    goFullscreen() {
+      this.$refs.openseadragon.openFullscreen();
     },
     async updateScans() {
       try {
@@ -273,6 +352,10 @@ export default {
       console.log(link);
       document.body.appendChild(link);
       link.click();
+    },
+    showScan(scan) {
+      this.selectedScan = scan;
+      UIkit.modal(this.$refs.scanModal).show();
     }
   }
 };
@@ -288,6 +371,26 @@ export default {
 .gallery-navbar,
 .gallery-folder-heading {
   margin-bottom: 30px;
+}
+#openseadragon {
+  width: 100%;
+  height: 400px;
+}
+#info-panel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background-color: rgba(255, 255, 255, 0.7);
+  padding: 5px;
+  border-radius: 1px;
+  z-index: 1000;
+}
+#scan-modal .button-container {
+  width: 33%;
+  display: inline-block;
+}
+#scan-modal .button-container button {
+  width: 100%;
 }
 /*
 .gallery-grid {
