@@ -78,6 +78,8 @@ class RangeofMotionThing(Thing):
     
             }
 
+            filepath = "/var/openflexure/"
+
             logger.info(f"Maximum allowed movement in wrong axis is x:{wrong_axis_max['x']} and y:{wrong_axis_max['y']}")
             #wrong_axis_max = 40
             results = {}
@@ -181,9 +183,9 @@ class RangeofMotionThing(Thing):
                             if np.abs(delta[wrong_delta]) > wrong_axis_max[wrong_delta]:
                                 logger.info('Erroneous motion in the wrong axis detected. Edge found.')
                                 wrong_axis_detect = True
-                                test_image1.save(f"/var/openflexure/scans/loop{i}_image1_error_motion.jpeg")
+                                test_image1.save(f"{filepath}loop{i}_image1_error_motion.jpeg")
                                 test_image2 = cam.grab_jpeg()
-                                test_image2.save(f"/var/openflexure/scans/loop{i}_image2_error_motion.jpeg")
+                                test_image2.save(f"{filepath}loop{i}_image2_error_motion.jpeg")
                                 break
 
                             if np.abs(delta[axs]) > minimum_offset[axs]:
@@ -193,9 +195,9 @@ class RangeofMotionThing(Thing):
                             else:
                                 failure_count += 1
                                 
-                                test_image1.save(f"/var/openflexure/scans/loop{i}_image1_initial_fail.jpeg")
+                                test_image1.save(f"{filepath}loop{i}_image1_initial_fail.jpeg")
                                 test_image2 = cam.grab_jpeg()
-                                test_image2.save(f"/var/openflexure/scans/loop{i}_image2_initial_fail.jpeg")
+                                test_image2.save(f"{filepath}loop{i}_image2_initial_fail.jpeg")
                                 logger.info(f'Image captured for analysis.') 
                                 logger.info(f'Looks like that move failed. Going to retry. Attempt {failure_count} out of 4')
 
@@ -277,7 +279,7 @@ class RangeofMotionThing(Thing):
                                 image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
                                 image1=image1.tolist()
                                 test_image1 = cam.grab_jpeg()
-                                test_image1.save(f"/var/openflexure/scans/loop{i}_image1_retry.jpeg")
+                                test_image1.save(f"{filepath}loop{i}_image1_retry.jpeg")
                                 logger.info(f'Image 1 Captured')
                                 
                                 # TODO combine these into one move
@@ -295,7 +297,7 @@ class RangeofMotionThing(Thing):
                                     image2=image2.tolist()
 
                                     test_image2 = cam.grab_jpeg()
-                                    test_image2.save(f"/var/openflexure/scans/loop{i}_image2_retry.jpeg")
+                                    test_image2.save(f"{filepath}loop{i}_image2_retry.jpeg")
 
                                     logger.info(f'Image 2 captured.')
 
