@@ -506,12 +506,14 @@ class SmartScanThing(Thing):
 
         closed_loop_ratio = 1.0
 
+        CSM = np.array(csm.image_to_stage_displacement_matrix)
+
         csm.certify_move_in_image_coordinates(
             stage = stage,
             cam = cam,
             logger = logger,
-            x = -pixel_move[0]*closed_loop_ratio,
-            y = -pixel_move[1]*closed_loop_ratio,
+            x = pixel_move[0]*closed_loop_ratio*-1*(np.abs(CSM[0,1])/CSM[0,1]),
+            y = pixel_move[1]*closed_loop_ratio*-1*(np.abs(CSM[1,0])/CSM[1,0]),
             threshold = 10
         )
 
@@ -1145,7 +1147,7 @@ class SmartScanThing(Thing):
             raise RuntimeError("Only one subprocess is allowed at a time")
         with self._correlate_popen_lock:
             self._correlate_popen = Popen(
-                [self._script, "--stitching_mode", "only_correlate", "--minimum_overlap", f"{round(overlap*0.9, 2)}", "--resize", "1", "--max_stage_discrepancy", "200", images_folder]
+                [self._script, "--stitching_mode", "only_correlate", "--minimum_overlap", f"{round(overlap*0.7, 2)}", "--resize", "1", "--max_stage_discrepancy", "200", images_folder]
             )
 
     def correlate_running(self) -> bool:
@@ -1207,7 +1209,7 @@ class SmartScanThing(Thing):
                 overlap = data_loaded['overlap']
             except:
                 overlap = 0.1
-        self.run_subprocess(logger, [self._script, "--stitching_mode", "all", f"{tiff_arg}", "--minimum_overlap", f"{round(overlap*0.9,2)}", "--resize", "1", "--stitch_dzi", os.path.join(images_folder, 'use')])
+        self.run_subprocess(logger, [self._script, "--stitching_mode", "all", f"{tiff_arg}", "--minimum_overlap", f"{round(overlap*0.7,2)}", "--resize", "1", "--stitch_dzi", os.path.join(images_folder, 'use')])
     
     @thing_action
     def create_zip_of_scan(self, logger: InvocationLogger, scan_name: Optional[str]=None, download_zip = True) -> ZipBlob:
