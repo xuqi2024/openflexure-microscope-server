@@ -531,7 +531,7 @@ class SmartScanThing(Thing):
     def update_thumbnail(self, images_folder, logger):
         target_width = 200
     
-        file_path = os.path.join(images_folder, 'stitched.jpg')
+        file_path = os.path.join(images_folder, 'stitched.png')
         if os.path.isfile(file_path):
             img = cv2.imread(file_path, -1)
         else:
@@ -1079,7 +1079,7 @@ class SmartScanThing(Thing):
     def latest_preview_stitch_path(self):
         """The path of the latest preview stitched image"""
         stage_path = os.path.join(self.images_folder(), "use", "stitched_from_stage.jpg")
-        stitch_path = os.path.join(self.images_folder(), "use", "stitched.jpg")
+        stitch_path = os.path.join(self.images_folder(), "use", "stitched.png")
         # The lines below are a hack so we see the stitched image at the end of a scan.
         if os.path.exists(stage_path) and os.path.exists(stitch_path):
             if os.path.getmtime(stitch_path) > os.path.getmtime(stage_path):
@@ -1396,11 +1396,14 @@ class SmartScanThing(Thing):
                     quality=100,
                     subsampling=0
                 )
-                exif_dict = piexif.load(os.path.join(images_folder, name))
-                exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
-                    metadata
-                ).encode("utf-8")
-                piexif.insert(piexif.dump(exif_dict), os.path.join(images_folder, name))
+                try:
+                    exif_dict = piexif.load(os.path.join(images_folder, name))
+                    exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
+                        metadata
+                    ).encode("utf-8")
+                    piexif.insert(piexif.dump(exif_dict), os.path.join(images_folder, name))
+                except:
+                    pass
                 save_time = time.time()
             except Exception as e:
                 logger.error(f"An error occurred while saving {name}: {e}", exc_info=e)
@@ -1520,7 +1523,7 @@ class SmartScanThing(Thing):
         def save_captures():
             save_capture(focused_image_name, focused_raw_name, capture_list[sharpest_index], metadata_list[sharpest_index], current_pos)
             for i in range(start_index, end_index+1):
-                save_capture(os.path.join(current_site_folder, f"{i}.jpeg"), os.path.join("raw", current_site_folder, f"{i}.jpeg"), capture_list[i], metadata_list[i], current_pos)
+                save_capture(os.path.join(current_site_folder, f"{i}.png"), os.path.join("raw", current_site_folder, f"{i}.png"), capture_list[i], metadata_list[i], current_pos)
         save_thread = Thread(
             target = save_captures
         )
