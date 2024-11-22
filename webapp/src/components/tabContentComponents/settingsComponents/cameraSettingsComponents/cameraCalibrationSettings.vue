@@ -3,6 +3,7 @@
     <!--Show auto calibrate if default plugin is enabled-->
     <div v-if="'full_auto_calibrate' in actions" class="uk-margin-small">
       <action-button
+        :button-primary="true"
         :can-terminate="false"
         :requires-confirmation="true"
         :confirmation-message="
