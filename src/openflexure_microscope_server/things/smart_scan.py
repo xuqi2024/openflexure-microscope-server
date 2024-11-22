@@ -531,7 +531,7 @@ class SmartScanThing(Thing):
     def update_thumbnail(self, images_folder, logger):
         target_width = 200
     
-        file_path = os.path.join(images_folder, 'stitched.png')
+        file_path = os.path.join(images_folder, 'stitched.jpg')
         if os.path.isfile(file_path):
             img = cv2.imread(file_path, -1)
         else:
@@ -1079,7 +1079,7 @@ class SmartScanThing(Thing):
     def latest_preview_stitch_path(self):
         """The path of the latest preview stitched image"""
         stage_path = os.path.join(self.images_folder(), "use", "stitched_from_stage.jpg")
-        stitch_path = os.path.join(self.images_folder(), "use", "stitched.png")
+        stitch_path = os.path.join(self.images_folder(), "use", "stitched.jpg")
         # The lines below are a hack so we see the stitched image at the end of a scan.
         if os.path.exists(stage_path) and os.path.exists(stitch_path):
             if os.path.getmtime(stitch_path) > os.path.getmtime(stage_path):
