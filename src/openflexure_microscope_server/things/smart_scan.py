@@ -177,7 +177,7 @@ def raw2rggb(raw):
     """Convert packed 10 bit raw to RGGB 8 bit"""
     raw = np.asarray(raw)  # ensure it's an array
     rggb = np.empty((616, 820, 4), dtype=np.uint8)
-    # rggb = np.empty((1232, 1640, 4), dtype=np.uint8) # 
+    # rggb = np.empty((1232, 1640, 4), dtype=np.uint8)
     raw_w = rggb.shape[1]//2*5
     for plane, offset in enumerate([(1,1), (0,1), (1,0), (0,0)]):
         rggb[:, ::2, plane] = raw[offset[0]::2, offset[1]:raw_w+offset[1]:5]
@@ -504,18 +504,20 @@ class SmartScanThing(Thing):
         else:
             pixel_move[0] = 0
 
-        closed_loop_ratio = 1.0
+        closed_loop_split = 3
+        closed_loop_ratio = 1/closed_loop_split
 
         CSM = np.array(csm.image_to_stage_displacement_matrix)
 
-        csm.certify_move_in_image_coordinates(
-            stage = stage,
-            cam = cam,
-            logger = logger,
-            x = pixel_move[0]*closed_loop_ratio*-1*(np.abs(CSM[0,1])/CSM[0,1]),
-            y = pixel_move[1]*closed_loop_ratio*-1*(np.abs(CSM[1,0])/CSM[1,0]),
-            threshold = 10
-        )
+        for i in range(closed_loop_split):
+            csm.certify_move_in_image_coordinates(
+                stage = stage,
+                cam = cam,
+                logger = logger,
+                x = pixel_move[0]*closed_loop_ratio*-1*(np.abs(CSM[0,1])/CSM[0,1]),
+                y = pixel_move[1]*closed_loop_ratio*-1*(np.abs(CSM[1,0])/CSM[1,0]),
+                threshold = 10
+            )
 
         # TODO: when do we just want to use this? Definitely if the current FOV was background
         # csm.move_in_image_coordinates(
@@ -650,13 +652,14 @@ class SmartScanThing(Thing):
                 if not d:
                     raise RuntimeError("Background is not set: you need to calibrate background detection.")
             else:
-                logger.warning(
-                    "This scan will run in a spiral from the starting point "
-                    f"until you cancel it, or until it has moved by {max_dist} steps "
-                    "in every direction. Make sure you watch it run to stop it leaving "
-                    "the area of interest, or (worse) leading the microscope's range "
-                    "of motion."
-                    )
+                pass
+                # logger.warning(
+                #     "This scan will run in a spiral from the starting point "
+                #     f"until you cancel it, or until it has moved by {max_dist} steps "
+                #     "in every direction. Make sure you watch it run to stop it leaving "
+                #     "the area of interest, or (worse) leading the microscope's range "
+                #     "of motion."
+                #     )
             names = []
             positions = []
 
@@ -833,6 +836,7 @@ class SmartScanThing(Thing):
                                     capture_inputs = capture_inputs,
                                     current_pos = current_pos
                                     )
+                    logger.info(f"Captured image number {len(focused_path)+1} out of {self.max_image_count}")
                     # save images in the background
                     if capture_thread:  # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
                         if capture_thread.is_alive():
@@ -1209,7 +1213,7 @@ class SmartScanThing(Thing):
                 overlap = data_loaded['overlap']
             except:
                 overlap = 0.1
-        self.run_subprocess(logger, [self._script, "--stitching_mode", "all", f"{tiff_arg}", "--minimum_overlap", f"{round(overlap*0.7,2)}", "--resize", "1", "--stitch_dzi", os.path.join(images_folder, 'use')])
+        self.run_subprocess(logger, [self._script, "--stitching_mode", "all", f"{tiff_arg}", "--minimum_overlap", f"{round(overlap*0.7,2)}", "--resize", "1", os.path.join(images_folder, 'use')])
     
     @thing_action
     def create_zip_of_scan(self, logger: InvocationLogger, scan_name: Optional[str]=None, download_zip = True) -> ZipBlob:
@@ -1371,16 +1375,17 @@ class SmartScanThing(Thing):
                 metadata['/stage/']['position']['x'] = current_pos[0]
                 metadata['/stage/']['position']['y'] = current_pos[1]
                 metadata['/stage/']['position']['z'] = stage.position['z']
+                metadata['/camera/'] = cam.tuning
                 raw_image = cam.capture_array(stream_name="raw")
                 return raw_image, metadata
             except Exception as e:
                 logger.error(f"An error occurred while capturing: {e}", exc_info=e)
                 return 0, 0
 
-        def save_capture(name, raw_image, metadata, current_pos, processed = None):
+        def save_capture(name, raw_name, raw_image, metadata, current_pos):
             try:    
                 # Save the raw image
-                np.savez(os.path.join(images_folder, name + ".npz"), raw_image=raw_image, **norm_inputs)
+                np.savez(os.path.join(images_folder, raw_name), raw_image=raw_image, **norm_inputs)
                 # Process it into 8 bit RGB
                 processed = process_raw_image(rggb2rgb(raw2rggb(raw_image)))
                 processed[processed > 255] = 255
@@ -1441,12 +1446,12 @@ class SmartScanThing(Thing):
             metadata_list.append(img_metadata)
             captures += 1
             if len(sharpnesses) >= stack_height:
-                result = self.test_sharpnesses(capture_heights[-stack_height:], sharpnesses[-stack_height:], logger, start_index, failures > -1)
+                result = self.test_sharpnesses(capture_heights[-stack_height:], sharpnesses[-stack_height:], logger, start_index, failures > 5)
                 # logger.info(sharpnesses[-stack_height:])
                 if result == 'success':
                     break
                 elif np.argmax(sharpnesses[-stack_height:]) < start_index:
-                    logger.info(f"Could't find focus. Gone too far. Peak was image {np.argmax(sharpnesses)}. List is {sharpnesses}")
+                    logger.debug(f"Could't find focus. Gone too far. Peak was image {np.argmax(sharpnesses)}. List is {sharpnesses}")
                     stage.move_relative(x = 0, y = 0, z = -(500+max_stack_height*stack_dz))
                     # stage.move_relative(x = 0, y = 0, z = 200)
                     m = autofocus.move_and_measure(dz = [0,500+max_stack_height*stack_dz])
@@ -1468,7 +1473,7 @@ class SmartScanThing(Thing):
                     captures = 0
                     failures += 1
                 elif captures == max_stack_height:
-                    logger.info(f"Could't find focus. Took {len(sharpnesses)} images and the best one was at {np.argmax(sharpnesses)}. List is {sharpnesses}")
+                    logger.debug(f"Could't find focus. Took {len(sharpnesses)} images and the best one was at {np.argmax(sharpnesses)}. List is {sharpnesses}")
                     stage.move_absolute(z = capture_heights[np.argmax(sharpnesses)])
                     stage.move_relative(x = 0, y = 0, z = -(500+max_stack_height*stack_dz))
                     # stage.move_relative(x = 0, y = 0, z = 200)
@@ -1491,6 +1496,7 @@ class SmartScanThing(Thing):
                     metadata_list = []
                     captures = 0
                     failures += 1
+                #Start clearing the data we don't need to avoid ballooning memory
                 elif len(sharpnesses) > stack_height:
                     processed_images[-(stack_height+1)] = 0
                     sharpnesses[-(stack_height+1)] = 0
@@ -1500,17 +1506,21 @@ class SmartScanThing(Thing):
         sharpest_index = np.argmax(sharpnesses)
         start_index = int(sharpest_index - (image_stack_height - 1) / 2)
         end_index = int(sharpest_index + (image_stack_height - 1) / 2)
-        current_site_folder = f"{current_pos[0]}_{current_pos[1]}"
+        current_site_folder = os.path.join("stacks", f"{current_pos[0]}_{current_pos[1]}")
         if not os.path.isdir(os.path.join(images_folder, current_site_folder)):
             os.makedirs(os.path.join(images_folder, current_site_folder))
+            os.makedirs(os.path.join(images_folder, "raw", current_site_folder))
         if not os.path.isdir(os.path.join(images_folder, "use")):
             os.makedirs(os.path.join(images_folder, "use"))
-        focused_image_name = os.path.join('use', f"{current_pos[0]}_{current_pos[1]}.jpeg")
+        if not os.path.isdir(os.path.join(images_folder, "use", "raw")):
+            os.makedirs(os.path.join(images_folder, "use", "raw"))
+        focused_image_name = os.path.join('use', f"{len(focused_path)+1}.jpeg")
+        focused_raw_name = os.path.join('use', "raw", f"{len(focused_path)+1}.jpeg")
 
         def save_captures():
-            save_capture(focused_image_name, capture_list[sharpest_index], metadata_list[sharpest_index], current_pos, processed_images[sharpest_index])
+            save_capture(focused_image_name, focused_raw_name, capture_list[sharpest_index], metadata_list[sharpest_index], current_pos)
             for i in range(start_index, end_index+1):
-                save_capture(os.path.join(current_site_folder, f"{i}.jpeg"), capture_list[i], metadata_list[i], current_pos, processed_images[sharpest_index])
+                save_capture(os.path.join(current_site_folder, f"{i}.jpeg"), os.path.join("raw", current_site_folder, f"{i}.jpeg"), capture_list[i], metadata_list[i], current_pos)
         save_thread = Thread(
             target = save_captures
         )
@@ -1556,11 +1566,11 @@ class SmartScanThing(Thing):
         approach = sharpnesses[:max_loc+1]
         recede = sharpnesses[max_loc:]
         if sorted(approach) == approach and sorted(recede, reverse = True) == recede:
-            logger.info('really good')
-            logger.info(sharpnesses)
+            # logger.info('really good')
+            # logger.info(sharpnesses)
             return "success"
         elif accept_chevy:
-            logger.info("testing cheby")
+            # logger.info("testing cheby")
             dz = heights[1] - heights[0]
             centre_index = len(heights) // 2
             x = np.linspace(min(heights) - 1000, max(heights) + 1000, 1000)
