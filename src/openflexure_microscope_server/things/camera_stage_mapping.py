@@ -335,12 +335,13 @@ class CameraStageMapper(Thing):
         self.assert_calibrated()
 
         #TODO limit move to one FOV
+        # TODO make sure this doesn't go crazy!
         if np.abs(x) > cam.stream_resolution[0] or np.abs(y) > cam.stream_resolution[1]:
             raise InsufficientOverlapError()
         if np.abs(x) > cam.stream_resolution[0] * 0.8 or np.abs(y) > cam.stream_resolution[1] * 0.8:
             logger.warning("The overlap is likely to be too small for this to be reliable")
 
-        resize = 0.2
+        resize = 0.4
         undershoot = 0.8
         image_0 = Image.open(cam.grab_jpeg().open())
 
