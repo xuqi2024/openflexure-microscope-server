@@ -6,6 +6,8 @@ from PIL import Image
 import time
 from typing import Annotated, Any, Callable, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 from scipy.optimize import curve_fit
+#from camera_stage_mapping import camera_stage_tracker.py
+from camera_stage_mapping.camera_stage_tracker import move_until_motion_detected
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
@@ -16,13 +18,14 @@ from labthings_picamera2.thing import StreamingPiCamera2
 from labthings_fastapi.types.numpy import NDArray, denumpify, DenumpifyingDict
 from openflexure_microscope_server.things.autofocus import AutofocusThing
 from openflexure_microscope_server.things.camera_stage_mapping import CameraStageMapper
+#from openflexure_microscope_server.things.camera_stage_mapping import camera_stage_tracker
 
 StageDep = direct_thing_client_dependency(SangaboardThing, "/stage/")
 CamDep = direct_thing_client_dependency(StreamingPiCamera2, "/camera/")
 CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
 AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
 
-def function(x, a, b, c):   #TODO rename this function
+def quadratic(x, a, b, c):  
     return a * x**2 + b * x + c
 
 class RangeofMotionThing(Thing):
@@ -42,58 +45,79 @@ class RangeofMotionThing(Thing):
         one full image, checking the correlation between images,
         and breaking if it appears to have undershot.
             """
-        starting_position = list(stage.position.values())
+        starting_position = list(stage.position.values()) #This is done later as well, this might need removed.
 
         try:
             logger.info("Using the stage to measure the range of motion")
             start_time = time.time()
 
-            lateral_offset = 60 #By what percentage of the image/stream resolution the stage moves
             stream_resolution = cam.stream_resolution
-
-            step_sizes = {
-                'x' : (lateral_offset / 100) * stream_resolution[0],
-                'y' : (lateral_offset / 100) * stream_resolution[1],
-            }
-
             
+            #Define the percentages of the FOV that the stage will move by
+            big_step = 200
+            small_step = 20
 
-            minimum_offset = { #minimum we expect the stage to move each time?
-                'x' : int(step_sizes['x'] * 0.8),
-                'y' : int(step_sizes['y'] * 0.8),
+            step_sizes_big = {
+                'x':(big_step/100) * stream_resolution[0],
+                'y':(big_step/100) * stream_resolution[1]
             }
 
-            this_step_size = {}
+            step_sizes_small = {
+                'x':(small_step/100) * stream_resolution[0],
+                'y':(small_step/100) * stream_resolution[1]
+            }
 
-            try:
-                pixel_um = micat.last_micat['um_per_px'] #Is this meant to try to run the MICAT software to extract the um/pixel?
-            except:
-                pixel_um = 0.872 #From USAF resolution test
+            minimum_offset_small = {
+                'x' : (small_step/100) * stream_resolution[0] * 0.8,
+                'y' : (small_step/100) * stream_resolution[1] * 0.8
+            }
+
+            z_perc = 50
+
+            z_steps = {
+                'x':(z_perc/100) * stream_resolution[0],
+                'y':(z_perc/100) * stream_resolution[1]
+            }
+
+            minimum_offset_z = {
+                'x' : (z_perc/100) * stream_resolution[0] * 0.8,
+                'y' : (z_perc/100) * stream_resolution[1] * 0.8
+            }
+
+            this_big_step_size = {}
+            this_small_step_size = {}
+            z_cal_step = {}
             
             break_limit = 190000
-            
-            wrong_axis_max = {
-                'x': step_sizes['y'] * 0.1,
-                'y': step_sizes['x'] * 0.1
-    
-            }
 
             filepath = "/var/openflexure/"
 
-            logger.info(f"Maximum allowed movement in wrong axis is x:{wrong_axis_max['x']} and y:{wrong_axis_max['y']}")
+            #logger.info(f"Maximum allowed movement in wrong axis is x:{wrong_axis_max['x']} and y:{wrong_axis_max['y']}")
             #wrong_axis_max = 40
             results = {}
             i = 0
 
             for axs in ['x','y']:
                 results[axs] = {}
-                this_step_size = {
+                this_big_step_size = {
+                    'x':0,
+                    'y':0
+                }
+
+                this_small_step_size = {
+                    'x':0,
+                    'y':0
+                }
+
+                z_cal_step = {
                     'x':0,
                     'y':0
                 }
                 for dir in [1, -1]:
                     i += 1
-                    this_step_size[axs] = step_sizes[axs] * dir
+                    this_big_step_size[axs] = step_sizes_big[axs] * dir
+                    this_small_step_size[axs] = step_sizes_small[axs] * dir
+                    z_cal_step[axs] = z_steps[axs] * dir 
 
                     autofocus.looping_autofocus(dz = 1000)
 
@@ -106,224 +130,116 @@ class RangeofMotionThing(Thing):
                         'x':10001,
                         'y':10001
                     }
+
+                    z_delta = {}
+
                     focused_positions = []
                     # TODO clean these up
-                    totMag_eachStep_xpos = [] #This variable tracks the total distance travelled after each movement
+                    cor_lat_steps = [] #This variable tracks the total distance travelled after each movement
                     stage_coords = []
-                    failure_count = 0
-                    wrong_axis_detect = False
 
-                    while np.abs(delta[axs]) > minimum_offset[axs] and failure_count < 4:  #loop will continue until pixel distance is less than some value
+                    #Set of moves to gather information for the curve_fit
+                    #The step size here should be around 50% of the FOV
+
+                    z_coord = []
+                    z_coord.append(stage.position)
+                    
+                    csm.move_in_image_coordinates(x = this_big_step_size['x'], y = this_big_step_size['y'])
+                    autofocus.looping_autofocus(dz = 800)
+                    z_coord.append(stage.position)
+                    stage.move_absolute(x = starting_pos[0], y = starting_pos[1], z = starting_pos[2])
+
+                    logger.info(f"Medium sized steps to find Z calibration for loop {i}")
+
+                    for loop in range(4):
+                        stage_coords.append(stage.position)
+                        image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
+                        image1=image1.tolist()
+                        csm.move_in_image_coordinates(x = z_cal_step['x'], y = z_cal_step['y'])
+                        autofocus.looping_autofocus(dz = 800)
+                        image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
+                        image2=image2.tolist()
+                        offset = [x * 1 for x in csm.get_displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
+                        delta['x'] = int(offset[1])
+                        delta['y'] = int(offset[0])
+                        logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_z[axs]}")
+                        focused_positions.append(stage.position)  #focused_positions is used for z calibration
+                        #if np.abs(delta[axs]) < minimum_offset_z[axs]:  #this means the edge has been found
+                          #  logger.info(f"Something is wrong with the correlation.")
+                         #   break
+
+                    
+                    z_delta['x'] = int(offset[1])
+                    z_delta['y'] = int(offset[0])
+
+                    lateral_positions = [i[axs] for i in focused_positions]
+                    logger.info(f"Lateral positions for loop {i} are {lateral_positions}")
+                    z_positions = [i['z'] for i in focused_positions]
+                    logger.info(f"z_positions for loop {i} are {z_positions}")
+                    parameters, covariance = curve_fit(quadratic, lateral_positions, z_positions)
+
+                    logger.info(f"Z calibration complete.")
+
+                    while np.abs(delta[axs]) > minimum_offset_small[axs] and np.abs(z_delta[axs]) > minimum_offset_z[axs]:  #loop will continue until pixel distance is less than some value
                         pos = stage.position
-
-                        if i == 1 or i == 2:
-                            wrong_delta = 'y'
-                            delta[wrong_delta] = 0
-                        elif i==3 or i==4:
-                            wrong_delta = 'x'
-                            delta[wrong_delta] = 0
 
                         if np.abs(pos[axs] - starting_pos[2]) >= break_limit:
                             logging.warning("Break limit met")
                             break
 
-                        if wrong_axis_detect == True:
-                            break
+                        #Predicts best z move based on first 4 moves to avoid hitting sample
                         
-                        # Capture the base image
-                        image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
-                        test_image1 = cam.grab_jpeg()
-                        image1=image1.tolist()
+                        logger.info(f"Coordinates for prediction are {z_coord[0]} and {z_coord[1]}")
+                        relative_move = z_coord[1][axs] - z_coord[0][axs]
+                        z_dest = quadratic(stage.position[axs] + relative_move, *parameters)
+                        z_diff = z_dest - stage.position['z']
 
-                        # Plan the next move
-                        # xy offset is regular, z is calculated
-                        if len(focused_positions) >= 4:
-                            lateral_positions = [i[axs] for i in focused_positions]
-                            logger.info(f'Lateral locs are {lateral_positions}')
-                            z_positions = [i['z'] for i in focused_positions]
-                            logger.info(f'Lateral locs are {z_positions}')
-                            parameters, covariance = curve_fit(function, lateral_positions, z_positions)
-                            relative_move = stage_coords[1][axs] - stage_coords[0][axs]
-                            z_dest = function(stage.position[axs] + relative_move, *parameters)
-                            logger.info(f'z destination is {z_dest} for lateral position {stage.position[axs] + relative_move}')
-                            z_diff = z_dest - stage.position['z']
-                        elif len(stage_coords) > 1:
-                            z_diff = stage_coords[-1]['z'] - stage_coords[-2]['z']
-                        else:
-                            z_diff = 0
-                        
-                        logger.info(f'path is {stage_coords}')
-                        logger.info(f'current position is {stage.position}')
-                        # TODO combine these into one move
-                            
-                        # Move down first to avoid hitting sample
                         stage.move_relative(z = z_diff)
-                        logger.info('Moved in Z.')
-                        csm.move_in_image_coordinates(x = this_step_size['x'], y = this_step_size['y'])
-                        logger.info('Moved in X/Y.')
-                        
-                        #failure_count = 0
-                        while failure_count < 4:
-                            # if failure_count > 0 or len(focused_positions) < 4:
-                            focused = 1
-                            autofocus.looping_autofocus(dz = 800)
-                            # else:
-                            #     focused = 0
-                            #     logger.info('skipping autofocus')
 
-                            image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
-                            
+                        logger.info(f"Moved in z by {z_diff}")
+
+                        #Big movement
+                        logger.info(f"Large sized step for loop {i}")
+                        stage_coords.append(stage.position)
+                        csm.move_in_image_coordinates(x = this_big_step_size['x'], y = this_big_step_size['y'])
+            
+                        #3 small movements, each of which is correlated
+                        logger.info(f"3 small sized steps to find Z calibration for loop {i}")
+                        for loop in range(3):
+                            autofocus.looping_autofocus(dz = 800)
+                            stage_coords.append(stage.position)
+                            image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
+                            image1=image1.tolist()
+                            test_image1 = cam.grab_jpeg()
+                            csm.move_in_image_coordinates(x = this_small_step_size['x'], y = this_small_step_size['y'])
+                            autofocus.looping_autofocus(dz = 800)
+                            image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                             image2=image2.tolist()
+                            test_image2 = cam.grab_jpeg()
                             offset = [x * 1 for x in csm.get_displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
                             delta['x'] = int(offset[1])
                             delta['y'] = int(offset[0])
-                            logger.info(f"Most recent move was {delta}. Target is {this_step_size}. Threshold is {minimum_offset}")
-
-                            #Check for extreme movement in the wrong axis
-                            if np.abs(delta[wrong_delta]) > wrong_axis_max[wrong_delta]:
-                                logger.info('Erroneous motion in the wrong axis detected. Edge found.')
-                                wrong_axis_detect = True
-                                test_image1.save(f"{filepath}loop{i}_image1_error_motion.jpeg")
-                                test_image2 = cam.grab_jpeg()
-                                test_image2.save(f"{filepath}loop{i}_image2_error_motion.jpeg")
+                            logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_small[axs]}")
+                            cor_lat_steps.append(offset)
+                            if np.abs(delta[axs]) < minimum_offset_small[axs]:  #this means the edge has been found
+                                logger.info(f"Edge of loop {i} has been found.")
+                                test_image1.save(f"{filepath}loop{i}_image1.jpeg")
+                                test_image2.save(f"{filepath}loop{i}_image2.jpeg")
                                 break
-
-                            if np.abs(delta[axs]) > minimum_offset[axs]:
-                                if focused:
-                                    focused_positions.append(stage.position)
-                                break
-                            else:
-                                failure_count += 1
-                                
-                                test_image1.save(f"{filepath}loop{i}_image1_initial_fail.jpeg")
-                                test_image2 = cam.grab_jpeg()
-                                test_image2.save(f"{filepath}loop{i}_image2_initial_fail.jpeg")
-                                logger.info(f'Image captured for analysis.') 
-                                logger.info(f'Looks like that move failed. Going to retry. Attempt {failure_count} out of 4')
-
-
-                        #Beginning of the second attempt to validate the move
-                        if failure_count == 4:
-                            
-                            #Moves 300 steps beyond the previous position and back again to account for backlash
-                            #Tidy this up
-                            step_sizes_backlash = {
-
-                                'x' : ((lateral_offset / 100) * stream_resolution[0]) + 300,
-                                'y' : ((lateral_offset / 100) * stream_resolution[1]) + 300
-
-                            }
-
-                            this_step_size_backlash = {
-                                'x':0,
-                                'y':0
-                            }
-
-                            this_step_size_backlash[axs] = step_sizes_backlash[axs] * dir
-
-                            return_move = {
-                                'x':0,
-                                'y':0
-                            }
-
-                            return_move[axs] = (return_move[axs] + 300) * dir
-
-                            logger.info(f'Loop {i} edge may have been found. Moving back to previous position and checking in smaller step sizes.')
-                            csm.move_in_image_coordinates(x = -this_step_size_backlash['x'], y = -this_step_size_backlash['y'])
-                            csm.move_in_image_coordinates(x = return_move['x'], y = return_move['y'])
-                            logger.info(f'current position is {stage.position}')
-                            autofocus.looping_autofocus(dz = 800)
-                            lateral_offset_check = 15 #By what percentage of the image/stream resolution the stage moves
-                            step_sizes_check = {
-                                'x' : (lateral_offset_check / 100) * stream_resolution[0],
-                                'y' : (lateral_offset_check / 100) * stream_resolution[1],
-                            }
-
-                            this_step_size_check = {
-                                'x':0,
-                                'y':0
-                            }
-
-                            this_step_size_check[axs] = step_sizes_check[axs] * dir
-
-                            delta_check = {
-                                'x':10001,
-                                'y':10001
-                            }
-
-                            minimum_offset_check = { #minimum we expect the stage to move each time?
-                                'x' : int(step_sizes_check['x'] * 0.3),
-                                'y' : int(step_sizes_check['y'] * 0.3),
-                            }
-
-                            retry_count = 0
-                            index = 0
-
-                            logger.info(f'Variables set.')
-
-                            for loop in range(0,3): #At this point, it moves the stage in smaller increments.
-                                #while np.abs(delta_check[axs]) > minimum_offset_check[axs]:  #loop will continue until pixel distance is less than some value
-                                index = index + 1
-
-                                if retry_count == 4:
-                                    logger.info(f'Small movement cancelled.')
-                                    break
-
-                                logger.info(f'Small movement {loop + 1}/3')
-                                pos = stage.position
-                                if np.abs(pos[axs] - starting_pos[2]) >= break_limit:
-                                    logging.warning("Break limit met")
-                                    break
-                                
-                                # Capture the base image
-                                image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
-                                image1=image1.tolist()
-                                test_image1 = cam.grab_jpeg()
-                                test_image1.save(f"{filepath}loop{i}_image1_retry.jpeg")
-                                logger.info(f'Image 1 Captured')
-                                
-                                # TODO combine these into one move
-                                
-                                logger.info(f'current position is {stage.position}')
-                                logger.info(f'Move pending for small movement {loop + 1}/3')
-                                csm.move_in_image_coordinates(x = this_step_size_check['x'], y = this_step_size_check['y'])
-                                
-                                retry_count = 0
-                                while retry_count < 4:
-                                    focused = 1
-                                    autofocus.looping_autofocus(dz = 800)
-
-                                    image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)
-                                    image2=image2.tolist()
-
-                                    test_image2 = cam.grab_jpeg()
-                                    test_image2.save(f"{filepath}loop{i}_image2_retry.jpeg")
-
-                                    logger.info(f'Image 2 captured.')
-
-                                    offset = [x * 1 for x in csm.get_displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
-                                    delta_check['x'] = int(offset[1])
-                                    delta_check['y'] = int(offset[0])
-                                    logger.info(f"Most recent move was {delta_check}. Target is {this_step_size_check}. Threshold is {minimum_offset_check}")
-                                    if np.abs(delta_check[axs]) > minimum_offset_check[axs]:
-                                        if focused:
-                                            focused_positions.append(stage.position)
-                                        break
-                                    else:
-                                        retry_count += 1
-                                        logger.info(f'Looks like that move failed. Going to retry. Retry attempt {retry_count} out of 4')
-
-                                if index == 3 and retry_count != 4:
-                                    delta = {
-                                        'x':10001,
-                                        'y':10001
-                                    }
-
-                                    failure_count = 0
-
-                        totMag_eachStep_xpos.append(offset)
+                    
                         stage_coords.append(stage.position)
 
+                    #Now we move the stage until we detect movement and take that position as final. This is to account for the extra motion carried out by the big step.
+
+                    logger.info(f"Running CSM motion detection for loop {i}")
+
+                    displacement = [-1,-1]
+
+                    num_moves, multiplier = move_until_motion_detected(tracker, move, displacement, threshold=10, multipliers=2**np.arange(16), detect_cumulative_motion=False)
+
+                    stage_coords.append(stage.position)
+
+                    final_pos = stage.position
                     
                     #TODO: make this move to the centre instead of the start
                     stage.move_absolute(x = starting_pos[0], y = starting_pos[1], z = starting_pos[2])
@@ -331,8 +247,9 @@ class RangeofMotionThing(Thing):
                     logger.info(f"Loop {i} done")
                     
                     results[axs][dir] = {
-                        "correlation_lateral_steps": totMag_eachStep_xpos,
-                        "stage_positions": stage_coords
+                        "correlation_lateral_steps": cor_lat_steps,
+                        "stage_positions": stage_coords,
+                        "final_position": final_pos
                     }
                     
                 z_pos_list = [pos['z'] for pos in stage_coords]
@@ -346,7 +263,7 @@ class RangeofMotionThing(Thing):
             logger.info(f"Range of motion measurement took {int(total_time)} minutes.")
             results['Time(minutes)'] = total_time
 
-            results['csm'] = csm.image_to_stage_displacement_matrix
+            results['csm'] = csm.image_to_stage_displacement_matrix #This doesn't change on each run, it is data intrinsic to the microscope
             
             self.thing_settings["rom_data"] = DenumpifyingDict(results).model_dump()
             return results
