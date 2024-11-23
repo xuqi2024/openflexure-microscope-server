@@ -6,8 +6,8 @@ from PIL import Image
 import time
 from typing import Annotated, Any, Callable, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 from scipy.optimize import curve_fit
-#from camera_stage_mapping import camera_stage_tracker.py
-from camera_stage_mapping.camera_stage_tracker import move_until_motion_detected
+from camera_stage_mapping import camera_stage_tracker
+#from camera_stage_mapping.camera_stage_tracker import move_until_motion_detected
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
@@ -201,7 +201,7 @@ class RangeofMotionThing(Thing):
                         z_dest = quadratic(stage.position[axs] + relative_move, *parameters)
                         z_diff = z_dest - stage.position['z']
 
-                        stage.move_relative(z = z_diff) #THIS MAY NEED TO BE NEGATIVE
+                        stage.move_relative(z = z_diff)
 
                         logger.info(f"Moved in z by {z_diff}") 
 
@@ -228,7 +228,7 @@ class RangeofMotionThing(Thing):
                             image1=image1.tolist()
                             test_image1 = cam.grab_jpeg()
                             csm.move_in_image_coordinates(x = this_small_step_size['x'], y = this_small_step_size['y'])
-                            autofocus.looping_autofocus(dz = 800)
+                            autofocus.looping_autofocus(dz = 400)
                             image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                             image2=image2.tolist()
                             test_image2 = cam.grab_jpeg()
@@ -264,11 +264,32 @@ class RangeofMotionThing(Thing):
 
                     #Now we move the stage until we detect movement and take that position as final. This is to account for the extra motion carried out by the big step.
 
-                    logger.info(f"Running CSM motion detection for loop {i}")
+                    logger.info(f"Running motion detection for loop {i}")
 
-                    displacement = [-1,-1]
+                    displacements = np.array([1,2,4,8,16,32,64,128])  #Array of increasing step sizes
+                    motion_minimum = 20  #minimum nuber of pixels for motion to be detected
 
-                    num_moves, multiplier = move_until_motion_detected(tracker, move, displacement, threshold=10, multipliers=2**np.arange(16), detect_cumulative_motion=False)
+                    this_motion_step = {
+                        'x':np.zeros(8),
+                        'y':np.zeros(8),
+                        'z':0
+                    }
+
+                    this_motion_step[axs] = displacements * dir * -1
+                    
+                    for loop in range(8):
+                        logger.info(f"Testing with step size {this_motion_step[axs][loop]}")
+                        image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
+                        image1=image1.tolist()
+                        stage.move_relative(x = this_motion_step['x'][loop], y = this_motion_step['y'][loop], z = this_motion_step['z'])
+                        image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
+                        image2=image2.tolist()
+                        offset = [x * 1 for x in csm.get_displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
+                        delta['x'] = int(offset[1])
+                        delta['y'] = int(offset[0])
+                        if np.abs(delta[axs]) > motion_minimum:
+                            logger.info("Motion detected.")
+                            break
 
                     stage_coords.append(stage.position)
 
