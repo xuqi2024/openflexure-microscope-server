@@ -137,6 +137,7 @@ class RangeofMotionThing(Thing):
                     # TODO clean these up
                     cor_lat_steps = [] #This variable tracks the total distance travelled after each movement
                     stage_coords = []
+                    #axis_fail = False
 
                     #Set of moves to gather information for the curve_fit
                     #The step size here should be around 50% of the FOV
@@ -148,11 +149,13 @@ class RangeofMotionThing(Thing):
                     autofocus.looping_autofocus(dz = 800)
                     z_coord.append(stage.position)
                     stage.move_absolute(x = starting_pos[0], y = starting_pos[1], z = starting_pos[2])
+                    autofocus.looping_autofocus(dz = 800)
 
                     logger.info(f"Medium sized steps to find Z calibration for loop {i}")
 
                     for loop in range(4):
                         stage_coords.append(stage.position)
+                        logger.info(f"Current porsition is {stage.position}")
                         image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                         image1=image1.tolist()
                         csm.move_in_image_coordinates(x = z_cal_step['x'], y = z_cal_step['y'])
@@ -165,9 +168,12 @@ class RangeofMotionThing(Thing):
                         logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_z[axs]}")
                         focused_positions.append(stage.position)  #focused_positions is used for z calibration
                         #if np.abs(delta[axs]) < minimum_offset_z[axs]:  #this means the edge has been found
-                          #  logger.info(f"Something is wrong with the correlation.")
-                         #   break
-
+                            #logger.info(f"Something is wrong with the correlation.")
+                            #axis_fail = True
+                            #break
+                            
+                    #if axis_fail == True:
+                        #break
                     
                     z_delta['x'] = int(offset[1])
                     z_delta['y'] = int(offset[0])
@@ -177,6 +183,7 @@ class RangeofMotionThing(Thing):
                     z_positions = [i['z'] for i in focused_positions]
                     logger.info(f"z_positions for loop {i} are {z_positions}")
                     parameters, covariance = curve_fit(quadratic, lateral_positions, z_positions)
+                    logger.info(f"Parameters for loop {i} are {parameters}")
 
                     logger.info(f"Z calibration complete.")
 
@@ -194,20 +201,29 @@ class RangeofMotionThing(Thing):
                         z_dest = quadratic(stage.position[axs] + relative_move, *parameters)
                         z_diff = z_dest - stage.position['z']
 
-                        stage.move_relative(z = z_diff)
+                        stage.move_relative(z = z_diff) #THIS MAY NEED TO BE NEGATIVE
 
-                        logger.info(f"Moved in z by {z_diff}")
+                        logger.info(f"Moved in z by {z_diff}") 
 
                         #Big movement
+                        logger.info(f"Current position is {stage.position}")
                         logger.info(f"Large sized step for loop {i}")
                         stage_coords.append(stage.position)
                         csm.move_in_image_coordinates(x = this_big_step_size['x'], y = this_big_step_size['y'])
-            
+                        autofocus.looping_autofocus(dz = 1000)
+                        logger.info(f"Current position is {stage.position}")
+
+                        lateral_positions = [i[axs] for i in focused_positions]
+                        z_positions = [i['z'] for i in focused_positions]
+                        parameters, covariance = curve_fit(quadratic, lateral_positions, z_positions)
+                        logger.info("Recalculated Z calibration.")
+
                         #3 small movements, each of which is correlated
                         logger.info(f"3 small sized steps to find Z calibration for loop {i}")
+                        failure_count = 0
                         for loop in range(3):
-                            autofocus.looping_autofocus(dz = 800)
                             stage_coords.append(stage.position)
+                            focused_positions.append(stage.position)
                             image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                             image1=image1.tolist()
                             test_image1 = cam.grab_jpeg()
@@ -220,14 +236,31 @@ class RangeofMotionThing(Thing):
                             delta['x'] = int(offset[1])
                             delta['y'] = int(offset[0])
                             logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_small[axs]}")
+                            logger.info(f"Current position is {stage.position}")
                             cor_lat_steps.append(offset)
-                            if np.abs(delta[axs]) < minimum_offset_small[axs]:  #this means the edge has been found
+
+                            #Refocuses and tests new image to check that the focus wasn't just off
+                            while np.abs(delta[axs]) < minimum_offset_small[axs] and failure_count < 3:
+                                logger.info(f"Correlation failed. Refocusing to check. Attempt {failure_count + 1}/3")
+                                autofocus.looping_autofocus(dz = 1000)
+                                image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
+                                image2=image2.tolist()
+                                failure_count = failure_count + 1
+                                offset = [x * 1 for x in csm.get_displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
+                                delta['x'] = int(offset[1])
+                                delta['y'] = int(offset[0])
+                                logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_small[axs]}")
+                                cor_lat_steps.append(offset)
+
+
+                            if np.abs(delta[axs]) < minimum_offset_small[axs] and failure_count == 3:  #this means the edge has been found
                                 logger.info(f"Edge of loop {i} has been found.")
                                 test_image1.save(f"{filepath}loop{i}_image1.jpeg")
                                 test_image2.save(f"{filepath}loop{i}_image2.jpeg")
                                 break
                     
                         stage_coords.append(stage.position)
+                        focused_positions.append(stage.position)
 
                     #Now we move the stage until we detect movement and take that position as final. This is to account for the extra motion carried out by the big step.
 
