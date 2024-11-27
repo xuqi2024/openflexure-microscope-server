@@ -48,9 +48,13 @@ class RangeofMotionThing(Thing):
         starting_position = list(stage.position.values()) #This is done later as well, this might need removed.
 
         try:
+            
+            #for repeat_test in range(20):
             logger.info("Using the stage to measure the range of motion")
+            #starting_pos_image = cam.grab_jpeg()
             start_time = time.time()
-
+            filepath = "/var/openflexure/"
+            #starting_pos_image.save(f"{filepath}cycle{repeat_test}_starting_pos.jpeg")
             stream_resolution = cam.stream_resolution
             
             #Define the percentages of the FOV that the stage will move by
@@ -89,8 +93,6 @@ class RangeofMotionThing(Thing):
             z_cal_step = {}
             
             break_limit = 190000
-
-            filepath = "/var/openflexure/"
 
             #logger.info(f"Maximum allowed movement in wrong axis is x:{wrong_axis_max['x']} and y:{wrong_axis_max['y']}")
             #wrong_axis_max = 40
@@ -155,7 +157,7 @@ class RangeofMotionThing(Thing):
 
                     for loop in range(4):
                         stage_coords.append(stage.position)
-                        logger.info(f"Current porsition is {stage.position}")
+                        logger.info(f"Current position is {stage.position}")
                         image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                         image1=image1.tolist()
                         csm.move_in_image_coordinates(x = z_cal_step['x'], y = z_cal_step['y'])
@@ -219,7 +221,7 @@ class RangeofMotionThing(Thing):
                         logger.info("Recalculated Z calibration.")
 
                         #3 small movements, each of which is correlated
-                        logger.info(f"3 small sized steps to find Z calibration for loop {i}")
+                        logger.info(f"3 small sized steps for loop {i}")
                         failure_count = 0
                         for loop in range(3):
                             stage_coords.append(stage.position)
@@ -266,7 +268,7 @@ class RangeofMotionThing(Thing):
 
                     logger.info(f"Running motion detection for loop {i}")
 
-                    displacements = np.array([1,2,4,8,16,32,64,128])  #Array of increasing step sizes
+                    displacements = np.array([1,2,4,8,16,32,64,128,256,512,1024])  #Array of increasing step sizes
                     motion_minimum = 20  #minimum nuber of pixels for motion to be detected
 
                     this_motion_step = {
@@ -275,7 +277,7 @@ class RangeofMotionThing(Thing):
                         'z':0
                     }
 
-                    this_motion_step[axs] = displacements * dir * -1
+                    this_motion_step[axs] = displacements * dir
                     
                     for loop in range(8):
                         logger.info(f"Testing with step size {this_motion_step[axs][loop]}")
@@ -287,6 +289,7 @@ class RangeofMotionThing(Thing):
                         offset = [x * 1 for x in csm.get_displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
                         delta['x'] = int(offset[1])
                         delta['y'] = int(offset[0])
+                        logger.info(f"Offset measured as {delta[axs]}")
                         if np.abs(delta[axs]) > motion_minimum:
                             logger.info("Motion detected.")
                             break
@@ -320,7 +323,20 @@ class RangeofMotionThing(Thing):
             results['csm'] = csm.image_to_stage_displacement_matrix #This doesn't change on each run, it is data intrinsic to the microscope
             
             self.thing_settings["rom_data"] = DenumpifyingDict(results).model_dump()
+
+                # import os
+
+                # file_i = 0 
+                # while os.path.isfile(f'logs/stage_{file_i}.json'):
+                #     file_i += 1
+
+                # with open(f'logs/stage_{file_i}.json', 'w', encoding='utf-8') as f:
+                #     json.dump(results, f, ensure_ascii=False, indent=4)
+
             return results
+
+                
+                #file_i += 1
         
         except:
             logger.error("Stopping measurement because it was cancelled by the user")
@@ -479,7 +495,7 @@ class RecentringThing(Thing):
             logger.info(f"Centre of ROM is at {centre[:2], stage.position['z']}")
 
             logger.debug(f"List of positions is {focused_pos}")
-
+            
             with open(r'logs/stage_recentre.json', 'w', encoding='utf-8') as f:
                 json.dump(focused_pos, f, ensure_ascii=False, indent=4)
 
