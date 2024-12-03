@@ -184,10 +184,10 @@ class CameraStageMapper(Thing):
         
         This performs two 1d calibrations in x and y, then combines their results.
         """
-        logger.info("Calibrating X axis:")
-        cal_x: dict = self.calibrate_1d(hw, stage, logger, (1, 0, 0))
         logger.info("Calibrating Y axis:")
         cal_y: dict = self.calibrate_1d(hw, stage, logger, (0, 1, 0))
+        logger.info("Calibrating X axis:")
+        cal_x: dict = self.calibrate_1d(hw, stage, logger, (1, 0, 0))
         logger.info("Calibration complete, updating metadata.")
 
         # Combine X and Y calibrations to make a 2D calibration
