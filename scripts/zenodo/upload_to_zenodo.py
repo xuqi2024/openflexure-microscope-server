@@ -1,5 +1,4 @@
 import os
-import requests
 from argparse import ArgumentParser, Namespace
 from zenodo import Zenodo
 import yaml

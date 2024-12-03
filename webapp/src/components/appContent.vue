@@ -7,7 +7,6 @@
     <!-- Initialisation modals -->
     <calibrationModal
       ref="calibrationModal"
-      :available-plugins="plugins"
       @onClose="enterApp()"
     ></calibrationModal>
     <!-- Vertical tab bar -->
@@ -33,27 +32,13 @@
               style="filter: grayscale(100%);width: 22px;margin-top: 5px;margin-bottom: 8px;"
               :src="item.iconURL"
             />
-            <i v-if="!item.iconURL" class="material-icons">
+            <span v-if="!item.iconURL" class="material-symbols-outlined">
               {{ item.icon }}
-            </i>
+            </span>
           </tabIcon>
           <!-- Add a divider if item.divide is true -->
           <hr v-if="item.divide" :key="'tab-divider-' + index" />
         </template>
-
-        <!-- For each plugin tab -->
-        <tabIcon
-          v-for="plugin in pluginsGuiList"
-          :key="plugin.id"
-          :tab-i-d="plugin.id"
-          :title="plugin.title"
-          :require-connection="plugin.requiresConnection"
-          :current-tab="currentTab"
-          :click-callback="updatePlugins"
-          @set-tab="setTab"
-        >
-          <i class="material-icons">{{ plugin.icon || "extension" }}</i>
-        </tabIcon>
 
         <tabIcon
           v-for="imjoyTab in imjoyTabs"
@@ -69,9 +54,9 @@
             style="filter: grayscale(100%);width: 22px;margin-top: 5px;margin-bottom: 8px;"
             :src="imjoyTab.iconURL"
           />
-          <i v-if="!imjoyTab.iconURL" class="material-icons">
+          <span v-if="!imjoyTab.iconURL" class="material-symbols-outlined">
             {{ imjoyTab.iconName || "extension" }}
-          </i>
+          </span>
         </tabIcon>
 
         <hr id="extension-tab-divider" />
@@ -88,7 +73,7 @@
             :class="item.class"
             @set-tab="setTab"
           >
-            <i class="material-icons">{{ item.icon }}</i>
+            <span class="material-symbols-outlined">{{ item.icon }}</span>
           </tabIcon>
           <!-- Add a divider if item.divide is true -->
           <hr v-if="item.divide" :key="'tab-divider-' + index" />
@@ -111,23 +96,6 @@
         :current-tab="currentTab"
       >
         <component :is="item.component"></component>
-      </tabContent>
-
-      <!-- For each plugin tab -->
-      <tabContent
-        v-for="plugin in pluginsGuiList"
-        :key="plugin.id"
-        :tab-i-d="plugin.id"
-        :require-connection="plugin.requiresConnection"
-        :current-tab="currentTab"
-      >
-        <extensionContent
-          :forms="plugin.forms"
-          :frame="plugin.frame"
-          :web-component="plugin.wc"
-          :view-panel="plugin.viewPanel"
-          @reloadForms="updatePlugins()"
-        />
       </tabContent>
 
       <tabContent
@@ -156,7 +124,6 @@
 </template>
 
 <script>
-import axios from "axios";
 import { mapState } from "vuex";
 
 // Import generic components
@@ -165,18 +132,13 @@ import tabContent from "./genericComponents/tabContent";
 
 // Import new content components
 import navigateContent from "./tabContentComponents/navigateContent.vue";
-import captureContent from "./tabContentComponents/captureContent.vue";
 import slideScanContent from "./tabContentComponents/slideScanContent.vue";
+import backgroundDetectContent from "./tabContentComponents/backgroundDetectContent.vue";
 import viewContent from "./tabContentComponents/viewContent.vue";
 import settingsContent from "./tabContentComponents/settingsContent.vue";
-import extensionContent from "./tabContentComponents/extensionContent.vue";
 import aboutContent from "./tabContentComponents/aboutContent.vue";
 import loggingContent from "./tabContentComponents/loggingContent.vue";
-// ImJoy and the gallery are loaded asynchronously to allow them to be disabled if needed
-const galleryContent = () =>
-  import(
-    /* webpackChunkName: "gallery" */ "./tabContentComponents/galleryContent.vue"
-  );
+// ImJoy is loaded asynchronously to allow it to be disabled if needed
 const imjoyContent = () =>
   import(
     /* webpackChunkName: "imjoy" */ "./tabContentComponents/imjoyContent.vue"
@@ -185,6 +147,7 @@ const imjoyContent = () =>
 // Import modal components for device initialisation
 import calibrationModal from "./modalComponents/calibrationModal.vue";
 import TabIcon from "./genericComponents/tabIcon.vue";
+import ScanListContent from "./tabContentComponents/scanListContent.vue";
 
 // Export main app
 export default {
@@ -194,12 +157,9 @@ export default {
     tabIcon,
     tabContent,
     navigateContent,
-    captureContent,
     slideScanContent,
     viewContent,
     settingsContent,
-    galleryContent,
-    extensionContent,
     calibrationModal,
     aboutContent,
     loggingContent,
@@ -208,7 +168,6 @@ export default {
   },
   data: function() {
     return {
-      plugins: [],
       currentTab: "view",
       bottomTabs: [
         {
@@ -232,28 +191,10 @@ export default {
   },
 
   computed: {
-    pluginsUri: function() {
-      return `${this.$store.getters.baseUri}/api/v2/extensions`;
-    },
-
-    pluginsGuiList: function() {
-      // List of plugin GUIs, obtained from this.plugins values
-      var pluginGuis = [];
-      for (let plugin of Object.values(this.plugins)) {
-        if (plugin.meta.gui) {
-          pluginGuis.push(plugin.meta.gui);
-        }
-      }
-      return pluginGuis;
-    },
-
     tabOrder: function() {
       var ind = [];
       for (const tab of this.topTabs) {
         ind.push(tab.id);
-      }
-      for (const plugin of this.pluginsGuiList) {
-        ind.push(plugin.id);
       }
       for (const tab of this.bottomTabs) {
         ind.push(tab.id);
@@ -269,33 +210,28 @@ export default {
           component: viewContent
         },
         {
-          id: "gallery",
-          icon: "photo_library",
-          component: galleryContent,
-          divide: true // Add a divider after this tab icon
-        },
-        {
           id: "navigate",
           icon: "gamepad",
           component: navigateContent
         },
         {
-          id: "capture",
-          icon: "camera_alt",
-          component: captureContent,
-          divide: true // Add a divider after this tab icon
+          id: "slidescan",
+          icon: "settings_overscan",
+          component: slideScanContent
+        },
+        {
+          id: "scanlist",
+          icon: "photo_library",
+          component: ScanListContent
+        },
+        {
+          id: "background_detect",
+          icon: "background_replace",
+          component: backgroundDetectContent
         }
       ];
       if (!this.$store.state.galleryEnabled) {
         tabs = tabs.filter(tab => tab.id != "gallery");
-      }
-      if (this.$store.state.IHIEnabled) {
-        tabs.push({
-          id: "slidescan",
-          icon: "settings_overscan",
-          component: slideScanContent,
-          divide: true
-        });
       }
       if (this.$store.state.imjoyEnabled) {
         tabs.push({
@@ -317,16 +253,6 @@ export default {
     ...mapState({ imjoyEnabled: "imjoyEnabled" })
   },
 
-  created: function() {
-    if (this.$store.getters.ready) {
-      // Update plugins
-      this.updatePlugins().then(() => {
-        // Start initialisation modals
-        this.startModals();
-      });
-    }
-  },
-
   mounted() {
     // A global signal listener to switch tab
     this.$root.$on("globalSwitchTab", tabID => {
@@ -340,19 +266,12 @@ export default {
     this.$root.$on("globalDecrementTab", () => {
       this.incrementTabBy(-1);
     });
+    if (this.$store.getters.ready) {
+      this.startModals();
+    }
   },
 
   methods: {
-    updatePlugins: function() {
-      return axios
-        .get(this.pluginsUri)
-        .then(response => {
-          this.plugins = response.data;
-        })
-        .catch(error => {
-          this.modalError(error); // Let mixin handle error
-        });
-    },
     setTab: function(event, tab) {
       if (!(this.currentTab == tab)) {
         this.currentTab = tab;
@@ -367,7 +286,7 @@ export default {
       this.currentTab = newId;
     },
     startModals: function() {
-      this.$refs["calibrationModal"].show();
+      this.$refs.calibrationModal.show();
     },
     enterApp: function() {
       // Stuff to do once connected and all init modals are finished

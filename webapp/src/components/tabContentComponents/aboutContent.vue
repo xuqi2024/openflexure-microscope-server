@@ -10,8 +10,9 @@
         class="uk-link"
         target="_blank"
         href="https://gitlab.com/openflexure/openflexure-microscope-server/-/issues"
-        >Report an issue</a
       >
+        Report an issue
+      </a>
     </div>
     <div class="uk-padding-small">
       <h2>Developer tools</h2>

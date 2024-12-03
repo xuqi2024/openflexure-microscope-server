@@ -42,7 +42,6 @@
 import appContent from "./components/appContent.vue";
 import loadingContent from "./components/loadingContent.vue";
 
-import axios from "axios";
 var Mousetrap = require("mousetrap");
 
 Mousetrap.prototype.stopCallback = function(e, element) {
@@ -210,7 +209,7 @@ export default {
     // Watch for origin changes
     this.unwatchOriginFunction = this.$store.watch(
       (state, getters) => {
-        return getters.uriV2;
+        return getters.baseUri;
       },
       () => {
         this.checkConnection();
@@ -305,23 +304,38 @@ export default {
   },
 
   methods: {
-    checkConnection: function() {
-      var uriV2 = this.$store.getters.uriV2;
+    async checkConnection() {
+      var baseUri = this.$store.getters.baseUri;
       this.$store.commit("changeWaiting", true);
-      axios
-        .get(uriV2)
-        .then(() => {
-          this.$store.commit("setConnected");
-          this.$store.commit("setErrorMessage", null);
-        })
-        .catch(error => {
-          this.$store.commit("setErrorMessage", error);
-        })
-        .finally(() => {
-          this.$store.commit("changeWaiting", false);
-        });
+      // TODO: more robust check - e.g. use a microscope Thing
+      // TODO: should we purge existing consumedThings?
+      try {
+        await this.$store.dispatch(
+          "wot/fetchThingDescriptions",
+          `${baseUri}/thing_descriptions/`
+        );
+        for (let requiredThing of ["camera", "stage"]) {
+          if (!this.$store.getters["wot/thingAvailable"](requiredThing)) {
+            throw new Error(
+              `No ${requiredThing} found, the GUI won't work without one.`
+            );
+          }
+        }
+        try {
+          let hostname = await this.readThingProperty("settings", "hostname");
+          this.$store.commit("changeMicroscopeHostname", hostname);
+          document.title = `OpenFlexure Microscope: ${hostname}`;
+        } catch {
+          this.$store.commit("changeMicroscopeHostname", null);
+        }
+        this.$store.commit("setConnected");
+        this.$store.commit("setErrorMessage", null);
+      } catch (error) {
+        this.$store.commit("setErrorMessage", error);
+      } finally {
+        this.$store.commit("changeWaiting", false);
+      }
     },
-
     handleExit: function() {
       this.$root.$emit("globalTogglePreview", false);
     },
@@ -413,6 +427,13 @@ html {
   overflow-x: hidden;
   height: 100%;
   padding: 0;
+}
+
+.image-fit {
+  height: 80%;
+  width: 100%;
+  object-fit: contain;
+  overflow-y: clip;
 }
 
 .section-content {

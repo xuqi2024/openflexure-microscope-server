@@ -70,20 +70,13 @@
             Camera/stage mapping
           </tabIcon>
         </li>
-        <li>
-          <tabIcon
-            id="settings-microscope-icon"
-            tab-i-d="microscope"
-            :show-title="false"
-            :show-tooltip="false"
-            :require-connection="true"
-            :current-tab="currentTab"
-            @set-tab="setTab"
-          >
-            General
-          </tabIcon>
-        </li>
       </ul>
+      <action-button
+        thing="settings"
+        action="save_all_thing_settings"
+        submit-label="Save all settings"
+        class="uk-margin"
+      />
     </div>
     <div class="view-component uk-width-expand uk-padding-small">
       <tabContent
@@ -136,24 +129,12 @@
           <CSMSettings />
         </div>
       </tabContent>
-
-      <tabContent
-        tab-i-d="microscope"
-        :require-connection="true"
-        :current-tab="currentTab"
-      >
-        <div class="settings-pane uk-padding-small">
-          <h3>Microscope settings</h3>
-          <microscopeSettings />
-        </div>
-      </tabContent>
     </div>
   </div>
 </template>
 
 <script>
 import streamSettings from "./settingsComponents/streamSettings.vue";
-import microscopeSettings from "./settingsComponents/microscopeSettings.vue";
 import cameraSettings from "./settingsComponents/cameraSettings.vue";
 import appSettings from "./settingsComponents/appSettings.vue";
 import featuresSettings from "./settingsComponents/featuresSettings.vue";
@@ -162,6 +143,7 @@ import stageSettings from "./settingsComponents/stageSettings.vue";
 // Import generic components
 import tabIcon from "../genericComponents/tabIcon";
 import tabContent from "../genericComponents/tabContent";
+import ActionButton from "../labThingsComponents/actionButton.vue";
 
 // Export main app
 export default {
@@ -171,12 +153,12 @@ export default {
     streamSettings,
     cameraSettings,
     stageSettings,
-    microscopeSettings,
     CSMSettings,
     appSettings,
     featuresSettings,
     tabIcon,
-    tabContent
+    tabContent,
+    ActionButton
   },
 
   data: function() {

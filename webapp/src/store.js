@@ -1,5 +1,6 @@
 import Vue from "vue";
 import Vuex from "vuex";
+import wotStoreModule from "./wot-client";
 
 Vue.use(Vuex);
 
@@ -76,7 +77,8 @@ function getOriginFromLocation() {
 
 export default new Vuex.Store({
   modules: {
-    imjoy: moduleImjoy
+    imjoy: moduleImjoy,
+    wot: wotStoreModule
   },
   state: {
     origin: getOriginFromLocation(),
@@ -86,11 +88,11 @@ export default new Vuex.Store({
     disableStream: false,
     autoGpuPreview: false,
     trackWindow: true,
-    IHIEnabled: false,
     imjoyEnabled: false,
     galleryEnabled: true,
     appTheme: "system",
-    activeStreams: {}
+    activeStreams: {},
+    microscopeHostname: ""
   },
 
   mutations: {
@@ -111,9 +113,6 @@ export default new Vuex.Store({
     },
     changeAppTheme(state, theme) {
       state.appTheme = theme;
-    },
-    changeIHIEnabled(state, enabled) {
-      state.IHIEnabled = enabled;
     },
     changeImjoyEnabled(state, enabled) {
       if (process.env.VUE_APP_ENABLE_IMJOY === "true") {
@@ -146,13 +145,15 @@ export default new Vuex.Store({
     },
     removeStream(state, id) {
       state.activeStreams[id] = false;
+    },
+    changeMicroscopeHostname(state, value) {
+      state.microscopeHostname = value;
     }
   },
 
   actions: {},
 
   getters: {
-    uriV2: state => `${state.origin}/api/v2`,
     baseUri: state => state.origin,
     ready: state => state.available
   }

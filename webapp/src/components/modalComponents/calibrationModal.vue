@@ -48,6 +48,7 @@
 
           <cameraCalibrationSettings
             :show-extra-settings="false"
+            :camera-uri="cameraUri"
           ></cameraCalibrationSettings>
         </div>
       </div>
@@ -146,8 +147,6 @@
 </template>
 
 <script>
-import axios from "axios";
-
 import cameraCalibrationSettings from "../tabContentComponents/settingsComponents/cameraSettingsComponents/cameraCalibrationSettings.vue";
 import CSMCalibrationSettings from "../tabContentComponents/settingsComponents/CSMSettingsComponents/CSMCalibrationSettings.vue";
 import miniStreamDisplay from "../genericComponents/miniStreamDisplay.vue";
@@ -161,73 +160,33 @@ export default {
     miniStreamDisplay
   },
 
-  props: {
-    availablePlugins: {
-      type: Array,
-      required: true
-    }
-  },
-
   data: function() {
     return {
       ready: false,
       stepValue: 0,
-      settings: {},
-      config: {}
+      isCSMCalibrated: undefined,
+      isLSTCalibrated: undefined
     };
   },
 
   computed: {
-    settingsUri: function() {
-      return `${this.$store.getters.baseUri}/api/v2/instrument/settings`;
-    },
-    configUri: function() {
-      return `${this.$store.getters.baseUri}/api/v2/instrument/configuration`;
-    },
-    availablePluginTitles: function() {
-      return this.availablePlugins.map(a => a.title);
-    },
-    isCSMCalibrated: function() {
-      if (this.settings.extensions["org.openflexure.camera_stage_mapping"]) {
-        return true;
-      } else {
-        return false;
-      }
-    },
-    isLSTCalibrated: function() {
-      if (
-        this.settings.camera.picamera &&
-        this.settings.camera.picamera.lens_shading_table
-      ) {
-        return true;
-      } else {
-        return false;
-      }
-    },
     canCSMCalibrated: function() {
       // Assert CSM extension is enabled
-      var extensionEnabled = this.availablePluginTitles.includes(
-        "org.openflexure.camera_stage_mapping"
-      );
-      // Assert real stage is connected
-      var stageConnected = this.config.stage.type !== "MissingStage";
-      // Combine
-      return stageConnected && extensionEnabled;
+      return this.thingAvailable("camera_stage_mapping");
     },
     canLSTCalibrated: function() {
       // Assert LST extension is enabled
-      var extensionEnabled = this.availablePluginTitles.includes(
-        "org.openflexure.calibration.picamera"
+      return (
+        "calibrate_lens_shading" in this.thingDescription("camera").actions
       );
-      // Assert real camera is connected
-      var cameraConnected = this.config.camera.type !== "MissingCamera";
-      // Combine
-      return cameraConnected && extensionEnabled;
     },
     isUseful: function() {
       var CSMUseful = this.canCSMCalibrated && !this.isCSMCalibrated;
       var LSTUseful = this.canLSTCalibrated && !this.isLSTCalibrated;
       return CSMUseful || LSTUseful;
+    },
+    cameraUri: function() {
+      return `${this.$store.getters.baseUri}/camera/`;
     }
   },
 
@@ -236,25 +195,33 @@ export default {
   },
 
   methods: {
-    show: function() {
-      // Get current settings
-      this.getSettings()
-        .then(() => {
-          return this.getConfig();
-        })
-        .then(() => {
-          // Check if this calibration wizard can actually do anything useful
-          if (this.isUseful) {
-            this.ready = true;
-            this.stepValue = 0;
-            // Show the modal
-            var el = this.$refs["calibrationModalEl"];
-            this.showModalElement(el); // Calls the mixin
-          } else {
-            // If not useful, we just return the onClose event immediately
-            this.onHide();
-          }
-        });
+    show: async function() {
+      // Check if the camera and stage are calibrated, if they can be
+      if (this.canCSMCalibrated) {
+        let csm = await this.readThingProperty(
+          "camera_stage_mapping",
+          "image_to_stage_displacement_matrix",
+          true
+        );
+        this.isCSMCalibrated = Boolean(csm);
+      }
+      if (this.canLSTCalibrated) {
+        this.isLSTCalibrated = await this.readThingProperty(
+          "camera",
+          "lens_shading_is_static"
+        );
+      }
+      // Check if this calibration wizard can actually do anything useful
+      if (this.isUseful) {
+        this.ready = true;
+        this.stepValue = 0;
+        // Show the modal
+        var el = this.$refs["calibrationModalEl"];
+        this.showModalElement(el); // Calls the mixin
+      } else {
+        // If not useful, we just return the onClose event immediately
+        this.onHide();
+      }
     },
 
     hide: function() {
@@ -266,28 +233,6 @@ export default {
 
     onHide: function() {
       this.$emit("onClose");
-    },
-
-    getSettings: function() {
-      return axios
-        .get(this.settingsUri)
-        .then(response => {
-          this.settings = response.data;
-        })
-        .catch(error => {
-          this.modalError(error); // Let mixin handle error
-        });
-    },
-
-    getConfig: function() {
-      return axios
-        .get(this.configUri)
-        .then(response => {
-          this.config = response.data;
-        })
-        .catch(error => {
-          this.modalError(error); // Let mixin handle error
-        });
     },
 
     decrement: function() {

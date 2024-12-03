@@ -28,7 +28,7 @@ export default {
 
   computed: {
     streamImgUri: function() {
-      return `${this.$store.getters.baseUri}/api/v2/streams/mjpeg`;
+      return `${this.$store.getters.baseUri}/camera/mjpeg_stream`;
     }
   },
   methods: {

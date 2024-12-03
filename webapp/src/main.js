@@ -1,6 +1,7 @@
 import Vue from "vue";
 import App from "./App.vue";
 import store from "./store";
+import axios from "axios";
 import UIkit from "uikit";
 import VueTour from "vue-tour";
 import VueFriendlyIframe from "vue-friendly-iframe";
@@ -9,7 +10,7 @@ import VueObserveVisibility from "vue-observe-visibility";
 require("vue-tour/dist/vue-tour.css");
 
 // Import MD icons
-import "material-design-icons/iconfont/material-icons.css";
+import "material-symbols/outlined.css";
 
 // UIKit overrides
 UIkit.mixin(
@@ -34,6 +35,51 @@ Vue.config.productionTip = false;
 
 Vue.mixin({
   methods: {
+    thingDescription(thing) {
+      return this.$store.getters["wot/thingDescription"](thing);
+    },
+    thingAvailable(thing) {
+      return this.$store.getters["wot/thingAvailable"](thing);
+    },
+    async readThingProperty(thing, property, silence_errors = false) {
+      let url = this.$store.getters["wot/thingPropertyUrl"](
+        thing,
+        property,
+        "readproperty",
+        false
+      );
+      try {
+        let response = await axios.get(url);
+        return response.data;
+      } catch (error) {
+        if (!silence_errors) this.modalError(error);
+        return undefined;
+      }
+    },
+    async writeThingProperty(thing, property, value) {
+      let url = this.$store.getters["wot/thingPropertyUrl"](
+        thing,
+        property,
+        "writeproperty",
+        false
+      );
+      // `false` fails because axios somehow eats it!
+      // Other values should not be stringified or pydantic
+      // can't parse them.
+      if ((value === false) | (value === true)) {
+        value = JSON.stringify(value);
+      }
+      await axios.put(url, value);
+    },
+    thingActionUrl(thing, action, allow_missing = false) {
+      let url = this.$store.getters["wot/thingActionUrl"](
+        thing,
+        action,
+        "invokeaction",
+        allow_missing
+      );
+      return url;
+    },
     modalConfirm: function(modalText) {
       var context = this;
 
@@ -86,6 +132,7 @@ Vue.mixin({
     modalError: function(error) {
       var errormsg = this.getErrorMessage(error);
       this.$store.commit("setErrorMessage", errormsg);
+      console.log("Modal error:", error);
       UIkit.notification({
         message: `${errormsg}`,
         status: "danger"
@@ -93,26 +140,19 @@ Vue.mixin({
     },
 
     getErrorMessage: function(error) {
-      var errormsg = "";
-
-      // If a response was obtained
+      // If a response was obtained, format it nicely and return it
       if (error.response) {
         // If the response is a nicely formatted JSON response from the server
         if (error.response.data.message) {
-          errormsg = `${error.response.status}: ${error.response.data.message}`;
+          return `${error.response.status}: ${error.response.data.message}`;
         }
         // If the response is just some generic error response
-        else {
-          errormsg = `${error.response.status}: ${error.response.data}`;
-        }
-        // If the error occured during the request
-      } else if (error.request) {
-        errormsg = `${error.message}`;
-        // Everything else
-      } else {
-        errormsg = `${error.message}`;
+        return `${error.response.status}: ${error.response.data}`;
       }
-      return errormsg;
+      // If we have an error object with a message, use that
+      if (error.message) return `${error.message}`;
+      // Otherwise attempt to cast it to a string.
+      return `${error}`;
     },
 
     showModalElement: function(element) {

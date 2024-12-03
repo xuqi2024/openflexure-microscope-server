@@ -76,3 +76,10 @@ activate
 classes.png
 packages.png
 openflexure_microscope/cobertura.xml
+
+# labthings settings
+/settings/
+/openflexure_settings/
+
+# web app build
+/src/openflexure_microscope_server/static/

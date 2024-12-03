@@ -13,9 +13,13 @@
             :alt="name + ' icon'"
             uk-img
           />
-          <i v-if="!iconURL" class="material-icons" style="font-size:50px">
+          <span
+            v-if="!iconURL"
+            class="material-symbols-outlined"
+            style="font-size:50px"
+          >
             {{ iconName }}
-          </i>
+          </span>
         </div>
         <div class="uk-width-expand">
           <h3 class="uk-card-title uk-margin-remove-bottom">{{ name }}</h3>

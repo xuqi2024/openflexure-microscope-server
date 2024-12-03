@@ -32,7 +32,7 @@
           href="#"
           class="uk-icon uk-margin-left"
           @click="handleMetadataSubmit()"
-          ><i class="material-icons">add_circle</i></a
+          ><span class="material-symbols-outlined">add_circle</span></a
         >
       </div>
     </form>
@@ -51,7 +51,7 @@
         />
       </div>
       <a href="#" class="uk-icon uk-width-auto" @click="delMetadataKey(key)"
-        ><i class="material-icons">delete</i></a
+        ><span class="material-symbols-outlined">delete</span></a
       >
     </div>
   </div>

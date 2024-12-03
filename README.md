@@ -1,8 +1,9 @@
 # OpenFlexure Microscope Software
 
 The "server" is the main component of the OpenFlexure Microscope's software.  It is responsible for controlling microscope hardware, data management, and allowing it to be controlled locally and over a network.
-This repository now includes the web client, which is served from the root of the Python web server.
-This software runs on [Python-LabThings](https://github.com/labthings/python-labthings/), and so most non-microscope functionality is handled by that library.
+This repository includes the graphical interface, which is implemented as a web application served from the root of the Python web server. The simplest way to use it is via OpenFlexure eV, which should find your microscope on the network, and display the interface. The microscope's interface can also be accessed at `http://microscope.local:5000/` in a web browser, assuming the hostname of your microscope is `microscope`.
+
+This software runs on [LabThings-FastAPI](https://github.com/labthings/labthings-fastapi/), which creates an HTTP server using FastAPI (which in turn relies on Starlette and pydantic).
 
 ## Getting started
 
@@ -12,27 +13,39 @@ The simplest way to set up a microscope is to download the pre-built Raspberry P
 There are instructions on how to [use the microscope](https://openflexure.org/projects/microscope/control) once you have installed the software, either from OpenFlexure Connect, or through a web browser.
 The web server starts on port 5000 by default, and the microscope SD image uses the hostname "microscope" so you can usually access the web interface at <http://microscope.local:5000/>.
 
-A user guide and developer documentation can be found on [**ReadTheDocs**](https://openflexure-microscope-software.readthedocs.io/), including some installation notes, a link to the HTTP API reference, and guidance for developing extensions.
+A user guide and developer documentation **for v2 of the server** can be found on [**ReadTheDocs**](https://openflexure-microscope-software.readthedocs.io/), including some installation notes, a link to the HTTP API reference, and guidance for developing extensions.
 More information is also available in the [handbook](https://gitlab.com/openflexure/microscope-handbook/), and in the "development instructions" below.
+
+## Running directly
+
+The Python package provides a command `ofm-microscope-server` that runs the server. This is what is used by `systemd` to run the service. You will need to provide some command-line arguments, see the output of `--help` for an up to date list. See `/etc/systemd/system/openflexure-microscope-server.service` for the command line used to run the server by default on the  Raspberry Pi. In general, you are likely to want to specify a configuration file with `-c`, a host (`--host 0.0.0.0` to serve on all addresses) and a port (`--port 5000`). The `--fallback` option will allow the server to start *even if the hardware specified in the configuration file can't load*. This serves an error page, rather than have the server fail. In the future, it should redirect users to a way to fix their configuration.
 
 ## Settings
 
-There are 2 important settings files, described in the [docs](https://openflexure-microscope-software.readthedocs.io/en/master/config.html).  The paths given below are for the Raspberry Pi installation on our pre-built SD card, and will change if you run on another system:
-* `/var/openflexure/settings/microscope_configuration.json`
-    * Boot-time microscope configuration. Things like the type of camera connected, the stage board, geometry etc.
-    * Anything that needs to be loaded once as the server starts, and usually doesn't need to be re-written while the server is running
-    * This configuration file does not change often, and usually only needs to be updated when you change the physical hardware.
-* `/var/openflexure/settings/microscope_settings.json`
-    * Every other persistent setting. Camera settings, calibration data, default capture settings, stream resolution etc.
-    * This file changes very regularly, and if you need to reset your settings, it's usually this file that you should remove or reset.
+The microscope is initially configured by a LabThings config file. This specifies two important things:
+
+* The Python classes (and initialisation arguments) to use for each `Thing`. This sets the type of camera and stage, and enables/disables additional functionality like scanning and autofocus.
+* The location of the settings folder, where each Thing can store its settings.
+
+By default, this configuration file should be read from `/var/openflexure/settings/ofm_config.json` when the microscope is run as a service. If it is run at the command line you should specify the configuration using the `-c` command line flag. This configuration file does not change often, and usually only needs to be updated when you change the physical hardware. It may be that this file should be made read-only, particularly in microscopes deployed for e.g. medical applications.
+
+The settings folder is, by default, `/var/openflexure/settings/` on the SD card, or `./settings/` if run elsewhere. It can be changed in the configuration file. This holds every other persistent setting. Camera settings, calibration data, default capture settings, stream resolution and so on. There is one folder per `Thing`, each with their own file. The settings files can change very regularly, and if you need to reset your settings, it's usually these files that you should remove or reset. If you delete one settings file this should reset the corresponding `Thing`, you don't have to delete the whole folder.
 
 # Developer guidelines
 
 ## Developing on a Raspberry Pi
 
-The easiest way to work on the software is to build an OpenFlexure Microscope around a Raspberry Pi, using our custom disk image.  This includes a pre-installed copy of this server, and a pre-built copy of the web application, so it's ready to use.  You can also develop directly on the Raspberry Pi, and this is the best way to test out changes to the Python code using actual hardware.  To do this, use the command-line script `ofm develop`.  This will replace the server application at `/var/openflexure/application/openflexure-microscope-server/` with a clone of this git repository.  You can manage the server with the `ofm` command, using `ofm start`, `ofm stop`, and `ofm restart` to do the respective actions. `ofm serve` will run a debug server that prints its logs and errors to the console.
+The easiest way to work on the software is to build an OpenFlexure Microscope around a Raspberry Pi, using our custom disk image.  This includes a pre-installed copy of this server, and a pre-built copy of the web application, so it's ready to use.  You can also develop directly on the Raspberry Pi, and this is the best way to test out changes to the Python code using actual hardware.  
 
-Our favourite way of working with the server on a Pi is to follow the instructions above, then open a VSCode Remote session from another computer.  This allows you to use your usual developer environment to write code, but everything runs on the Raspberry Pi with real hardware.  Note that `ofm develop` uses an `https://` address for the git repository, so you will probably need to change the "remote" URL to your fork of the repository, or to SSH, before you're able to push changes.
+You can manage the server with the `ofm` command, using `ofm start`, `ofm stop`, and `ofm restart` to do the respective actions. Often, stopping the server and running it manually will make errors easier to spot. To do this, run:
+```
+ofm stop
+ofm activate
+cd /var/openflexure
+sudo -u openflexure-ws openflexure-microscope-server -c microscope_configuration.json --host 0.0.0.0 --port 5000
+```
+
+Our favourite way of working with the server on a Pi is to follow the instructions above, then open a VSCode Remote session from another computer.  This allows you to use your usual developer environment to write code, but everything runs on the Raspberry Pi with real hardware.  Note that the repository is cloned by default over `https`, so you will probably need to change the "remote" URL to your fork of the repository, or to SSH, before you're able to push changes.
 
 ### Updating just the web app
 
@@ -62,18 +75,19 @@ To set up a development version of the software (most likely using emulated came
 * `cd openflexure-microscope-server`
 
 ### Set up the Python environment and run a test server
-* (Optional) Set local Python version to match what is available on the Pi
-  * `pyenv init` (this may or may not be required, depending on how you installed `pyenv`)
-  * `pyenv install 3.7.3`
-  * `pyenv local 3.7.3`
+* (Optional) Set local Python version to 3.11
 * Create a virtual environment and activate it:
   * `python -m venv .venv`
   * `source .venv/bin/activate` (on Linux) or `.venv/Scripts/activate` (on Windows)
-  * `pip install --upgrade pip wheel pipenv`
-  * `pipenv install --dev` (This will install development dependencies.  If you don't need these, `pipenv install` will get you just the dependencies needed to run the server, which takes about half the time.)
-* Finally, run the server:
-  * You can use `ofm serve` or `ofm restart` on the Raspberry Pi to manage the server.
-  * To run the server locally, with dummy hardware, you can use `python -m openflexure_microscope.api.app` to start a development-mode Flask server on `localhost:5000`
+  * `pip install -e .[dev]` (This will install development dependencies.  If you don't need these, there is probably a simpler way to run the server than cloning this repo.)
+* Finally, run the server: currently you can do this with `sudo systemctl start openflexure-microscope-server` if it's pre-installed on a Raspberry Pi, or `openflexure-microscope-server -c ofm_config_stub.json` to run locally.
+
+### Run the server manually on a Raspberry Pi
+```
+cd /var/openflexure
+sudo -u openflexure-ws PATH="/var/openflexure/application/openflexure-microscope-server/.venv/bin/:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin" /var/openflexure/application/openflexure-microscope-server/.venv/bin/openflexure-microscope-serve -c /var/openflexure/settings/ofm_config.json --host 0.0.0.0 --port 5000
+```
+
 
 ### Set up the Javascript environment and build
 * The Flask web application, written in Python, serves a web application written in `Vue.js`.  This is distributed as part of the built version of the server, hosted on our [build server](https://build.openflexure.org/openflexure-microscope-server/).
@@ -93,70 +107,36 @@ To set up a development version of the software (most likely using emulated came
 ## Formatting, linting, and tests
 All of the commands below assume that you are running in the OFM virtual environment, i.e. you have run `ofm activate` on an OpenFlexure SD card, or `source .venv/bin/activate` on Linux, or `.venv/Scripts/activate`on Windows.
 
-**Before committing** you should auto-format your code:
+**Before committing** you should lint and auto-format your code:
 
-* To auto-format the Python code run `poe format`
+* To lint run `ruff check`
+* To auto-format the Python code run `ruff format`
 * To auto-format the Javascript code, run
   * `cd webapp`
   * `npm run lint`
 
-**Before submitting a merge request/merging** please auto-format your code and also run the quality checks (linting, static analysis, and unit tests)
+**Before merging** please auto-format your code and also run the quality checks (linting, static analysis, and unit tests)
 
-* To auto-format and type-check the Python code run `poe check`
-* To auto-format the Javascript code, run
-  * `cd webapp`
-  * `npm run lint`
+* All commands above
+* `mypy src` (currently fails)
+* `pytest`
 
 
 ### Details
 
-We use several code analysis and formatting libraries in this project. **Please run all of these before submitting a merge request.**
-
-Our CI will check each of these automatically, so ensuring they pass locally will save you time.
-
-* **Black** - Code formatting with minimal configuration.
-  * While sometimes it's not perfect, its fine 90% of the time and prevents arguments about formatting.
-  * Automatically formats your code
-  * This will rewrite your files in-place, so if you want to be able to revert, make a backup first!
-  * `poe black`
-* **Pylint** - Static code analysis
-  * Analyses your code, failing if issues are detected.
-  * We've disabled some less severe warnings, so _if anything fails your merge request will be blocked_
-  * `poe pylint`
-* **Mypy** - Type checking
-  * Analyses your type hints and annotations to flag up potential bugs
-  * Where possible, use type hints in your code. Even if dependencies don't support it, it'll help identify issues.
-  * `poe mypy`
-* **Pytest** - Unit testing
-  * While unit testing is of limited use due to our dependence on real hardware, some simple isolated functions can (and should) be unit tested.
-  * `poe test`
-
-Though not in the CI, our `format` script also runs isort:
-
-* **Isort** - Import sorting
-  * Automatically organises your imports to stop things getting out of hand
-  * `poe isort`
+We use several code analysis and formatting libraries in this project. Our CI will check each of these automatically, so ensuring they pass locally will save you time. Currently `ruff` is used for linting/formatting and `pytest` for unit tests. `mypy` will be enabled once the codebase is ready.
 
 ## Python environment, build, and dependencies
 
-As of `2.10.0b0` we have switched to using `pipenv` for managing dependencies, and a standard `setuptools` based build system.  See "local installation" above for instructions on how to install the project.  Earlier versions of the project used `poetry` but we moved away because of [difficulties](https://gitlab.com/openflexure/openflexure-microscope-server/-/merge_requests/124) getting it to work both on the Raspberry Pi and in our CI pipeline.  The new arrangement for configuration files is:
-
-* Dependencies, and dev-dependencies, are specified in `setup.py` in the usual way (using `install_requires` and `extra_requires[dev]`).
-* Package metadata is specified in `setup.py` in the usual way.
-* `pyproject.toml` is retained, but *no longer includes package metadata or dependencies* and does not have a `[tool.poetry]` table.  It does define the build system as per PEP517, which is `setuptools`, and it also contains settings for `black`, `poe` and `isort`.
-* `Pipfile` is very minimal, and only declares dependencies on the current module, i.e. the dependencies declared in `setup.py`.  It also specifies the Python version.  This allows us to single-source dependency information from `setup.py` but use the dependency resolution/locking functionality of `pipenv`
-* `Pipfile.lock` locks the dependency versions in the same way as `poetry.lock` used to, i.e. it specifies exact versions of everything, derived from the looser specifications in `setup.py`.
-* Dependency resolution is a pain, in part because compiling packages like scipy and numpy from source on a Pi is slow and unreliable. To avoid this, we usually lock the dependencies on a Raspberry Pi, using:
-  `PIP_ONLY_BINARY="numpy, scipy, matplotlib" pipenv lock --dev`
-  This forces the use of wheels only, and thus restricts us to things that built OK on Piwheels.  The resulting Pipfile.lock should then work nicely on other Raspberry Pis.
-* **The Pipfile we use is now Raspberry Pi-specific** so if you attempt to use it on other platforms it will probably fail. This is because we've removed `pypi` to avoid hash conflicts. The CI now runs on a Raspberry Pi image, so that the tests use a similar environment to our deployment.  Currently, changing the `[source]` entry back to PyPi will allow you to re-lock the dependencies on other platforms. In the future we may need to maintain two Pipfiles and two Pipfile.lock files.
+As of `v3` we specify dependencies in `pyproject.toml`. These are not currently frozen due to difficulties matching versions on different platforms. On Raspberry Pi, it's best to specify `--only-binary=:all:` to ensure libraries like `numpy` and `scipy` are not compiled from source (which takes many hours, and/or fails). Pinning dependencies with `requirements.txt` and/or `requirements.in` may happen in the future.
 
 ## Creating releases
 
 * Update the application's internal version number
-    * Edit `setup.py` to update the version number
-    * Git commit and git push
-* Create a new version tag on GitLab (e.g. `v2.6.11`)
+  * Edit `pyproject.toml` to update the version number
+* Update the changelog
+* Git commit and git push
+* Create a new version tag on GitLab (e.g. `v2.6.11`) that matches the `pyproject.toml` version number.
     * Make sure you prefix a lower case 'v', otherwise it won't be recognised as a release!
     * This tagging will trigger a CI pipeline that builds the JS client, tarballs up the server, and deploys it
         * Note: This also updates the build server's nginx redirect map file
@@ -166,10 +146,8 @@ As of `2.10.0b0` we have switched to using `pipenv` for managing dependencies, a
 * `npm install -g conventional-changelog-cli`
 * `npx conventional-changelog -r 1 --config ./changelog.config.js -i CHANGELOG.md -s`
 
-## Microscope extensions
+## Adding functionality
 
-The Microscope module, and Flask app, both support plugins for extending lower-level functionality not well suited to web API calls. The current documentation can be found [here](https://openflexure-microscope-software.readthedocs.io/en/latest/plugins.html).
-If you want to add functions to the microscope software, this is probably the best mechanism to use if it works for you.
+The microscope comprises a number of `Thing` instances, which provide actions and properties to implement hardware control and software features. These may be imported from any Python module, using `ofm_config.json`. See the LabThings-FastAPI documentation for how to create a `Thing`. 
 
-
-```
+Currently, the camera and stage classes are provided by external libraries, `labthings-picamera2` and `labthings-sangaboard`. Replacing these is the easiest way to use alternative hardware: interfaces are defined in `openflexure_microscope_server.things.camera` and `openflexure_microscope_server.things.stage` respectively.

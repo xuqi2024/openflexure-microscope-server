@@ -3,23 +3,7 @@
   <div uk-grid class="uk-height-1-1 uk-margin-remove uk-padding-remove">
     <div class="control-component">
       <vue-friendly-iframe v-if="frame" :src="frame.href"></vue-friendly-iframe>
-      <!-- Handle OpenFlexure Forms -->
-      <div
-        v-for="form in forms"
-        v-else-if="forms"
-        :key="`${form.route}/${form.name}`.replace(/\s+/g, '-').toLowerCase()"
-        class="uk-height-1-1 uk-width-1-1"
-      >
-        <JsonForm
-          :name="form.name"
-          :route="form.route"
-          :is-task="form.isTask"
-          :submit-label="form.submitLabel"
-          :schema="form.schema"
-          :emit-on-response="form.emitOnResponse"
-          v-on="$listeners"
-        />
-      </div>
+      <!-- OpenFlexure Forms used to be handled here - should now be done another way. -->
     </div>
     <div class="view-component uk-width-expand">
       <galleryContent v-if="viewPanel == 'gallery'" />
@@ -30,7 +14,6 @@
 </template>
 
 <script>
-import JsonForm from "../pluginComponents/JsonForm";
 import streamDisplay from "./streamContent.vue";
 import galleryContent from "../tabContentComponents/galleryContent.vue";
 import settingsContent from "../tabContentComponents/settingsContent.vue";
@@ -39,7 +22,6 @@ export default {
   name: "ExtensionContent",
 
   components: {
-    JsonForm,
     streamDisplay,
     galleryContent,
     settingsContent

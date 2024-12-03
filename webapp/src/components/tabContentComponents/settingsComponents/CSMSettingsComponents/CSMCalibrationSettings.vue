@@ -1,24 +1,25 @@
 <template>
   <div id="CSMCalibrationSettings">
     <!--Show auto calibrate if default plugin is enabled-->
-    <div v-if="'calibrate_xy' in recalibrationLinks" class="uk-margin-small">
-      <taskSubmitter
+    <div v-if="'calibrate_xy' in actions" class="uk-margin-small">
+      <action-button
         :button-primary="true"
-        :can-terminate="false"
+        :can-terminate="true"
         :requires-confirmation="true"
         :confirmation-message="
           'Start recalibration of the stage to the camera? This may take a while, and the microscope will be locked during this time.'
         "
-        :submit-url="recalibrationLinks.calibrate_xy.href"
+        thing="camera_stage_mapping"
+        action="calibrate_xy"
         :submit-label="'Auto-Calibrate using camera'"
+        :modal-progress="true"
         @response="onRecalibrateResponse"
         @error="modalError"
-      >
-      </taskSubmitter>
+      />
     </div>
     <button
-      v-if="'get_calibration' in recalibrationLinks"
-      v-show="dataAvailable && showExtraSettings"
+      v-if="'last_calibration' in properties"
+      v-show="showExtraSettings"
       type="button"
       class="uk-button uk-button-default uk-width-1-1"
       @click="getCalibrationData()"
@@ -29,15 +30,14 @@
 </template>
 
 <script>
-import axios from "axios";
-import taskSubmitter from "../../../genericComponents/taskSubmitter";
+import ActionButton from "../../../labThingsComponents/actionButton.vue";
 
 // Export main app
 export default {
   name: "CSMCalibrationSettings",
 
   components: {
-    taskSubmitter
+    ActionButton
   },
 
   props: {
@@ -48,107 +48,41 @@ export default {
     }
   },
 
-  data: function() {
-    return {
-      settings: null,
-      recalibrationLinks: {},
-      isCalibrating: false,
-      dataAvailable: false
-    };
-  },
-
   computed: {
-    settingsUri: function() {
-      return `${this.$store.getters.baseUri}/api/v2/instrument/settings`;
+    actions() {
+      return this.$store.getters["wot/thingDescription"]("camera_stage_mapping")
+        .actions;
     },
-    pluginsUri: function() {
-      return `${this.$store.getters.baseUri}/api/v2/extensions`;
+    properties() {
+      return this.$store.getters["wot/thingDescription"]("camera_stage_mapping")
+        .properties;
     }
   },
 
-  mounted() {
-    this.updateSettings();
-    this.updateRecalibrationLinks();
-  },
-
   methods: {
-    updateSettings: function() {
-      // Update links
-      axios
-        .get(this.settingsUri)
-        .then(response => {
-          this.settings =
-            response.data.extensions["org.openflexure.camera_stage_mapping"];
-        })
-        .catch(error => {
-          this.modalError(error); // Let mixin handle error
-          this.settings = {};
-        });
-    },
-
-    updateCalibrationDataAvailability: function() {
-      if ("get_calibration" in this.recalibrationLinks) {
-        axios
-          .get(this.recalibrationLinks.get_calibration.href)
-          .then(response => {
-            if (Object.keys(response.data).length === 0) {
-              this.dataAvailable = false;
-            } else {
-              this.dataAvailable = true;
-            }
-          })
-          .catch(error => {
-            this.modalError(error); // Let mixin handle error
-          });
+    getCalibrationData: async function() {
+      try {
+        let data = await this.readThingProperty(
+          "camera_stage_mapping",
+          "last_calibration"
+        );
+        if (data == {}) {
+          throw "No calibration data available.";
+        }
+        const dataStr = JSON.stringify(data);
+        const url = window.URL.createObjectURL(new Blob([dataStr]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", "csm_calibration.json");
+        document.body.appendChild(link);
+        link.click();
+      } catch (error) {
+        this.modalError(error); // Let mixin handle error
       }
-    },
-
-    getCalibrationData: function() {
-      axios
-        .get(this.recalibrationLinks.get_calibration.href)
-        .then(response => {
-          if (response.data != {}) {
-            const data = JSON.stringify(response.data);
-            const url = window.URL.createObjectURL(new Blob([data]));
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", "csm_calibration.json");
-            document.body.appendChild(link);
-            link.click();
-          }
-        })
-        .catch(error => {
-          this.modalError(error); // Let mixin handle error
-        });
-    },
-
-    updateRecalibrationLinks: function() {
-      axios
-        .get(this.pluginsUri) // Get a list of plugins
-        .then(response => {
-          var plugins = response.data;
-          var foundExtension = plugins.find(
-            e => e.title === "org.openflexure.camera_stage_mapping"
-          );
-          // if camera-stage mapping extension is enabled
-          if (foundExtension) {
-            // Get plugin action link
-            this.recalibrationLinks = foundExtension.links;
-            // Update whether calibration data is available
-            this.updateCalibrationDataAvailability();
-          } else {
-            this.recalibrationLinks = {};
-          }
-        })
-        .catch(error => {
-          this.modalError(error); // Let mixin handle error
-        });
     },
 
     onRecalibrateResponse: function() {
       this.modalNotify("Finished stage-to-camera calibration.");
-      // Update local settings
-      this.updateSettings();
     }
   }
 };

@@ -5,7 +5,7 @@
         <div class="uk-margin-remove-top uk-width-expand">
           <div class="uk-inline uk-width-1-1">
             <span class="uk-form-icon"
-              ><i class="material-icons">label</i></span
+              ><span class="material-symbols-outlined">label</span></span
             >
             <input
               v-model="newTag"
@@ -18,7 +18,7 @@
         </div>
 
         <a href="#" class="uk-icon uk-margin-left" @click="handleTagSubmit()"
-          ><i class="material-icons">add_circle</i></a
+          ><span class="material-symbols-outlined">add_circle</span></a
         >
       </div>
     </form>

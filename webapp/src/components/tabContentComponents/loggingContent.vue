@@ -42,16 +42,32 @@
     <div class="uk-width-xlarge uk-align-center">
       <div
         v-for="item in pagedItems"
-        :key="item.timestamp"
+        :key="item.sequence"
         uk-alert
         class="logging-entry"
         :class="{
-          'uk-alert-warning uk-alert': item.data.levelname == 'WARNING',
-          'uk-alert-danger uk-alert': item.data.levelname == 'ERROR'
+          'uk-alert-warning uk-alert': item.level == 'WARNING',
+          'uk-alert-danger uk-alert': item.level == 'ERROR'
         }"
       >
-        <b>{{ formatDateTime(item.data.created) }}</b>
-        <div class="logging-message">{{ formatMessage(item) }}</div>
+        <b>{{ formatDateTime(item.timestamp) }}: {{ item.level }}</b>
+        <div class="logging-summary">
+          {{ item.summary }}
+          <a
+            v-if="(item.summary != item.message) & !item.expanded"
+            style="float: right"
+            @click="item.expanded = true"
+          >
+            More info...
+          </a>
+          <!-- eslint-disable vue/no-v-html -->
+          <div
+            v-if="item.expanded"
+            class="logging-message"
+            v-html="item.message"
+          ></div>
+          <!-- eslint-enable -->
+        </div>
       </div>
 
       <Paginate
@@ -102,18 +118,15 @@ export default {
       var items = [];
       for (var item of this.logs) {
         // Add to capture list if matched
-        if (this.filteredLevels.includes(item.data.levelname)) {
+        if (this.filteredLevels.includes(item.level)) {
           items.push(item);
         }
       }
 
       return items;
     },
-    loggingUri: function() {
-      return `${this.$store.getters.baseUri}/api/v2/events/logging`;
-    },
     logFileURI: function() {
-      return `${this.$store.getters.baseUri}/api/v2/log`;
+      return `${this.$store.getters.baseUri}/log/`;
     },
     pagedItems: function() {
       let startIndex = (this.page - 1) * this.maxitems;
@@ -122,11 +135,6 @@ export default {
     numberOfPages: function() {
       return Math.floor(this.filteredItems.length / this.maxitems);
     }
-  },
-
-  mounted() {
-    // Update on mount (does nothing if not connected)
-    this.updateLogs();
   },
 
   methods: {
@@ -141,22 +149,65 @@ export default {
         this.updateLogs();
       }
     },
-    updateLogs: function() {
-      axios
-        .get(this.loggingUri)
-        .then(response => {
-          this.logs = response.data.reverse();
-        })
-        .catch(error => {
-          this.modalError(error); // Let mixin handle error
-        });
+    async updateLogs() {
+      let response = await axios.get(this.logFileURI);
+      let lines = response.data.split("\n");
+      let logs = [];
+      let regexp = /\[(.+)\] \[(.+)\] (.*)$/;
+      for (let line of lines) {
+        if (line.length > 0) {
+          let m = line.match(regexp);
+          if (m) {
+            logs.push({
+              timestamp: m[1],
+              level: m[2],
+              summary: m[3],
+              message: this.escapeText(m[3]),
+              sequence: logs.length,
+              expanded: false
+            });
+          } else if (logs) {
+            // If a line does not look like a log entry, append it to the last
+            // log entry (i.e. allow multi-line messages)
+            let entry = logs[logs.length - 1];
+            m = line.match(/^( *)(\^+)/); // detect python stack trace "underlines"
+            if (m) {
+              let linestart = entry.message.lastIndexOf("\n") + 1;
+              let ustart = linestart + m[1].length;
+              let uend = ustart + m[2].length;
+              entry.message =
+                entry.message.substring(0, ustart) +
+                "<u>" +
+                entry.message.substring(ustart, uend) +
+                "</u>" +
+                entry.message.substring(uend);
+            } else {
+              entry.message += "\n" + this.escapeText(line);
+              if (entry.message.startsWith("Traceback")) {
+                entry.summary = line; // For tracebacks, the last line is the best summary
+              }
+            }
+          } else {
+            // if there's no existing log message to append to, discard lines
+            // until we find one.
+            console.log(
+              "Ignored non-matching lines at the start of the log file."
+            );
+            continue;
+          }
+        }
+      }
+      this.logs = logs.reverse(); // Display in reverse chronological order
     },
     formatDateTime: function(isoDateTimeString) {
+      isoDateTimeString = isoDateTimeString.replace(",", ".");
       let date = new Date(isoDateTimeString);
       return date.toLocaleDateString() + " " + date.toLocaleTimeString();
     },
-    formatMessage: function(item) {
-      return item.data.levelname + ": " + item.data.message;
+    escapeText: function(unsafeText) {
+      let div = document.createElement("div");
+      div.innerText = unsafeText;
+      return div.innerHTML;
     }
   }
 };
@@ -175,5 +226,7 @@ export default {
 }
 .logging-message {
   font-family: monospace;
+  overflow-x: auto;
+  text-wrap: nowrap;
 }
 </style>
