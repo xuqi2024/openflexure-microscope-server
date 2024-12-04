@@ -11,7 +11,7 @@ Microscope settings file
 ------------------------
 
 Microscope settings are made persistent via a microscope settings file. By default, this
-file exists at ``~/.openflexure/microscope_settings.json``.
+file exists at ``/var/openflexure/settings/microscope_settings.json``.
 
 The class :class:`openflexure_microscope.config.OpenflexureSettingsFile` provides functionality for loading a JSON-format settings file as a Python dictionary, and merging changed settings back into the file. 
 
