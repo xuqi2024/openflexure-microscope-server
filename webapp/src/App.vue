@@ -196,7 +196,7 @@ export default {
     this.checkConnection();
     // Handle guided tour
     // If the user has already completed or skipped the guided tour
-    var completedTour = this.getLocalStorageObj("completedTour") || false;
+    var completedTour = this.getLocalStorageObj("completedTour") || true;
     if (!completedTour) {
       this.$tours["guidedTour"].start();
     }
@@ -434,6 +434,12 @@ html {
   width: 100%;
   object-fit: contain;
   overflow-y: clip;
+}
+
+.thumbnail-fit {
+  max-height: 120px;
+  object-fit: contain;
+  overflow-y: hidden;
 }
 
 .section-content {

@@ -133,7 +133,6 @@ import tabContent from "./genericComponents/tabContent";
 // Import new content components
 import navigateContent from "./tabContentComponents/navigateContent.vue";
 import slideScanContent from "./tabContentComponents/slideScanContent.vue";
-import backgroundDetectContent from "./tabContentComponents/backgroundDetectContent.vue";
 import viewContent from "./tabContentComponents/viewContent.vue";
 import settingsContent from "./tabContentComponents/settingsContent.vue";
 import aboutContent from "./tabContentComponents/aboutContent.vue";
@@ -215,19 +214,14 @@ export default {
           component: navigateContent
         },
         {
-          id: "slidescan",
+          id: "slide scan",
           icon: "settings_overscan",
           component: slideScanContent
         },
         {
-          id: "scanlist",
+          id: "scan list",
           icon: "photo_library",
           component: ScanListContent
-        },
-        {
-          id: "background_detect",
-          icon: "background_replace",
-          component: backgroundDetectContent
         }
       ];
       if (!this.$store.state.galleryEnabled) {
@@ -330,6 +324,6 @@ export default {
 }
 
 #switcher-left a {
-  padding: 10px 8px;
+  padding: 10px 6px;
 }
 </style>

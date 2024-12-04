@@ -201,8 +201,19 @@ h4, .uk-h4 {
     box-shadow: @small-shadow;
 }
 
+.uk-card-title {
+    margin: 0;
+    width: 240px;
+}
+
+.uk-card-body {
+    padding: 20px 16px 8px 16px;;
+}
+
 .uk-card-media-top img {
-    border-radius: @paper-border-radius @paper-border-radius 0 0;
+    width: 100%;
+    margin: 0 auto;
+    height: 120px;
 }
 
 .uk-card-default .uk-card-footer {
@@ -340,6 +351,7 @@ a:hover {
 .uk-button {
     border-radius: @button-border-radius;
     padding: 0 8px;
+    border-color: @global-border;
 }
 
 .uk-button-default {
@@ -351,6 +363,7 @@ a:hover {
     background-color: rgba(180, 180, 180, 0.10);
     border-color: @global-primary-background;
     color: @button-text-color;
+    margin-bottom: 2px;
 }
 
 .uk-button-danger {
@@ -360,6 +373,17 @@ a:hover {
 }
 
 .hook-inverse() {
+    .uk-button {
+        background-color: rgba(180, 180, 180, 0.15);
+        color: @inverse-primary-muted-color;
+        border-color: @inverse-primary-muted-color;
+    }
+    .uk-button:hover {
+        background-color: @inverse-primary-muted-color;
+        color: #fff;
+        border-color: #fff;
+    }
+
     .uk-button-primary {
         background-color: rgba(180, 180, 180, 0.15);
         color: @inverse-primary-muted-color;
@@ -369,6 +393,7 @@ a:hover {
     .uk-button-primary:hover {
         background-color: @inverse-primary-muted-color;
         color: #fff;
+        border-color: #fff;
     }
 }
 
