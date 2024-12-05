@@ -9,11 +9,11 @@
         <form @submit.prevent="applySettingsRequest">
           <div class="uk-margin-small-bottom">
             <ul uk-accordion="multiple: true">
-              <li class="uk-open">
+              <li>
                 <a class="uk-accordion-title" href="#">Pi Camera Settings</a>
                 <div class="uk-accordion-content">
                   <PropertyControl
-                    label="Exposure time"
+                    label="Brightness (0-33251)"
                     property-name="exposure_time"
                     thing-name="camera"
                     :read-back-delay="1000"
@@ -30,9 +30,15 @@
                     thing-name="camera"
                     :read-back-delay="1000"
                   />
+                  <PropertyControl
+                    label="Colour correction matrix"
+                    property-name="colour_correction_matrix"
+                    thing-name="camera"
+                    :read-back-delay="1000"
+                  />
                 </div>
               </li>
-              <li class="uk-open">
+              <li>
                 <a class="uk-accordion-title" href="#">Image Quality</a>
                 <div class="uk-accordion-content">
                   <PropertyControl

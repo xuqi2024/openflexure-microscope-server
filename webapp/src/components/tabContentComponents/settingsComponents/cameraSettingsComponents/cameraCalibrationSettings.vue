@@ -3,6 +3,7 @@
     <!--Show auto calibrate if default plugin is enabled-->
     <div v-if="'full_auto_calibrate' in actions" class="uk-margin-small">
       <action-button
+        :button-primary="true"
         :can-terminate="false"
         :requires-confirmation="true"
         :confirmation-message="
@@ -56,7 +57,7 @@
     <div
       v-show="showExtraSettings"
       v-if="'flatten_lens_shading_table' in actions"
-      class="uk-child-width-expand"
+      class="uk-margin-small"
     >
       <action-button
         :can-terminate="false"
@@ -71,7 +72,7 @@
     <div
       v-show="showExtraSettings"
       v-if="'reset_lens_shading' in actions"
-      class="uk-child-width-expand"
+      class="uk-margin-small"
     >
       <action-button
         :can-terminate="false"
@@ -82,6 +83,17 @@
         @response="onRecalibrateResponse"
         @error="modalError"
       />
+      <div v-show="showExtraSettings" class="uk-margin-small">
+        <action-button
+          :can-terminate="false"
+          :requires-confirmation="false"
+          thing="camera"
+          action="reset_ccm"
+          :submit-label="'Reset ccm'"
+          @response="onRecalibrateResponse"
+          @error="modalError"
+        />
+      </div>
     </div>
   </div>
 </template>

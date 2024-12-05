@@ -20,6 +20,8 @@ dependencies = [
   "camera-stage-mapping ~= 0.1.6",
   "numpy ~= 1.20",
   "piexif",
+  "numpy",
+  "matplotlib ~=3.9",
   "scipy ~= 1.6",
   "opencv-python ~= 4.7.0",
   "pillow ~= 10.4",

@@ -17,19 +17,6 @@
             Display
           </tabIcon>
         </li>
-        <li>
-          <tabIcon
-            id="settings-features-icon"
-            tab-i-d="features"
-            :show-title="false"
-            :show-tooltip="false"
-            :require-connection="false"
-            :current-tab="currentTab"
-            @set-tab="setTab"
-          >
-            Features
-          </tabIcon>
-        </li>
         <li class="uk-nav-header">Microscope settings</li>
         <li>
           <tabIcon
@@ -46,19 +33,6 @@
         </li>
         <li>
           <tabIcon
-            id="settings-stage-icon"
-            tab-i-d="stage"
-            :show-title="false"
-            :show-tooltip="false"
-            :require-connection="true"
-            :current-tab="currentTab"
-            @set-tab="setTab"
-          >
-            Stage
-          </tabIcon>
-        </li>
-        <li>
-          <tabIcon
             id="settings-mapping-icon"
             tab-i-d="mapping"
             :show-title="false"
@@ -67,16 +41,18 @@
             :current-tab="currentTab"
             @set-tab="setTab"
           >
-            Camera/stage mapping
+            Stage calibration
           </tabIcon>
         </li>
       </ul>
-      <action-button
-        thing="settings"
-        action="save_all_thing_settings"
-        submit-label="Save all settings"
-        class="uk-margin"
-      />
+      <div>
+        <action-button
+          thing="settings"
+          action="save_all_thing_settings"
+          submit-label="Save all settings"
+          class="uk-margin"
+        />
+      </div>
     </div>
     <div class="view-component uk-width-expand uk-padding-small">
       <tabContent
@@ -87,16 +63,6 @@
         <div class="settings-pane uk-padding-small">
           <appSettings />
           <streamSettings />
-        </div>
-      </tabContent>
-
-      <tabContent
-        tab-i-d="features"
-        :require-connection="false"
-        :current-tab="currentTab"
-      >
-        <div class="settings-pane uk-padding-small">
-          <featuresSettings />
         </div>
       </tabContent>
 
@@ -137,7 +103,6 @@
 import streamSettings from "./settingsComponents/streamSettings.vue";
 import cameraSettings from "./settingsComponents/cameraSettings.vue";
 import appSettings from "./settingsComponents/appSettings.vue";
-import featuresSettings from "./settingsComponents/featuresSettings.vue";
 import CSMSettings from "./settingsComponents/CSMSettings.vue";
 import stageSettings from "./settingsComponents/stageSettings.vue";
 // Import generic components
@@ -155,7 +120,6 @@ export default {
     stageSettings,
     CSMSettings,
     appSettings,
-    featuresSettings,
     tabIcon,
     tabContent,
     ActionButton

@@ -98,10 +98,11 @@ export default {
 }
 
 .tabtitle {
-  max-width: 60px;
+  max-width: 70px;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 85%;
+  margin: 0 auto;
 }
 
 a:hover,

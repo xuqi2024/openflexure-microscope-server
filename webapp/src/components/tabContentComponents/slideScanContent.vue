@@ -5,7 +5,7 @@
   <!-- Grid managing tab content -->
   <div v-else uk-grid class="uk-height-1-1 uk-margin-remove uk-padding-remove">
     <div class="control-component uk-padding-small">
-      <div v-show="!scanning">
+      <div v-show="!scanning" class="uk-padding-small">
         <ul uk-accordion="multiple: true">
           <li>
             <a class="uk-accordion-title" href="#">Configure</a>
@@ -13,15 +13,22 @@
               <div class="uk-margin">
                 <propertyControl
                   thing-name="smart_scan"
-                  property-name="max_range"
-                  label="Maximum Distance (steps)"
+                  property-name="stack_dz"
+                  label="Stack dz (steps)"
                 />
               </div>
               <div class="uk-margin">
                 <propertyControl
                   thing-name="smart_scan"
-                  property-name="autofocus_dz"
-                  label="Autofocus range (steps)"
+                  property-name="stack_height"
+                  label="Images in stack to capture"
+                />
+              </div>
+              <div class="uk-margin">
+                <propertyControl
+                  thing-name="smart_scan"
+                  property-name="stack_test_height"
+                  label="Images in stack to test"
                 />
               </div>
               <div class="uk-margin">
@@ -34,8 +41,8 @@
               <div class="uk-margin">
                 <propertyControl
                   thing-name="smart_scan"
-                  property-name="stitch_tiff"
-                  label="When stitching, produce a pyramidal tiff"
+                  property-name="max_image_count"
+                  label="Max image count (0 for unlimited)"
                 />
               </div>
             </div>
@@ -43,13 +50,6 @@
           <li class="uk-open">
             <a class="uk-accordion-title" href="#">Scan Settings</a>
             <div class="uk-accordion-content">
-              <div class="uk-margin">
-                <propertyControl
-                  thing-name="smart_scan"
-                  property-name="skip_background"
-                  label="Detect and skip empty fields"
-                />
-              </div>
               <div class="uk-margin">
                 <propertyControl
                   thing-name="smart_scan"
@@ -82,6 +82,11 @@
             @update:progress="progress = $event"
             @update:log="log = $event"
           />
+          <action-button
+            thing="smart_scan"
+            action="eject_usb_storage"
+            submit-label="Eject USB storage"
+          />
         </div>
       </div>
       <div v-show="scanning">
@@ -91,47 +96,42 @@
         <mini-stream-display v-if="displayImageOnRight" />
         <action-log-display
           id="log-display"
+          style="margin-top:10px"
           :log="log"
           :task-status="taskStatus"
         />
-        <action-progress-bar :progress="progress" :task-status="taskStatus" />
-        <button
-          v-if="cancellable"
-          type="button"
-          class="uk-button uk-button-danger uk-width-1-1"
-          @click="$refs.smartScanButton.terminateTask()"
-        >
-          Cancel
-        </button>
-        <div
-          v-if="!cancellable"
-          class="uk-margin uk-grid-small uk-child-width-expand"
-          uk-grid
-        >
+        <div class="uk-padding-small">
+          <action-progress-bar :progress="progress" :task-status="taskStatus" />
           <button
+            v-if="cancellable"
             type="button"
-            class="uk-button"
-            @click="
-              scanning = false;
-              lastStitchedImage = null;
-            "
+            style="margin:auto;"
+            class="uk-button uk-button-danger uk-width-1-2"
+            @click="$refs.smartScanButton.terminateTask()"
           >
-            Close
+            Cancel
           </button>
-          <action-button
-            class="uk-button"
-            thing="smart_scan"
-            action="create_zip_of_scan"
-            submit-label="Download ZIP"
-            :can-terminate="false"
-            :submit-data="{ scan_name: lastScanName }"
-            :button-primary="true"
-            @response="downloadZipFile"
-            @error="modalError"
-          />
+          <div
+            v-if="!cancellable"
+            class="uk-margin uk-grid-small uk-child-width-expand"
+            uk-grid
+          >
+            <button
+              type="button"
+              class="uk-button"
+              @click="
+                scanning = false;
+                lastStitchedImage = null;
+              "
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
-      <h3 v-if="scanning">Scan ID: {{ lastScanName }}</h3>
+      <div class="uk-padding-small">
+        <h3 v-if="scanning">Scan ID: {{ lastScanName }}</h3>
+      </div>
     </div>
     <div class="view-image uk-width-expand uk-height-1-1">
       <img
@@ -236,7 +236,7 @@ export default {
 
 <style scoped>
 #log-display {
-  height: 20em;
+  height: 10em;
 }
 .control-component {
   width: 33%;
