@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import Response
 from labthings import find_component
 from labthings.views import PropertyView
@@ -10,6 +12,13 @@ def gen(camera):
         frame: bytes = camera.stream.getframe()
 
         yield (b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
+
+
+def format_sse(event: str, data: str) -> str:
+    msg = f"data: {datetime.now().isoformat()}: {data}\n\n"
+    if event is not None:
+        msg = f"event: {event}\n{msg}"
+    return msg
 
 
 class MjpegStream(PropertyView):
@@ -69,3 +78,32 @@ class SnapshotStream(PropertyView):
         microscope = find_component("org.openflexure.microscope")
 
         return Response(microscope.camera.stream.getframe(), mimetype="image/jpeg")
+
+
+class MjpegFrameState(PropertyView):
+    """
+    SSE event stream pushing a bitrateLimitExceeded event when an incomplete or broken
+    frame is returned by the camera.
+    """
+
+    responses = {200: {"content_type": "text/event-stream"}}
+
+    def get(self):
+        """
+        SSE event stream pushing a bitrateLimitExceeded event when an incomplete or broken
+        frame is returned by the camera.
+        """
+        microscope = find_component("org.openflexure.microscope")
+
+        def stream():
+            while True:
+                microscope.camera.stream.bad_frame_event.wait()
+                msg = format_sse(
+                    "bitrateLimitExceeded",
+                    "Incomplete frame data recieved. Camera bandwidth may have been exceeded. Consider lowing resolution, framerate, or target bitrate.",
+                )
+                microscope.camera.stream.bad_frame_event.clear()
+
+                yield msg
+
+        return Response(stream(), mimetype="text/event-stream")
