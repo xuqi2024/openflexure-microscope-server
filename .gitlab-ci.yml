@@ -1,31 +1,38 @@
 stages:
+  - environment
   - analysis
   - testing
   - build
   - package
   - deploy
 
-# Re-usable block to install (and cache) Poetry and openflexure-microscope-server
-.python:
-  image: balenalib/raspberry-pi:buster
+# Re-usable block to install (and cache) pipenv and openflexure-microscope-server
+.python-base:
+  image: registry.gitlab.com/openflexure/openflexure-pi-os/openflexure-pi-os:latest
   retry: 1
-  before_script:
-    - apt-get update
-    - apt-get install apt-utils curl wget python3 python3-pip python3-venv raspi-gpio libgfortran3 libatlas3-base libffi-dev vim git-lfs libtiff5 libpango-1.0-0 libavcodec58 libgdk-pixbuf2.0-0 libjasper1 libswscale5 libpangocairo-1.0-0 libilmbase23 libatk1.0-0 libgtk-3-0 libwebp6 libcairo2 libavutil56 libcairo-gobject2 libopenexr23 libavformat58 libxslt1.1
-    - python3 -m venv .venv        # NB this does not overwrite an existing cached venv
-    - source .venv/bin/activate
-    - pip install pipenv           # Should be cached after first run
-    - pipenv install --dev --deploy        # Should be cached after first run - will just check packages are present
-  cache:
-    key: "${CI_COMMIT_REF_SLUG}"
-    paths:
-      - .cache/pip
-      - .venv
   only:
     - branches
     - merge_requests
     - tags
     - web
+
+.pip-cache:
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  cache:
+    key:
+      prefix: ${CI_PROJECT_NAME}-pip-cache
+      files:
+        - Pipfile.lock
+    paths:
+      - .cache/pip
+
+.python:
+  extends: .python-base
+  dependencies:
+    - install-python-environment
+  before_script:
+    - source .venv/bin/activate
 
 .javascript:
   image: node:15
@@ -33,7 +40,7 @@ stages:
     - cd webapp
     - npm install
   cache:
-    key: "${CI_COMMIT_REF_SLUG}"
+    key: "node_modules_${CI_COMMIT_REF_SLUG}"
     paths:
       - webapp/node_modules
   only:
@@ -41,6 +48,23 @@ stages:
     - merge_requests
     - tags
     - web
+
+install-python-environment:
+  stage: environment
+  extends: [.python-base, .pip-cache]
+  script:
+    - rm -rf .venv                          # Ensure there's no old venv hanging around from cache
+    - python3 -m venv --copies .venv        # NB this does not overwrite an existing cached venv
+    - source .venv/bin/activate
+    - python -m pip install --upgrade pip wheel pipenv   # If nothing's changed, everything will be cached
+    - pipenv install --dev --deploy         # Roughly equivalent to sync, i.e. install from Pipfile.lock.
+  artifacts:                                # Pass the populated virtual environment to other Python jobs
+    name: "python-virtual-environment"
+    expire_in: 1 week
+    paths:
+      - ".venv/"
+    
+
 
 # Python static analysis with PyLint
 pylint:
@@ -146,6 +170,19 @@ package:
     - merge_requests
     - tags
     - web
+
+wheelhouse:
+  stage: package
+  extends: [.python, .pip-cache]
+  script:
+    - mkdir wheelhouse
+    - pip freeze > wheelhouse/requirements.txt
+    - pip wheel -r wheelhouse/requirements.txt --wheel-dir=wheelhouse/
+  artifacts:
+    name: "wheelhouse"
+    expire_in: 1 week
+    paths:
+      - "./wheelhouse/"
 
 # Deploy to builds.openflexure.org
 deploy:

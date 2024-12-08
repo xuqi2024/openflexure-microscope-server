@@ -1,7 +1,15 @@
+# Unreleased
+
+## Developer changes
+* CI now builds and tests on a simulated Raspberry Pi, using our own image. ([!156](https://gitlab.com/openflexure/openflexure-microscope-server/-/merge_requests/156))
+
 # [v2.11.0](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.10.1...v2.11.0) (2022-08-08)
+
 ## New features
 * Background detection can now be used in scans, if you have the background-detect extension. ([!153](https://gitlab.com/openflexure/openflexure-microscope-server/-/merge_requests/153))
 * Support for Sangaboard firmware v1, via updated `sangaboard` dependency ([!154](https://gitlab.com/openflexure/openflexure-microscope-server/-/merge_requests/154))
+
+## Bug fixes
 * Fixed links in the OpenAPI documentation describing actions etc. ([!155](https://gitlab.com/openflexure/openflexure-microscope-server/-/merge_requests/154))
 
 # [v2.10.1](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.10.0...v2.10.1) (2022-01-17)
@@ -209,7 +217,7 @@
 - Tweaked deprecation warnings ([a844efc](https://gitlab.com/openflexure/openflexure-microscope-server/commit/a844efc))
 - Updated dependencies ([3c3ecd7](https://gitlab.com/openflexure/openflexure-microscope-server/commit/3c3ecd7))
 
-# [2.8.0](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.8.0-beta.3b...v2.8.0) (2020-11-16)
+# [v2.8.0](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.8.0-beta.3b...v2.8.0) (2020-11-16)
 
 - 2.8.0 ([729f101](https://gitlab.com/openflexure/openflexure-microscope-server/commit/729f101))
 - Added documentation comments ([3eb2aa8](https://gitlab.com/openflexure/openflexure-microscope-server/commit/3eb2aa8))
@@ -217,7 +225,7 @@
 - Added use_video_port argument back to array() ([f51d4ff](https://gitlab.com/openflexure/openflexure-microscope-server/commit/f51d4ff))
 - Move stream frame management into FrameStream class ([f765540](https://gitlab.com/openflexure/openflexure-microscope-server/commit/f765540))
 
-# [2.8.0-beta.3b](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.8.0-beta.3...v2.8.0-beta.3b) (2020-11-13)
+# [v2.8.0-beta.3b](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.8.0-beta.3...v2.8.0-beta.3b) (2020-11-13)
 
 - 2.8.0-beta.3 ([73eda10](https://gitlab.com/openflexure/openflexure-microscope-server/commit/73eda10))
 - Add pre-commit ([5119e2c](https://gitlab.com/openflexure/openflexure-microscope-server/commit/5119e2c))
@@ -245,14 +253,14 @@
 - Updated to LabThings 1.1.3 ([738f527](https://gitlab.com/openflexure/openflexure-microscope-server/commit/738f527))
 - Warn about unused settings when updating ([1e273be](https://gitlab.com/openflexure/openflexure-microscope-server/commit/1e273be))
 
-# [2.8.0-beta.2](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.8.0-beta.1...v2.8.0-beta.2) (2020-11-11)
+# [v2.8.0-beta.2](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.8.0-beta.1...v2.8.0-beta.2) (2020-11-11)
 
 - 2.8.0-beta.2 ([8c180ca](https://gitlab.com/openflexure/openflexure-microscope-server/commit/8c180ca))
 - Added submit button to API origin override form ([1e8978d](https://gitlab.com/openflexure/openflexure-microscope-server/commit/1e8978d))
 - Fixed tab switcher background height ([3387c27](https://gitlab.com/openflexure/openflexure-microscope-server/commit/3387c27))
 - Scroll to top when pagination switches ([fa909db](https://gitlab.com/openflexure/openflexure-microscope-server/commit/fa909db))
 
-# [2.8.0-beta.1](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.8.0-beta.0...v2.8.0-beta.1) (2020-11-09)
+# [v2.8.0-beta.1](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.8.0-beta.0...v2.8.0-beta.1) (2020-11-09)
 
 - 2.8.0-beta.1 ([64aa565](https://gitlab.com/openflexure/openflexure-microscope-server/commit/64aa565))
 - Added capture count warning ([9e887c0](https://gitlab.com/openflexure/openflexure-microscope-server/commit/9e887c0))
@@ -281,7 +289,7 @@
 - Tidied up logging ([06fb81e](https://gitlab.com/openflexure/openflexure-microscope-server/commit/06fb81e))
 - Upped capture count warning to 10000 ([0647acd](https://gitlab.com/openflexure/openflexure-microscope-server/commit/0647acd))
 
-# [2.8.0-beta.0](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.7.0...v2.8.0-beta.0) (2020-11-03)
+# [v2.8.0-beta.0](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.7.0...v2.8.0-beta.0) (2020-11-03)
 
 - 2.8.0-beta.0 ([368f86c](https://gitlab.com/openflexure/openflexure-microscope-server/commit/368f86c))
 - Fixed reloading timestamp in new format ([86732b8](https://gitlab.com/openflexure/openflexure-microscope-server/commit/86732b8))
@@ -290,7 +298,7 @@
 - Simplified build_captures_from_exif ([6c51da5](https://gitlab.com/openflexure/openflexure-microscope-server/commit/6c51da5))
 - Updated client to simplify capture data ([982154c](https://gitlab.com/openflexure/openflexure-microscope-server/commit/982154c))
 
-# [2.7.0](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.6.5...v2.7.0) (2020-10-30)
+# [v2.7.0](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.6.5...v2.7.0) (2020-10-30)
 
 - 2.7.0 ([c58827a](https://gitlab.com/openflexure/openflexure-microscope-server/commit/c58827a))
 - Add header to put request to ensure string is sent ([97ff8d4](https://gitlab.com/openflexure/openflexure-microscope-server/commit/97ff8d4))
@@ -321,12 +329,12 @@
 - Upgraded to LabThings 1.1.2 ([654f722](https://gitlab.com/openflexure/openflexure-microscope-server/commit/654f722))
 - Use `application/json` for put ([2f08bd3](https://gitlab.com/openflexure/openflexure-microscope-server/commit/2f08bd3))
 
-## [2.6.5](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.6.4...v2.6.5) (2020-10-26)
+# [v2.6.5](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.6.4...v2.6.5) (2020-10-26)
 
 - 2.6.5 ([9ff0aa3](https://gitlab.com/openflexure/openflexure-microscope-server/commit/9ff0aa3))
 - Close #186 ([729e473](https://gitlab.com/openflexure/openflexure-microscope-server/commit/729e473)), closes [#186](https://gitlab.com/openflexure/openflexure-microscope-server/issues/186)
 
-## [2.6.4](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.6.3...v2.6.4) (2020-10-26)
+# [v2.6.4](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.6.3...v2.6.4) (2020-10-26)
 
 - 2.6.4 ([7a12dfb](https://gitlab.com/openflexure/openflexure-microscope-server/commit/7a12dfb))
 - Added a settle time to all stage moves ([58f7686](https://gitlab.com/openflexure/openflexure-microscope-server/commit/58f7686))
