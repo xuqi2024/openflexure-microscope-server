@@ -28,6 +28,7 @@ from labthings_picamera2.thing import StreamingPiCamera2
 from labthings_sangaboard import SangaboardThing
 from openflexure_microscope_server.things.autofocus import AutofocusThing
 import cv2
+import math
 
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
 from labthings_fastapi.dependencies.invocation import InvocationCancelledError, InvocationLogger
@@ -341,9 +342,11 @@ class CameraStageMapper(Thing):
         if np.abs(x) > cam.stream_resolution[0] * 0.8 or np.abs(y) > cam.stream_resolution[1] * 0.8:
             logger.warning("The overlap is likely to be too small for this to be reliable")
 
-        resize = 0.4
+        resize = 0.5
         undershoot = 0.8
         image_0 = Image.open(cam.grab_jpeg().open())
+
+        starting_pos = stage.position
 
         y_move = y
         x_move = x
@@ -366,13 +369,18 @@ class CameraStageMapper(Thing):
                 # logger.info('Good move')
                 break
             #TODO: safe divide to avoid div/0
-            elif np.any(np.abs(offset/ np.array([x, y])) < 0.05) or np.any(offset > np.max(np.array([[x,30],[y,30]]))* 1.3) or np.any(np.subtract(np.abs(offset), np.abs(np.array([x,y]))) > 20):
+            elif np.any(np.abs(offset/ np.array([x, y])) < 0.02) or np.any(offset > np.max(np.array([[x,30],[y,30]]))* 1.3) or np.any(np.subtract(np.abs(offset), np.abs(np.array([x,y]))) > 20):
                 logger.debug("Correlation didn't look good, retrying")
                 stage.move_relative(x=int(-relative_move[0] * undershoot), y=int(-relative_move[1] * undershoot))
                 attempts += 1
                 if attempts >= 5:
                     logger.warning("Closed loop move didn't look successful")
-                    stage.move_relative(x=int(relative_move[0] * undershoot), y=int(relative_move[1] * undershoot))
+                    stage.move_absolute(x = starting_pos['x'],y = starting_pos['y'])
+                    relative_move: np.ndarray = np.dot(
+                        np.array([y, x]),
+                        np.array(self.image_to_stage_displacement_matrix)
+                    )
+                    stage.move_relative(x=int(relative_move[0] + math.copysign(40, relative_move[0])), y=int(relative_move[1] + + math.copysign(40, relative_move[1])))
                     break
                 undershoot *= 0.95
             else:
