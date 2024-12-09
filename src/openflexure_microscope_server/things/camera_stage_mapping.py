@@ -366,7 +366,7 @@ class CameraStageMapper(Thing):
                 # logger.info('Good move')
                 break
             #TODO: safe divide to avoid div/0
-            elif np.any(np.abs(offset/ np.array([x, y])) < 0.05) or np.any(offset > np.max(np.array([[x,30],[y,30]]))* 1.3):
+            elif np.any(np.abs(offset/ np.array([x, y])) < 0.05) or np.any(offset > np.max(np.array([[x,30],[y,30]]))* 1.3) or np.any(np.subtract(np.abs(offset), np.abs(np.array([x,y]))) > 20):
                 logger.debug("Correlation didn't look good, retrying")
                 stage.move_relative(x=int(-relative_move[0] * undershoot), y=int(-relative_move[1] * undershoot))
                 attempts += 1

@@ -499,32 +499,33 @@ class SmartScanThing(Thing):
             np.linalg.inv(np.array(csm.image_to_stage_displacement_matrix))
         )
 
-        if abs(pixel_move[0]) > abs(pixel_move[1]):
-            pixel_move[1] = 0
-        else:
-            pixel_move[0] = 0
+        # if abs(pixel_move[0]) > abs(pixel_move[1]):
+        #     pixel_move[1] = 0
+        # else:
+        #     pixel_move[0] = 0
 
-        closed_loop_split = 3
+        closed_loop_split = 2
         closed_loop_ratio = 1/closed_loop_split
 
         CSM = np.array(csm.image_to_stage_displacement_matrix)
 
-        for i in range(closed_loop_split):
-            csm.certify_move_in_image_coordinates(
-                stage = stage,
-                cam = cam,
-                logger = logger,
-                x = pixel_move[0]*closed_loop_ratio*-1*(np.abs(CSM[0,1])/CSM[0,1]),
-                y = pixel_move[1]*closed_loop_ratio*-1*(np.abs(CSM[1,0])/CSM[1,0]),
-                threshold = 10
-            )
+        # for i in range(closed_loop_split):
+        #     csm.certify_move_in_image_coordinates(
+        #         stage = stage,
+        #         cam = cam,
+        #         logger = logger,
+        #         x = pixel_move[0]*closed_loop_ratio*(np.abs(CSM[0,1])/CSM[0,1]),
+        #         y = pixel_move[1]*closed_loop_ratio*(np.abs(CSM[1,0])/CSM[1,0]),
+        #         threshold = 10
+        #     )
 
         # TODO: when do we just want to use this? Definitely if the current FOV was background
-        # csm.move_in_image_coordinates(
-        #     stage = stage,
-            # x = -pixel_move[0]*(1-closed_loop_ratio),
-            # y = -pixel_move[1]*(1-closed_loop_ratio)
-        # )
+        for i in range(closed_loop_split):
+            csm.move_in_image_coordinates(
+                stage = stage,
+                x = -pixel_move[0]*(1-closed_loop_ratio),
+                y = -pixel_move[1]*(1-closed_loop_ratio)
+            )
 
         return loc + [z]
 
@@ -600,12 +601,6 @@ class SmartScanThing(Thing):
         * `overlap` is the fraction by which images should overlap, i.e. 
           `0.3` means we will move by 70% of the field of view each time.
         """
-        # Define these variables so we can use them in the finally: block
-        # (after testing they are not None)
-        # cam_settings = ThingClient.from_url("/camera/", httpx.Client(base_url="http://localhost:5000/", trust_env=False, timeout=20))
-        # cam.sensor_mode = {"output_size": [3280, 2464], "bit_depth":10}
-        cam.sensor_mode = {"output_size": [1640, 1232], "bit_depth":10}
-
         scan_folder = None
         images_folder = None
         starting_position = None
@@ -635,8 +630,6 @@ class SmartScanThing(Thing):
             scan_name = os.path.basename(scan_folder)
             images_folder = os.path.join(scan_folder, "images")
             os.mkdir(images_folder)
-            use_folder = os.path.join(images_folder, "use")
-            os.mkdir(use_folder)
             logger.info(f"Saving images to {images_folder}")
             # Before anything else, check that we've got a background set
             # It's annoying to have to wait to find out!
@@ -693,8 +686,8 @@ class SmartScanThing(Thing):
             steps_per_pixel_x = CSM[0][1]
             steps_per_pixel_y = CSM[1][0]
 
-            dx = int(steps_per_pixel_x * 820 * (1 - overlap))
-            dy = int(steps_per_pixel_y * 616 * (1 - overlap))
+            dx = int(steps_per_pixel_x * 820 * (1 - 2.6))
+            dy = int(steps_per_pixel_y * 616 * (1 - 2.6))
 
             logger.info(dx)
             logger.info(dy)
@@ -779,89 +772,72 @@ class SmartScanThing(Thing):
             # At the start of the loop, we simultaneously capture an image and move to the next scan point.
             # We skip capturing on the first run, because we've not focused yet - and also we skip capturing if
             # it looks like background.
+            site_count = 0
             while len(path) > 0:
                 loc = self.move_to_next_point(stage, logger, path=path, focused_path=focused_path, csm = csm, cam = cam, current_pos = current_pos)
-                current_pos = loc
-                if not self.preview_stitch_running():
-                    preview_csm = CSM
-                    preview_csm[0][0] = 0
-                    preview_csm[1][1] = 0
-                    self.preview_stitch_start(os.path.join(images_folder, 'use'), preview_csm)
-                # if self.stitch_automatically:
-                if not self.correlate_running():
-                    self.correlate_start(os.path.join(images_folder, 'use'), overlap=overlap)
+                # add the current position to the list of all positions visited
+                true_path.append([loc[0], loc[1], stage.position['z']])
 
                 ensure_free_disk_space(scan_folder)
-
-                # Check if the image is background
-                if self.skip_background:
-                    image_is_sample = background_detect.image_is_sample()
-                    # image_is_sample = cam.grab_jpeg_size(stream_name="lores") >= 18000
-                    # logger.info(cam.grab_jpeg_size(stream_name="lores"))
-                else:
-                    image_is_sample = True
-
-                # if more than 92% of the image is background, treat it as background and continue
-                if not image_is_sample:
-                    logger.info(f"Skipping {stage.position} as it is {round(background_detect.background_fraction(),0)}% background.")
-                    capture_image = False
-                else:
-                    capture_image = True
-                    # if not, it's sample. run an autofocus and use the updated height
-                    new_pos = [
-                        [current_pos[0] - dx, current_pos[1]],
-                        [current_pos[0] + dx, current_pos[1]],
-                        [current_pos[0], current_pos[1] - dy],
-                        [current_pos[0], current_pos[1] + dy],
-                    ]
-                    for pos in new_pos:
-                        if (
-                            pos not in [sublist[:2] for sublist in true_path]
-                            and pos not in path
-                        ):
-                            path.append(pos)
-
-                    focused_height, new_save_thread = self.smart_stack(cancel = cancel,
-                                    logger = logger,
-                                    autofocus = autofocus,
-                                    stage = stage,
-                                    cam = cam,
-                                    metadata_getter = metadata_getter,
-                                    images_folder = images_folder,
-                                    start = 'base',
-                                    autofocus_dz = self.autofocus_dz,
-                                    image_stack_height = self.stack_height,
-                                    stack_dz = self.stack_dz,
-                                    focused_path = focused_path,
-                                    capture_inputs = capture_inputs,
-                                    current_pos = current_pos
-                                    )
-                    logger.info(f"Captured image number {len(focused_path)+1} out of {self.max_image_count}")
-                    # save images in the background
-                    if capture_thread:  # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
-                        if capture_thread.is_alive():
-                            wait_start = time.time()
-                            capture_thread.join()
-                            wait_time = time.time() - wait_start
-                            logger.info(f"Waited {wait_time:.1f}s for the previous capture to finish saving.")
-                    capture_thread = new_save_thread
-                    capture_thread.start()
-
-                    focused_path.append([loc[0], loc[1], focused_height])
-
-                # add the current position to the list of all positions visited
-                true_path.append([loc[0], loc[1], focused_height])
+                capture_image = True
                 
-                if len(focused_path) == self.max_image_count:
-                    logger.info(f'Now captured {len(focused_path)} images, ending scan.')
-                    break
+                capture_folder = os.path.join(images_folder, f'{site_count}')
+                os.makedirs(capture_folder, exist_ok=True)
 
-                #if len(names) > 1:
-                #    generate_config(images_folder, positions, names, CSM, csm_calibration_width, img_width, logger)
+                current_pos = loc
+
+                new_pos = [
+                    [current_pos[0] - dx, current_pos[1]],
+                    [current_pos[0] + dx, current_pos[1]],
+                    [current_pos[0], current_pos[1] - dy],
+                    [current_pos[0], current_pos[1] + dy],
+                ]
+                for pos in new_pos:
+                    if (
+                        pos not in [sublist[:2] for sublist in true_path]
+                        and pos not in path
+                    ):
+                        path.append(pos)
+
+                focused_path, current_pos = self.capture_fov(
+                    cancel,
+                    logger,
+                    autofocus,
+                    stage,
+                    cam,
+                    csm,
+                    metadata_getter,
+                    capture_folder,
+                    start = 'base',
+                    autofocus_dz=self.autofocus_dz,
+                    focused_path=focused_path,
+                    capture_inputs=capture_inputs,
+                    current_pos=current_pos,
+                    capture_thread = capture_thread
+                )
+
+                stitch_folder = os.path.join(os.path.basename(scan_folder), 'images', str(site_count))
+
+                if not self.preview_stitch_running():
+                    self.preview_stitch_start(logger, stitch_folder, overlap=overlap, loc = loc)
+                
+                for previous_loc in range(len(true_path)-1):
+                    logger.info(previous_loc)
+                    stitch_folder = os.path.join(self.scans_folder_path, os.path.basename(scan_folder), 'images', str(previous_loc))
+
+                    if os.path.isfile(os.path.join(stitch_folder, 'use', 'stitched.png')):
+                        if not os.path.isfile(os.path.join(self.scan_folder_path(scan_name), f'{str(previous_loc)}.png')):
+                            shutil.copy(os.path.join(stitch_folder, 'use', 'stitched.png'), os.path.join(self.scan_folder_path(scan_name), f'{str(previous_loc)}.png'))
+
+                logger.info(f"Captured image number {len(true_path)} out of {self.max_image_count}")
+
+                if len(true_path) >= self.max_image_count:
+                    logger.info(f'Now captured {len(true_path)} images, ending scan.')
+                    break
 
                 temp_path = []
 
-                self.update_thumbnail(os.path.join(images_folder, 'use'), logger)
+                # self.update_thumbnail(os.path.join(images_folder, 'use'), logger)
 
                 for i in path:
                     if distance_to_site(i, true_path[0][:2]) < max_dist:
@@ -871,6 +847,8 @@ class SmartScanThing(Thing):
                 path = temp_path.copy()
                 path = sorted(path, key=lambda x: (steps_from_centre(x, true_path[0][:2], dx, dy), distance_to_site(loc[:2], x)))
                 # self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
+
+                site_count += 1
 
         except InvocationCancelledError:
             logger.error("Stopping scan because it was cancelled.")
@@ -895,7 +873,7 @@ class SmartScanThing(Thing):
                 #TODO print where the centre actually is
                 logger.info("Returning to starting position.")
                 if starting_position is not None:
-                    logger.info(f'Scan duration was {timedelta(seconds = round(time.time()-start_time_seconds))} seconds. Captured {len(focused_path)} images')
+                    logger.info(f'Scan duration was {timedelta(seconds = round(time.time()-start_time_seconds))} seconds. Captured {len(true_path)} images')
                     stage.move_absolute(**starting_position, block_cancellation=True)
                     autofocus.looping_autofocus(dz = self.autofocus_dz)
             finally:
@@ -903,13 +881,13 @@ class SmartScanThing(Thing):
             # self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
             logger.info("Processing images, please wait")
             self.preview_stitch_wait()
-            self.correlate_wait()
-            try:
-                if scan_folder and self.stitch_automatically:
-                    logger.info("Stitching final image (may take some time)...")
-                    self.stitch_scan(logger, os.path.basename(scan_folder), overlap=overlap)
-            except SubprocessError as e:
-                logger.error(f"Stitching failed: {e}", exc_info=e)
+            for previous_loc in range(len(true_path)):
+                logger.info(previous_loc)
+                stitch_folder = os.path.join(self.scans_folder_path, os.path.basename(scan_folder), 'images', str(previous_loc))
+
+                if os.path.isfile(os.path.join(stitch_folder, 'use', 'stitched.png')):
+                    if not os.path.isfile(os.path.join(self.scan_folder_path(scan_name), f'{str(previous_loc)}.png')):
+                        shutil.copy(os.path.join(stitch_folder, 'use', 'stitched.png'), os.path.join(self.scan_folder_path(scan_name), f'{str(previous_loc)}.png'))
 
     @thing_property
     def max_range(self) -> int:
@@ -1120,15 +1098,26 @@ class SmartScanThing(Thing):
         return FileResponse(path)
     
     _preview_stitch_popen = None
-    def preview_stitch_start(self, images_folder: str, preview_csm) -> None:
-        """Start stitching a preview of the scan in a subprocess"""
+    def preview_stitch_start(self, logger, scan_name: str, overlap, loc) -> None:
+        """Generate a stitched image based on stage position metadata"""
         if self.preview_stitch_running():
             raise RuntimeError("Only one subprocess is allowed at a time")
         with self._preview_stitch_popen_lock:
-            self._preview_stitch_popen = Popen(
-                [self._script, "--stitching_mode", "only_stage_stitch", "--csm_matrix", str(preview_csm), images_folder]
-            )
-            #TODO: remove the previous scan preview when a new one starts
+            images_folder = self.scan_folder_path(scan_name)
+
+            if self.stitch_tiff:
+                tiff_arg = '--stitch_tiff'
+            else:
+                tiff_arg = '--no-stitch_tiff'
+
+            if overlap == 0.0:
+                try:
+                    with open(os.path.join(images_folder, 'scan_inputs.json')) as data_file:
+                        data_loaded = json.load(data_file)
+                    overlap = data_loaded['overlap']
+                except:
+                    overlap = 0.1
+            self._preview_stitch_popen = Popen([self._script, "--stitching_mode", "all", f"{tiff_arg}", "--minimum_overlap", f"{round(overlap*0.7,2)}", "--resize", "1", os.path.join(images_folder, 'use')])
 
     def preview_stitch_running(self) -> bool:
         """Whether there is a preview stitch running in a subprocess"""
@@ -1199,7 +1188,7 @@ class SmartScanThing(Thing):
     @thing_action
     def stitch_scan(self, logger: InvocationLogger, scan_name: Optional[str]=None, overlap: float = 0.0) -> None:
         """Generate a stitched image based on stage position metadata"""
-        images_folder = self.images_folder(scan_name=scan_name)
+        images_folder = self.scan_folder_path(scan_name)
 
         if self.stitch_tiff:
             tiff_arg = '--stitch_tiff'
@@ -1318,6 +1307,107 @@ class SmartScanThing(Thing):
             "rgb": rgb,
         }
         return norm_inputs
+
+    def capture_fov(
+        self,
+        cancel,
+        logger,
+        autofocus,
+        stage,
+        cam,
+        csm,
+        metadata_getter,
+        images_folder,
+        start,
+        autofocus_dz,
+        focused_path,
+        capture_inputs,
+        current_pos,
+        capture_thread
+    ):
+        focused_height, new_save_thread = self.smart_stack(
+            cancel = cancel,
+            logger = logger,
+            autofocus = autofocus,
+            stage = stage,
+            cam = cam,
+            metadata_getter = metadata_getter,
+            images_folder = images_folder,
+            start = 'base',
+            autofocus_dz = self.autofocus_dz,
+            image_stack_height = self.stack_height,
+            stack_dz = self.stack_dz,
+            focused_path = focused_path,
+            capture_inputs = capture_inputs,
+            current_pos = current_pos
+        )
+
+        if capture_thread:  # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
+            if capture_thread.is_alive():
+                wait_start = time.time()
+                capture_thread.join()
+                wait_time = time.time() - wait_start
+                logger.info(f"Waited {wait_time:.1f}s for the previous capture to finish saving.")
+        capture_thread = new_save_thread
+        capture_thread.start()
+
+        focused_height = stage.position['z']
+
+        focused_path.append([current_pos[0], current_pos[1], focused_height])
+
+        closed_loop_ratio = 1
+
+        overlap = self.overlap
+
+        x_dist = int(820 * (1 - overlap)*closed_loop_ratio)
+        y_dist = int(624 * (1 - overlap)*closed_loop_ratio)
+
+        for movement in [[1,0], [0,1], [-1,0]]:
+
+            x = movement[0] * x_dist
+            y = movement[1] * y_dist
+
+            csm.certify_move_in_image_coordinates(
+                stage = stage,
+                cam = cam,
+                logger = logger,
+                x = x,
+                y = y,
+                threshold = 10
+            )
+
+            current_pos[0] -= x
+            current_pos[1] -= y
+
+            # save images in the background
+            focused_height, new_save_thread = self.smart_stack(
+                cancel = cancel,
+                logger = logger,
+                autofocus = autofocus,
+                stage = stage,
+                cam = cam,
+                metadata_getter = metadata_getter,
+                images_folder = images_folder,
+                start = 'base',
+                autofocus_dz = self.autofocus_dz,
+                image_stack_height = self.stack_height,
+                stack_dz = self.stack_dz,
+                focused_path = focused_path,
+                capture_inputs = capture_inputs,
+                current_pos = current_pos
+            )
+            if capture_thread:  # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
+                if capture_thread.is_alive():
+                    wait_start = time.time()
+                    capture_thread.join()
+                    wait_time = time.time() - wait_start
+                    logger.info(f"Waited {wait_time:.1f}s for the previous capture to finish saving.")
+            capture_thread = new_save_thread
+            capture_thread.start()
+
+            focused_path.append([current_pos[0], current_pos[1], focused_height])
+
+        return focused_path, current_pos
 
     @thing_action
     def smart_stack(
@@ -1509,6 +1599,7 @@ class SmartScanThing(Thing):
         sharpest_index = np.argmax(sharpnesses)
         start_index = int(sharpest_index - (image_stack_height - 1) / 2)
         end_index = int(sharpest_index + (image_stack_height - 1) / 2)
+
         current_site_folder = os.path.join("stacks", f"{current_pos[0]}_{current_pos[1]}")
         if not os.path.isdir(os.path.join(images_folder, current_site_folder)):
             os.makedirs(os.path.join(images_folder, current_site_folder))
@@ -1517,13 +1608,13 @@ class SmartScanThing(Thing):
             os.makedirs(os.path.join(images_folder, "use"))
         if not os.path.isdir(os.path.join(images_folder, "use", "raw")):
             os.makedirs(os.path.join(images_folder, "use", "raw"))
-        focused_image_name = os.path.join('use', f"{len(focused_path)+1}.jpeg")
-        focused_raw_name = os.path.join('use', "raw", f"{len(focused_path)+1}.jpeg")
+        focused_image_name = os.path.join('use', f"{stage.position['x']}_{stage.position['y']}.jpeg")
+        focused_raw_name = os.path.join('use', "raw", f"{stage.position['x']}_{stage.position['y']}.jpeg")
 
         def save_captures():
             save_capture(focused_image_name, focused_raw_name, capture_list[sharpest_index], metadata_list[sharpest_index], current_pos)
             for i in range(start_index, end_index+1):
-                save_capture(os.path.join(current_site_folder, f"{i}.png"), os.path.join("raw", current_site_folder, f"{i}.png"), capture_list[i], metadata_list[i], current_pos)
+                save_capture(os.path.join(current_site_folder, f"{i}.png"), os.path.join("raw", current_site_folder, f"{stage.position['z']}.png"), capture_list[i], metadata_list[i], current_pos)
         save_thread = Thread(
             target = save_captures
         )
