@@ -544,7 +544,7 @@ class ScanExtension(BaseExtension):
         with microscope.lock:
             # Move to center scan
             logging.debug("Moving to z-stack starting position")
-            microscope.stage.move_rel((0, 0, int((-step_size * steps) / 2)))
+            microscope.stage.move_rel((0, 0, int((-step_size * (steps-1)) / 2)))
             logging.debug("Starting scan from position %s", microscope.stage.position)
 
             for i in range(steps):
