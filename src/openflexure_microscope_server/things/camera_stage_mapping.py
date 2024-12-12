@@ -380,7 +380,7 @@ class CameraStageMapper(Thing):
                         np.array([y, x]),
                         np.array(self.image_to_stage_displacement_matrix)
                     )
-                    stage.move_relative(x=int(relative_move[0] + math.copysign(40, relative_move[0])), y=int(relative_move[1] + + math.copysign(40, relative_move[1])))
+                    stage.move_relative(x=int(relative_move[0] + math.copysign(40, relative_move[0])), y=int(relative_move[1] + math.copysign(40, relative_move[1])))
                     break
                 undershoot *= 0.95
             else:
