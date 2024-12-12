@@ -1,3 +1,7 @@
+# [v2.11.0](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.11.0...v2.11.1) (2024-03-14)
+## Bug fixes
+* Update Picamerax to support Raspberry Pi camera module v1
+
 # [v2.11.0](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.10.1...v2.11.0) (2022-08-08)
 ## New features
 * Background detection can now be used in scans, if you have the background-detect extension. ([!153](https://gitlab.com/openflexure/openflexure-microscope-server/-/merge_requests/153))
