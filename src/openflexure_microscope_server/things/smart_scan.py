@@ -686,11 +686,11 @@ class SmartScanThing(Thing):
             steps_per_pixel_x = CSM[0][1]
             steps_per_pixel_y = CSM[1][0]
 
-            dx = int(steps_per_pixel_x * 820 * (1 - 2.6))
-            dy = int(steps_per_pixel_y * 616 * (1 - 2.6))
+            dx = int(steps_per_pixel_x * arr.shape[1] * -(1 + overlap*1.5))
+            dy = int(steps_per_pixel_y * arr.shape[0] * -(1 + overlap*1.5))
 
-            logger.info(dx)
-            logger.info(dy)
+            logger.info(arr.shape)
+            # logger.info(cam.)
 
             # dx = int(np.abs(np.dot(np.array([0, arr.shape[1] * (1 - overlap)]), CSM)[0]))
             # dy = int(np.abs(np.dot(np.array([arr.shape[0] * (1 - overlap), 0]), CSM)[1]))
@@ -698,7 +698,6 @@ class SmartScanThing(Thing):
             logger.info(f"Running a scan with an overlap between images of {overlap}")
             logger.debug(f"Overlap of {overlap}, movements of {dx}, {dy}")
             logger.debug(f"Autofocus range is {self.autofocus_dz}")
-            logger.debug(f"Skipping background is {self.skip_background}")
 
             # construct a 2D scan path
             path = [[stage.position["x"], stage.position["y"]]]
@@ -821,13 +820,7 @@ class SmartScanThing(Thing):
                 if not self.preview_stitch_running():
                     self.preview_stitch_start(logger, stitch_folder, overlap=overlap, loc = loc)
                 
-                for previous_loc in range(len(true_path)-1):
-                    logger.info(previous_loc)
-                    stitch_folder = os.path.join(self.scans_folder_path, os.path.basename(scan_folder), 'images', str(previous_loc))
-
-                    if os.path.isfile(os.path.join(stitch_folder, 'use', 'stitched.png')):
-                        if not os.path.isfile(os.path.join(self.scan_folder_path(scan_name), f'{str(previous_loc)}.png')):
-                            shutil.copy(os.path.join(stitch_folder, 'use', 'stitched.png'), os.path.join(self.scan_folder_path(scan_name), f'{str(previous_loc)}.png'))
+                self.copy_stitches(scan_folder, scan_name, true_path[:-1], logger)
 
                 logger.info(f"Captured image number {len(true_path)} out of {self.max_image_count}")
 
@@ -881,13 +874,28 @@ class SmartScanThing(Thing):
             # self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
             logger.info("Processing images, please wait")
             self.preview_stitch_wait()
-            for previous_loc in range(len(true_path)):
-                logger.info(previous_loc)
-                stitch_folder = os.path.join(self.scans_folder_path, os.path.basename(scan_folder), 'images', str(previous_loc))
+            self.copy_stitches(scan_folder, scan_name, true_path, logger)
+            self.rename_imgs(os.path.join(self.scans_folder_path, os.path.basename(scan_folder)))
+            
+    def copy_stitches(self, scan_folder, scan_name, true_path, logger):
+        os.makedirs(os.path.join(self.scan_folder_path(scan_name), 'use'), exist_ok=True)
+        for previous_loc in range(len(true_path)):
+            stitch_folder = os.path.join(self.scans_folder_path, os.path.basename(scan_folder), 'images', str(previous_loc))
 
-                if os.path.isfile(os.path.join(stitch_folder, 'use', 'stitched.png')):
-                    if not os.path.isfile(os.path.join(self.scan_folder_path(scan_name), f'{str(previous_loc)}.png')):
-                        shutil.copy(os.path.join(stitch_folder, 'use', 'stitched.png'), os.path.join(self.scan_folder_path(scan_name), f'{str(previous_loc)}.png'))
+            if os.path.isfile(os.path.join(stitch_folder, 'use', 'stitched.png')):
+                if not os.path.isfile(os.path.join(self.scan_folder_path(scan_name), 'use', f'{str(previous_loc).zfill(3)}.png')):
+                    shutil.copy(os.path.join(stitch_folder, 'use', 'stitched.png'), os.path.join(self.scan_folder_path(scan_name), 'use', f'{str(previous_loc).zfill(3)}.png'))
+
+                    image = cv2.imread(os.path.join(self.scan_folder_path(scan_name), 'use', f'{str(previous_loc).zfill(3)}.png'),-1)
+                    center = image.shape
+
+                    height = 804
+                    width = 1044
+                    x = max([center[1]/2 - width/2, 0])
+                    y = max([center[0]/2 - height/2,0])
+
+                    crop_img = image[int(y):int(y+height), int(x):int(x+width)]
+                    cv2.imwrite(os.path.join(self.scan_folder_path(scan_name), 'use', f'{str(previous_loc).zfill(3)}.png'), crop_img)
 
     @thing_property
     def max_range(self) -> int:
@@ -1204,6 +1212,66 @@ class SmartScanThing(Thing):
                 overlap = 0.1
         self.run_subprocess(logger, [self._script, "--stitching_mode", "all", f"{tiff_arg}", "--minimum_overlap", f"{round(overlap*0.7,2)}", "--resize", "1", os.path.join(images_folder, 'use')])
     
+    def rename_imgs(self, scan_path):
+
+        FOV_locs = {}
+
+        x_locs = []
+        y_locs = []
+
+        for i in range(len(os.listdir(os.path.join(scan_path, 'images')))-1):#, str(i).zfill(3))))): 
+            stack_path = os.path.join(scan_path, 'images', str(i), 'stacks')
+            FOV_loc = self.get_loc(stack_path)
+
+            FOV_locs[i] = (FOV_loc)
+
+            x_locs.append(FOV_loc[0])
+            y_locs.append(FOV_loc[1])
+
+        x_locs = sorted(list(set(x_locs)), reverse=True)
+        y_locs = sorted(list(set(y_locs)), reverse=True)
+
+        new_i = 0
+        dir = True
+        i = 0
+        mapping = {}
+
+        for y in y_locs:
+            for x in sorted(x_locs, reverse = not dir):
+                mapping[new_i] = ([int(x),int(y)])
+                new_i += 1
+            dir = not dir
+
+        for i, FOV_loc in FOV_locs.items():
+            # print(i)
+            # print(type(FOV_loc))
+            # print(list(mapping.keys())[list(mapping.values()).index(FOV_loc)])
+            shutil.copy(os.path.join(scan_path, 'use', f'{str(i).zfill(3)}.png'), os.path.join(scan_path, f'{str(list(mapping.keys())[list(mapping.values()).index(FOV_loc)]).zfill(3)}_renamed.png'))
+
+    def get_loc(self, stack_path):
+        images =  [
+            os.path.join(stack_path, f) for f in os.listdir(stack_path)]
+        locs = []
+        for image in images:
+            filename = image.split(os.sep)[-1] #.split('.')[0]
+            try:
+                m = re.match(".*(-?\d+)_(-?\d+)_(-?\d+)\..*", filename)
+
+                # The exception is only raised at this point, once m has no groups
+                stage_position = [int(d) for d in m.groups()]
+            except:
+                try:
+                    m = re.match(".*_(-?\d+)_(-?\d+)\..*", filename)
+                    stage_position = [int(d) for d in m.groups()]
+                except:
+                    x = int(filename.split('_')[0])
+                    y = int((filename.split('_')[1]).split('.')[0])
+                    stage_position = [x, y]
+            locs.append(stage_position)
+        FOV_loc = np.mean(locs, axis=0)
+
+        return [int(FOV_loc[0]), int(FOV_loc[1])]
+    
     @thing_action
     def create_zip_of_scan(self, logger: InvocationLogger, scan_name: Optional[str]=None, download_zip = True) -> ZipBlob:
         """Generate a zip file that can be downloaded, with all the scan files in it."""
@@ -1351,16 +1419,14 @@ class SmartScanThing(Thing):
         capture_thread = new_save_thread
         capture_thread.start()
 
-        focused_height = stage.position['z']
-
         focused_path.append([current_pos[0], current_pos[1], focused_height])
 
         closed_loop_ratio = 1
 
         overlap = self.overlap
 
-        x_dist = int(820 * (1 - overlap)*closed_loop_ratio)
-        y_dist = int(624 * (1 - overlap)*closed_loop_ratio)
+        x_dist = int(cam.stream_resolution[1] * (1 - overlap)*closed_loop_ratio)
+        y_dist = int(cam.stream_resolution[0] * (1 - overlap)*closed_loop_ratio)
 
         for movement in [[1,0], [0,1], [-1,0]]:
 
