@@ -130,8 +130,7 @@ def test_put_and_save():
 
 
 def test_capture_from_path_this_version():
-    """Tests reloading a capture object from a file created in the working server version
-    """
+    """Tests reloading a capture object from a file created in the working server version"""
 
     def _check_metadata(data: dict):
         assert data["image"]["tags"] == ["foo", "bar"]
@@ -159,8 +158,7 @@ def test_capture_from_path_this_version():
 
 
 def test_capture_from_path_v280():
-    """Tests reloading a capture object from a file created in server v2.8.0
-    """
+    """Tests reloading a capture object from a file created in server v2.8.0"""
     obj = capture_from_path(os.path.join(IN_DIR, "capture_v280.jpg"))
     check_valid_capture(obj)
     full_metadata = obj.read_full_metadata()

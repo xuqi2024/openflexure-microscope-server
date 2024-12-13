@@ -4,8 +4,9 @@ import os
 
 from fastapi.responses import FileResponse, PlainTextResponse
 
-OFM_LOG_FOLDER =  "/var/openflexure/logs/"
+OFM_LOG_FOLDER = "/var/openflexure/logs/"
 OFM_LOG_FILE = os.path.join(OFM_LOG_FOLDER, "openflexure_microscope.log")
+
 
 def configure_logging():
     root_logger = logging.getLogger()
@@ -14,15 +15,13 @@ def configure_logging():
         if not os.path.exists(OFM_LOG_FOLDER):
             os.makedirs(OFM_LOG_FOLDER)
         handler = RotatingFileHandler(
-            filename = OFM_LOG_FILE,
-            mode = "a",
-            maxBytes = 1000000,
-            backupCount = 10,
+            filename=OFM_LOG_FILE,
+            mode="a",
+            maxBytes=1000000,
+            backupCount=10,
         )
         handler.setFormatter(
-            logging.Formatter(
-                "[%(asctime)s] [%(levelname)s] %(message)s"
-            )
+            logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s")
         )
         root_logger.addHandler(handler)
     except PermissionError as e:

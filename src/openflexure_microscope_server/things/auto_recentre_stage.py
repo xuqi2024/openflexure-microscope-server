@@ -1,6 +1,5 @@
 import numpy as np
 import logging
-import time
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
@@ -14,6 +13,7 @@ StageDep = direct_thing_client_dependency(SangaboardThing, "/stage/")
 CamDep = direct_thing_client_dependency(StreamingPiCamera2, "/camera/")
 CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
 AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
+
 
 class RecentringThing(Thing):
     @thing_action
@@ -31,7 +31,7 @@ class RecentringThing(Thing):
         corresponds to the centre of the stage. This exploits the
         fact that the OpenFlexure stage moves in an arc, i.e. its
         height will vary with X and Y. The point where the variation
-        of Z with X and Y motion is smallest is the centre of its 
+        of Z with X and Y motion is smallest is the centre of its
         XY travel. This routine moves in X and Y, monitoring the
         Z value of the focal plane, and attempts to find the point
         where Z does not vary with X and Y, which is where it stops.
