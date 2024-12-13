@@ -2,7 +2,6 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI
 import os
-import pathlib
 
 
 

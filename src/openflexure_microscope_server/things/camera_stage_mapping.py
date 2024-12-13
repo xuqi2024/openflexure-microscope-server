@@ -27,6 +27,7 @@ from typing import (
 from fastapi import Depends, HTTPException
 
 import numpy as np
+import math
 from PIL import Image
 from pydantic import BaseModel
 from camera_stage_mapping.camera_stage_calibration_1d import (

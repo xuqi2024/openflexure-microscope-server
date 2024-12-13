@@ -1,5 +1,6 @@
 # ruff: noqa: E722
 
+import re
 import shutil
 import zipfile
 import threading
@@ -1920,7 +1921,6 @@ class SmartScanThing(Thing):
             # logger.info("testing cheby")
             dz = heights[1] - heights[0]
             centre_index = len(heights) // 2
-            x = np.linspace(min(heights) - 1000, max(heights) + 1000, 1000)
 
             chevylevy = np.polynomial.chebyshev.chebfit(heights, sharpnesses, 4)
 
