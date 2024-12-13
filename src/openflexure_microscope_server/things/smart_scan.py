@@ -128,7 +128,6 @@ def limit_focus_change(prev_pos, prev_z, new_pos, new_z, limit):
 #     )
 
 
-
 def steps_from_centre(current_loc, starting_loc, dx, dy):
     step_size = np.array([dx, dy])
     return np.max(np.abs(np.divide(np.subtract(current_loc, starting_loc), step_size)))
@@ -371,7 +370,6 @@ DOWNLOADABLE_SCAN_FILES = ("images.zip", "stitched_thumbnail.jpg")
 
 JPEGBlob = blob_type("image/jpeg")
 ZipBlob = blob_type("application/zip")
-
 
 
 class SmartScanThing(Thing):

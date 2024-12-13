@@ -4,7 +4,6 @@ from fastapi import FastAPI
 import os
 
 
-
 def add_static_file(app: FastAPI, fname: str, folder: str):
     print(f"Adding route for /{fname}")
     p = os.path.join(folder, fname)
