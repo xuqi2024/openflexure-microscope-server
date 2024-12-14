@@ -14,7 +14,10 @@ from openflexure_microscope_server.things.camera.simulation import SimulatedCame
 from openflexure_microscope_server.things.stage.dummy import DummyStage
 from openflexure_microscope_server.things.autofocus import AutofocusThing
 from openflexure_microscope_server.things.camera_stage_mapping import CameraStageMapper
-from openflexure_microscope_server.things.smart_scan import SmartScanThing, BackgroundDetectThing
+from openflexure_microscope_server.things.smart_scan import (
+    SmartScanThing,
+    BackgroundDetectThing,
+)
 from openflexure_microscope_server.things.settings_manager import SettingsManager
 from openflexure_microscope_server.things.auto_recentre_stage import RecentringThing
 from openflexure_microscope_server.things import camera_stage_mapping
@@ -35,7 +38,12 @@ def thing_server():
     server.add_thing(DummyStage(step_time=0.000001), "/stage/")
     server.add_thing(AutofocusThing(), "/autofocus/")
     server.add_thing(CameraStageMapper(), "/camera_stage_mapping/")
-    server.add_thing(SmartScanThing(path_to_openflexure_stitch=r".\.venv_stitching\Scripts\openflexure-stitch.exe"), "/smart_scan/")
+    server.add_thing(
+        SmartScanThing(
+            path_to_openflexure_stitch=r".\.venv_stitching\Scripts\openflexure-stitch.exe"
+        ),
+        "/smart_scan/",
+    )
     server.add_thing(BackgroundDetectThing(), "/background_detect/")
     server.add_thing(SettingsManager(), "/settings/")
     server.add_thing(RecentringThing(), "/auto_recentre_stage/")
@@ -108,6 +116,9 @@ def test_camera_stage_mapping_calibration(client):
     camera_stage_mapping = ThingClient.from_url("/camera_stage_mapping/", client)
     camera_stage_mapping.calibrate_xy()
     matrix = camera_stage_mapping.image_to_stage_displacement_matrix
+    for line in matrix:
+        assert len(line) == 2
+
 
 def test_sample_scan(client):
     scanner = ThingClient.from_url("/smart_scan/", client)

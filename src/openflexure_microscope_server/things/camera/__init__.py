@@ -27,6 +27,7 @@ import io
 class JPEGBlob(Blob):
     media_type: str = "image/jpeg"
 
+
 class PNGBlob(Blob):
     media_type: str = "image/png"
 
@@ -151,11 +152,11 @@ class BaseCamera(Thing):
             self.lores_mjpeg_stream if stream_name == "lores" else self.mjpeg_stream
         )
         return portal.call(stream.next_frame_size)
-    
+
 
 class RawIsArrayCamera:
     """A mixin for cameras that use arrays as their raw format"""
-    
+
     @thing_action
     def capture_raw(
         self,
@@ -173,7 +174,6 @@ class RawIsArrayCamera:
         out = io.BytesIO()
         image.save(out, format="png")
         return PNGBlob.from_bytes(out.getvalue())
-
 
 
 class CameraStub(BaseCamera, RawIsArrayCamera):

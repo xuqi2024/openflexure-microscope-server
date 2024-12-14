@@ -15,8 +15,6 @@ import time
 from PIL import Image
 from pydantic import BaseModel
 from scipy.stats import norm
-from scipy.ndimage import zoom
-from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
 from datetime import datetime, timedelta
 from subprocess import CompletedProcess, Popen, PIPE, SubprocessError, run, STDOUT
@@ -1612,7 +1610,9 @@ class SmartScanThing(Thing):
                 metadata["/stage/"]["position"]["y"] = current_pos[1]
                 metadata["/stage/"]["position"]["z"] = stage.position["z"]
                 metadata["/camera/"] = cam.tuning  # TODO: this should happen once
-                raw_image = cam.capture_raw(get_states=False, get_processing_inputs=False)
+                raw_image = cam.capture_raw(
+                    get_states=False, get_processing_inputs=False
+                )
                 return raw_image, metadata
             except Exception as e:
                 logger.error(f"An error occurred while capturing: {e}", exc_info=e)
@@ -1621,7 +1621,7 @@ class SmartScanThing(Thing):
         def save_capture(name, raw_name, raw_image, metadata, current_pos):
             try:
                 # Save the raw image
-                raw_image.image_data.save(os.path.join(images_folder, raw_name)),
+                (raw_image.image_data.save(os.path.join(images_folder, raw_name)),)
                 png = cam.raw_to_png(raw=raw_image, use_cache=True)
                 png.save(os.path.join(images_folder, name))
                 # TODO: save metadata to PNG and eliminate the JPG.
