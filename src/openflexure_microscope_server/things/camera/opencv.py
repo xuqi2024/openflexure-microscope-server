@@ -22,10 +22,10 @@ from labthings_fastapi.dependencies.metadata import GetThingStates
 from labthings_fastapi.outputs.mjpeg_stream import MJPEGStreamDescriptor
 from labthings_fastapi.types.numpy import NDArray
 
-from . import BaseCamera, JPEGBlob
+from . import BaseCamera, JPEGBlob, RawIsArrayCamera
 
 
-class OpenCVCamera(BaseCamera):
+class OpenCVCamera(BaseCamera, RawIsArrayCamera):
     """A Thing representing an OpenCV camera"""
 
     def __init__(self, camera_index: int = 0):

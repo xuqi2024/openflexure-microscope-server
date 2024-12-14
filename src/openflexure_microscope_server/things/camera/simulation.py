@@ -26,7 +26,7 @@ from labthings_fastapi.types.numpy import NDArray
 from labthings_fastapi.server import ThingServer
 from pydantic import RootModel
 
-from . import BaseCamera, JPEGBlob
+from . import BaseCamera, JPEGBlob, RawIsArrayCamera
 from ..stage import StageProtocol as Stage
 
 
@@ -36,7 +36,7 @@ class ArrayModel(RootModel):
     root: NDArray
 
 
-class SimulatedCamera(BaseCamera):
+class SimulatedCamera(BaseCamera, RawIsArrayCamera):
     """A Thing representing an OpenCV camera"""
 
     _stage: Optional[Stage] = None

@@ -453,7 +453,8 @@ class SmartScanThing(Thing):
                 return folder_path
         raise FileExistsError("Could not create a new scan folder: all names in use!")
 
-    def function(self, data, a, b, c, d, e):
+    @staticmethod
+    def paraboloid(data, a, b, c, d, e):
         x = data[0]
         y = data[1]
         return a * x**2 + b * y**2 + c * x + d * y + e
@@ -468,9 +469,9 @@ class SmartScanThing(Thing):
             y_data.append(item[1])
             z_data.append(item[2])
         parameters, covariance = curve_fit(
-            self.function, [x_data, y_data], z_data, [-1, 1, -1, 1, 1], method="trf"
+            self.paraboloid, [x_data, y_data], z_data, [-1, 1, -1, 1, 1], method="trf"
         )
-        next_z = self.function(loc, *parameters)
+        next_z = self.paraboloid(loc, *parameters)
         return next_z
 
     def move_to_next_point(
@@ -740,58 +741,10 @@ class SmartScanThing(Thing):
             ) as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
 
-            # We will capture images and process them with this function, defined once here.
-            # Most of the variables it needs will be "baked in" so the arguments are just the ones
-            # that change each iteration.
-            # We also pre-calculate a normalisation image based on the LST and white balance
-            raw_image = cam.capture_array(stream_name="raw")
-            # TODO: assert the image is 10-bit packed, or deal with other formats!
-            norm_inputs = self.set_normalisation(cam=cam, raw_image=raw_image)
-            lum = norm_inputs["luminance"]
-            Cr = norm_inputs["Cr"]
-            Cb = norm_inputs["Cb"]
-            gr = norm_inputs["gain_red"]
-            gb = norm_inputs["gain_blue"]
-            rgb = norm_inputs["rgb"]
-
-            G = 1 / lum
-            R = (
-                G / Cr / gr * np.min(Cr)
-            )  # The extra /np.max(Cr) emulates the quirky handling of Cr in
-            B = G / Cb / gb * np.min(Cb)  # the picamera2 pipeline
-            white_norm_lores = np.stack([R, G, B], axis=2)
-            zoom_factors = [
-                i / n for i, n in zip(rgb[..., :3].shape, white_norm_lores.shape)
-            ]
-            white_norm = zoom(white_norm_lores, zoom_factors, order=1)[
-                : rgb.shape[0], : rgb.shape[1], :
-            ]  # Could use some work
-            colour_correction_matrix = np.array(cam.colour_correction_matrix).reshape(
-                (3, 3)
-            )
-            contrast_algorithm = cam.tuning["algorithms"][9]["rpi.contrast"]
-            gamma = np.array(contrast_algorithm["gamma_curve"]).reshape((-1, 2))
-            gamma_8bit = interp1d(gamma[:, 0] / 255, gamma[:, 1] / 255)
-
-            capture_inputs = {}
-            capture_inputs["norm_inputs"] = norm_inputs
-            capture_inputs["colour_correction_matrix"] = colour_correction_matrix
-            capture_inputs["gamma_8bit"] = gamma_8bit
-            capture_inputs["white_norm"] = white_norm
-
-            def process_raw_image(img):
-                normed = img / white_norm
-                corrected = np.dot(
-                    colour_correction_matrix, normed.reshape((-1, 3)).T
-                ).T.reshape(normed.shape)
-                corrected[corrected < 0] = 0
-                corrected[corrected > 255] = 255
-                return gamma_8bit(corrected)
-
-            logger.debug(
-                f"Generated normalisation image with shape {white_norm.shape}, "
-                f"max {white_norm.max(axis=(0,1))}, min {white_norm.min(axis=(0,1))}"
-            )
+            # We will capture raw images and process them in the background.
+            # The line below sets up quick processing, and saves the inputs to the
+            # processing routine
+            capture_inputs = cam.prepare_image_normalisation()
 
             current_pos = path[0]
 
@@ -1392,13 +1345,13 @@ class SmartScanThing(Thing):
         for image in images:
             filename = image.split(os.sep)[-1]  # .split('.')[0]
             try:
-                m = re.match(".*(-?\d+)_(-?\d+)_(-?\d+)\..*", filename)
+                m = re.match(r".*(-?\d+)_(-?\d+)_(-?\d+)\..*", filename)
 
                 # The exception is only raised at this point, once m has no groups
                 stage_position = [int(d) for d in m.groups()]
             except:
                 try:
-                    m = re.match(".*_(-?\d+)_(-?\d+)\..*", filename)
+                    m = re.match(r".*_(-?\d+)_(-?\d+)\..*", filename)
                     stage_position = [int(d) for d in m.groups()]
                 except:
                     x = int(filename.split("_")[0])
@@ -1646,21 +1599,6 @@ class SmartScanThing(Thing):
         stack_height = self.stack_test_height
         undershoot = (self.stack_test_height - 1) / 2 + 5
 
-        norm_inputs = capture_inputs["norm_inputs"]
-
-        gamma_8bit = capture_inputs["gamma_8bit"]
-        colour_correction_matrix = capture_inputs["colour_correction_matrix"]
-        white_norm = capture_inputs["white_norm"]
-
-        def process_raw_image(img):
-            normed = img / white_norm
-            corrected = np.dot(
-                colour_correction_matrix, normed.reshape((-1, 3)).T
-            ).T.reshape(normed.shape)
-            corrected[corrected < 0] = 0
-            corrected[corrected > 255] = 255
-            return gamma_8bit(corrected)
-
         def capture_image(stage):
             """Capture an image and save it to disk
 
@@ -1673,8 +1611,8 @@ class SmartScanThing(Thing):
                 metadata["/stage/"]["position"]["x"] = current_pos[0]
                 metadata["/stage/"]["position"]["y"] = current_pos[1]
                 metadata["/stage/"]["position"]["z"] = stage.position["z"]
-                metadata["/camera/"] = cam.tuning
-                raw_image = cam.capture_array(stream_name="raw")
+                metadata["/camera/"] = cam.tuning  # TODO: this should happen once
+                raw_image = cam.capture_raw(get_states=False, get_processing_inputs=False)
                 return raw_image, metadata
             except Exception as e:
                 logger.error(f"An error occurred while capturing: {e}", exc_info=e)
@@ -1683,16 +1621,11 @@ class SmartScanThing(Thing):
         def save_capture(name, raw_name, raw_image, metadata, current_pos):
             try:
                 # Save the raw image
-                np.savez(
-                    os.path.join(images_folder, raw_name),
-                    raw_image=raw_image,
-                    **norm_inputs,
-                )
-                # Process it into 8 bit RGB
-                processed = process_raw_image(rggb2rgb(raw2rggb(raw_image)))
-                processed[processed > 255] = 255
-                processed[processed < 0] = 0
-                img = Image.fromarray(processed.astype(np.uint8), mode="RGB")
+                raw_image.image_data.save(os.path.join(images_folder, raw_name)),
+                png = cam.raw_to_png(raw=raw_image, use_cache=True)
+                png.save(os.path.join(images_folder, name))
+                # TODO: save metadata to PNG and eliminate the JPG.
+                img = Image.open(png.open())
                 img.save(os.path.join(images_folder, name), quality=100, subsampling=0)
                 try:
                     exif_dict = piexif.load(os.path.join(images_folder, name))
