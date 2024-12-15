@@ -158,7 +158,7 @@ class SharpnessDataArrays(BaseModel):
     jpeg_times: NDArray
     jpeg_sizes: NDArray
     stage_times: NDArray
-    stage_positions: NDArray
+    stage_positions: list[dict[str, int]]
 
 
 class AutofocusThing(Thing):
