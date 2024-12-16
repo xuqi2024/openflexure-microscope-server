@@ -17,8 +17,7 @@ classifiers = [
 dependencies = [
   "labthings-fastapi[server] == 0.0.7",
   "labthings-sangaboard",
-  #"camera-stage-mapping @ git+https://gitlab.com/openflexure/microscope-extensions/camera-stage-mapping.git@456f57961c7d38a136aa1fb59e2c6433f2965ac8",
-  "camera-stage-mapping ~= 0.1.6",
+  "camera-stage-mapping ~= 0.1.7",
   "opencv-python ~= 4.7.0",
   "numpy < 2.0",
   "matplotlib ~=3.9.2",
@@ -35,9 +34,7 @@ dev = [
   "pytest",
 ]
 pi = [
-  # "labthings-picamera2 == 0.0.1-dev2",
-  "labthings-picamera2 @ git+https://github.com/labthings/labthings-picamera2.git@272af96855731504e28cf62e59953dce5ac63660", 
-
+  "labthings-picamera2 == 0.0.2-dev0",
 ]
 
 [project.scripts]
