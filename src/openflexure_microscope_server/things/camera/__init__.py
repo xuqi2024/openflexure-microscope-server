@@ -16,7 +16,7 @@ from labthings_fastapi.dependencies.metadata import GetThingStates
 from labthings_fastapi.dependencies.blocking_portal import BlockingPortal
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
 from labthings_fastapi.dependencies.raw_thing import raw_thing_dependency
-from labthings_fastapi.outputs.mjpeg_stream import MJPEGStreamDescriptor
+from labthings_fastapi.outputs.mjpeg_stream import MJPEGStream, MJPEGStreamDescriptor
 from labthings_fastapi.outputs.blob import Blob
 from labthings_fastapi.types.numpy import NDArray
 import numpy as np
@@ -41,6 +41,12 @@ class CameraProtocol(Protocol):
     def __exit__(self, _exc_type, _exc_value, _traceback) -> None: ...
 
     @property
+    def mjpeg_stream(self) -> MJPEGStream: ...
+
+    @property
+    def lores_mjpeg_stream(self) -> MJPEGStream: ...
+
+    @property
     def stream_active(self) -> bool:
         "Whether the MJPEG stream is active"
         ...
@@ -52,19 +58,39 @@ class CameraProtocol(Protocol):
     def capture_array(
         self,
         resolution: Literal["lores", "main", "full"] = "main",
-    ) -> NDArray: ...
+    ) -> NDArray:
+        """Capture a raw or processed image to numpy array."""
+        ...
+
+    @property
+    def image_processing_inputs(self) -> Any:
+        """The parameters that control processing of raw images
+
+        Conversion functions like `raw_to_png` should depend only
+        on this property, i.e. it should be sufficient to save this
+        in metadata, to reproduce the raw to png conversion.
+        """
+        ...
+
+    def prepare_image_normalisation(self, inputs: Any = None) -> Any:
+        """Prepare to process images from raw to PNG or array"""
+        ...
 
     def capture_raw(
         self,
         get_states: bool = True,
         get_processing_inputs: bool = True,
-    ) -> Any: ...
+    ) -> Any:
+        """Capture a raw image, with as little processing as possible"""
+        ...
 
     def raw_to_png(
         self,
         raw: Any,
         use_cache: bool = False,
-    ) -> PNGBlob: ...
+    ) -> PNGBlob:
+        """Convert a raw image blob to a processed PNG"""
+        ...
 
     def capture_jpeg(
         self,
@@ -156,6 +182,14 @@ class BaseCamera(Thing):
 
 class RawIsArrayCamera:
     """A mixin for cameras that use arrays as their raw format"""
+
+    @thing_property
+    def image_processing_inputs(self) -> Any:
+        return None
+
+    @thing_action
+    def prepare_image_normalisation(self, inputs: Any = None) -> Any:
+        return None
 
     @thing_action
     def capture_raw(
