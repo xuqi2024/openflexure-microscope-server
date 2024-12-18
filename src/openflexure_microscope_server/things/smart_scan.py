@@ -743,6 +743,26 @@ class SmartScanThing(Thing):
             # The line below sets up quick processing, and saves the inputs to the
             # processing routine
             capture_inputs = cam.prepare_image_normalisation()
+            with open(
+                os.path.join(images_folder, "image_normalisation_parameters.json"), "w", encoding="utf-8"
+            ) as f:
+                if hasattr(capture_inputs, "model_dump_json"):
+                    f.write(capture_inputs.model_dump_json(indent=4))
+                else:
+                    json.dump(capture_inputs, f, ensure_ascii=False, indent=4)
+            raw_capture = cam.capture_raw(
+                get_states=True, get_processing_inputs=True
+            )
+            with open(
+                os.path.join(images_folder, "camera_metadata.json"), "w", encoding="utf-8"
+            ) as f:
+                raw_image_info = {}
+                for k in ["metadata", "size", "stride", "format"]:
+                    try:
+                        raw_image_info[k] = getattr(raw_capture, k)
+                    except AttributeError:
+                        logger.warning(f"Could not retrieve {k} from raw image metadata.")
+                json.dump(raw_image_info, f, indent=4)
 
             current_pos = path[0]
 
@@ -795,7 +815,6 @@ class SmartScanThing(Thing):
                     start="base",
                     autofocus_dz=self.autofocus_dz,
                     focused_path=focused_path,
-                    capture_inputs=capture_inputs,
                     current_pos=current_pos,
                     capture_thread=capture_thread,
                 )
@@ -1457,27 +1476,6 @@ class SmartScanThing(Thing):
         zip = [os.path.normpath(i) for i in zip.namelist()]
         return zip
 
-    def set_normalisation(self, cam, raw_image=None):
-        if raw_image is None:
-            raw_image = cam.capture_array(stream_name="raw")
-        # TODO: assert the image is 10-bit packed, or deal with other formats!
-        rgb = rggb2rgb(raw2rggb(raw_image))
-        lst = dict(cam.lens_shading_tables)
-        lum = np.array(lst["luminance"])
-        Cr = np.array(lst["Cr"])
-        Cb = np.array(lst["Cb"])
-        gr, gb = cam.colour_gains
-
-        norm_inputs = {
-            "luminance": lum,
-            "Cr": Cr,
-            "Cb": Cb,
-            "gain_red": gr,
-            "gain_blue": gb,
-            "rgb": rgb,
-        }
-        return norm_inputs
-
     def capture_fov(
         self,
         cancel,
@@ -1491,7 +1489,6 @@ class SmartScanThing(Thing):
         start,
         autofocus_dz,
         focused_path,
-        capture_inputs,
         current_pos,
         capture_thread,
     ):
@@ -1508,7 +1505,6 @@ class SmartScanThing(Thing):
             image_stack_height=self.stack_height,
             stack_dz=self.stack_dz,
             focused_path=focused_path,
-            capture_inputs=capture_inputs,
             current_pos=current_pos,
         )
 
@@ -1557,7 +1553,6 @@ class SmartScanThing(Thing):
                 image_stack_height=self.stack_height,
                 stack_dz=self.stack_dz,
                 focused_path=focused_path,
-                capture_inputs=capture_inputs,
                 current_pos=current_pos,
             )
             if capture_thread:  # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
@@ -1590,7 +1585,6 @@ class SmartScanThing(Thing):
         image_stack_height=9,
         stack_dz=50,
         focused_path=[],
-        capture_inputs=None,
         current_pos=0,
     ):
         # This is the number of images we test.
@@ -1609,7 +1603,6 @@ class SmartScanThing(Thing):
                 metadata["/stage/"]["position"]["x"] = current_pos[0]
                 metadata["/stage/"]["position"]["y"] = current_pos[1]
                 metadata["/stage/"]["position"]["z"] = stage.position["z"]
-                metadata["/camera/"] = cam.tuning  # TODO: this should happen once
                 raw_image = cam.capture_raw(
                     get_states=False, get_processing_inputs=False
                 )
@@ -1621,19 +1614,20 @@ class SmartScanThing(Thing):
         def save_capture(name, raw_name, raw_image, metadata, current_pos):
             try:
                 # Save the raw image
-                (raw_image.image_data.save(os.path.join(images_folder, raw_name)),)
+                (raw_image.image_data.save(os.path.join(images_folder, raw_name + ".raw")),)
                 png = cam.raw_to_png(raw=raw_image, use_cache=True)
-                png.save(os.path.join(images_folder, name))
+                png.save(os.path.join(images_folder, name + ".png"))
                 # TODO: save metadata to PNG and eliminate the JPG.
                 img = Image.open(png.open())
-                img.save(os.path.join(images_folder, name), quality=100, subsampling=0)
+                jpeg_path = os.path.join(images_folder, name + ".jpeg")
+                img.save(jpeg_path, quality=100, subsampling=0)
                 try:
-                    exif_dict = piexif.load(os.path.join(images_folder, name))
+                    exif_dict = piexif.load(jpeg_path)
                     exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
                         metadata
                     ).encode("utf-8")
                     piexif.insert(
-                        piexif.dump(exif_dict), os.path.join(images_folder, name)
+                        piexif.dump(exif_dict), jpeg_path
                     )
                 except:
                     pass
@@ -1774,10 +1768,10 @@ class SmartScanThing(Thing):
         if not os.path.isdir(os.path.join(images_folder, "use", "raw")):
             os.makedirs(os.path.join(images_folder, "use", "raw"))
         focused_image_name = os.path.join(
-            "use", f"{stage.position['x']}_{stage.position['y']}.jpeg"
+            "use", f"{stage.position['x']}_{stage.position['y']}"
         )
         focused_raw_name = os.path.join(
-            "use", "raw", f"{stage.position['x']}_{stage.position['y']}.jpeg"
+            "use", "raw", f"{stage.position['x']}_{stage.position['y']}"
         )
 
         def save_captures():
@@ -1790,9 +1784,9 @@ class SmartScanThing(Thing):
             )
             for i in range(start_index, end_index + 1):
                 save_capture(
-                    os.path.join(current_site_folder, f"{i}.png"),
+                    os.path.join(current_site_folder, f"{i}"),
                     os.path.join(
-                        "raw", current_site_folder, f"{stage.position['z']}.png"
+                        "raw", current_site_folder, f"{stage.position['z']}"
                     ),
                     capture_list[i],
                     metadata_list[i],
