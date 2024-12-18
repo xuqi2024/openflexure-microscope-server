@@ -51,6 +51,9 @@ class CameraProtocol(Protocol):
         "Whether the MJPEG stream is active"
         ...
 
+    @property
+    def stream_resolution(self) -> tuple[int, int]: ...
+
     def snap_image(self) -> NDArray:
         """Acquire one image from the camera."""
         ...
@@ -78,6 +81,7 @@ class CameraProtocol(Protocol):
 
     def capture_raw(
         self,
+        states_getter: GetThingStates,
         get_states: bool = True,
         get_processing_inputs: bool = True,
     ) -> Any:
@@ -132,6 +136,14 @@ class BaseCamera(Thing):
 
     mjpeg_stream = MJPEGStreamDescriptor()
     lores_mjpeg_stream = MJPEGStreamDescriptor()
+    
+    @thing_property
+    def stream_resolution(self) -> tuple[int, int]:
+        """The resolution of the MJPEG stream
+        
+        This default implementation captures an array to find its shape.
+        It should be overridden with something quicker."""
+        return self.capture_array(resolution="main").shape[:2]
 
     @thing_action
     def snap_image(self) -> NDArray:
@@ -194,6 +206,7 @@ class RawIsArrayCamera:
     @thing_action
     def capture_raw(
         self,
+        states_getter: GetThingStates, # noqa: unused-argument
         get_states: bool = True,  # noqa: unused-argument
         get_processing_inputs: bool = True,  # noqa: unused-argument
     ) -> NDArray:
