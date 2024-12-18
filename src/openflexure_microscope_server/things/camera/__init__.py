@@ -136,11 +136,11 @@ class BaseCamera(Thing):
 
     mjpeg_stream = MJPEGStreamDescriptor()
     lores_mjpeg_stream = MJPEGStreamDescriptor()
-    
+
     @thing_property
     def stream_resolution(self) -> tuple[int, int]:
         """The resolution of the MJPEG stream
-        
+
         This default implementation captures an array to find its shape.
         It should be overridden with something quicker."""
         return self.capture_array(resolution="main").shape[:2]
@@ -206,7 +206,7 @@ class RawIsArrayCamera:
     @thing_action
     def capture_raw(
         self,
-        states_getter: GetThingStates, # noqa: unused-argument
+        states_getter: GetThingStates,  # noqa: unused-argument
         get_states: bool = True,  # noqa: unused-argument
         get_processing_inputs: bool = True,  # noqa: unused-argument
     ) -> NDArray:

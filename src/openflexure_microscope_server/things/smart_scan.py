@@ -744,24 +744,28 @@ class SmartScanThing(Thing):
             # processing routine
             capture_inputs = cam.prepare_image_normalisation()
             with open(
-                os.path.join(images_folder, "image_normalisation_parameters.json"), "w", encoding="utf-8"
+                os.path.join(images_folder, "image_normalisation_parameters.json"),
+                "w",
+                encoding="utf-8",
             ) as f:
                 if hasattr(capture_inputs, "model_dump_json"):
                     f.write(capture_inputs.model_dump_json(indent=4))
                 else:
                     json.dump(capture_inputs, f, ensure_ascii=False, indent=4)
-            raw_capture = cam.capture_raw(
-                get_states=True, get_processing_inputs=True
-            )
+            raw_capture = cam.capture_raw(get_states=True, get_processing_inputs=True)
             with open(
-                os.path.join(images_folder, "camera_metadata.json"), "w", encoding="utf-8"
+                os.path.join(images_folder, "camera_metadata.json"),
+                "w",
+                encoding="utf-8",
             ) as f:
                 raw_image_info = {}
                 for k in ["metadata", "size", "stride", "format"]:
                     try:
                         raw_image_info[k] = getattr(raw_capture, k)
                     except AttributeError:
-                        logger.warning(f"Could not retrieve {k} from raw image metadata.")
+                        logger.warning(
+                            f"Could not retrieve {k} from raw image metadata."
+                        )
                 json.dump(raw_image_info, f, indent=4)
 
             current_pos = path[0]
@@ -1614,7 +1618,11 @@ class SmartScanThing(Thing):
         def save_capture(name, raw_name, raw_image, metadata, current_pos):
             try:
                 # Save the raw image
-                (raw_image.image_data.save(os.path.join(images_folder, raw_name + ".raw")),)
+                (
+                    raw_image.image_data.save(
+                        os.path.join(images_folder, raw_name + ".raw")
+                    ),
+                )
                 png = cam.raw_to_png(raw=raw_image, use_cache=True)
                 png.save(os.path.join(images_folder, name + ".png"))
                 # TODO: save metadata to PNG and eliminate the JPG.
@@ -1626,9 +1634,7 @@ class SmartScanThing(Thing):
                     exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
                         metadata
                     ).encode("utf-8")
-                    piexif.insert(
-                        piexif.dump(exif_dict), jpeg_path
-                    )
+                    piexif.insert(piexif.dump(exif_dict), jpeg_path)
                 except:
                     pass
             except Exception as e:
@@ -1785,9 +1791,7 @@ class SmartScanThing(Thing):
             for i in range(start_index, end_index + 1):
                 save_capture(
                     os.path.join(current_site_folder, f"{i}"),
-                    os.path.join(
-                        "raw", current_site_folder, f"{stage.position['z']}"
-                    ),
+                    os.path.join("raw", current_site_folder, f"{stage.position['z']}"),
                     capture_list[i],
                     metadata_list[i],
                     current_pos,
