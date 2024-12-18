@@ -163,7 +163,7 @@ class RangeofMotionThing(Thing):
                         autofocus.looping_autofocus(dz = 800)
                         image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                         image2=image2.tolist()
-                        offset = [x * 1 for x in csm.get_displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
+                        offset = [x * 1 for x in csm.displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
                         delta['x'] = int(offset[1])
                         delta['y'] = int(offset[0])
                         logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_z[axs]}")
@@ -233,7 +233,7 @@ class RangeofMotionThing(Thing):
                             image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                             image2=image2.tolist()
                             test_image2 = cam.grab_jpeg()
-                            offset = [x * 1 for x in csm.get_displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
+                            offset = [x * 1 for x in csm.displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
                             delta['x'] = int(offset[1])
                             delta['y'] = int(offset[0])
                             logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_small[axs]}")
@@ -247,7 +247,7 @@ class RangeofMotionThing(Thing):
                                 image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                                 image2=image2.tolist()
                                 failure_count = failure_count + 1
-                                offset = [x * 1 for x in csm.get_displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
+                                offset = [x * 1 for x in csm.displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
                                 delta['x'] = int(offset[1])
                                 delta['y'] = int(offset[0])
                                 logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_small[axs]}")
@@ -285,7 +285,7 @@ class RangeofMotionThing(Thing):
                         stage.move_relative(x = this_motion_step['x'][loop], y = this_motion_step['y'][loop], z = this_motion_step['z'])
                         image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                         image2=image2.tolist()
-                        offset = [x * 1 for x in csm.get_displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
+                        offset = [x * 1 for x in csm.displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
                         delta['x'] = int(offset[1])
                         delta['y'] = int(offset[0])
                         logger.info(f"Offset measured as {delta[axs]}")
