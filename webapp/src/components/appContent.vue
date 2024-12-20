@@ -286,7 +286,7 @@ export default {
       this.currentTab = newId;
     },
     startModals: function() {
-      this.$refs.calibrationModal.show();
+      //this.$refs.calibrationModal.show();
     },
     enterApp: function() {
       // Stuff to do once connected and all init modals are finished
