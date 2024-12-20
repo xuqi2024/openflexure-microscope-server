@@ -8,7 +8,7 @@ See repository root for licensing information.
 
 from __future__ import annotations
 import logging
-from typing import Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.decorators import thing_action, thing_property
@@ -19,10 +19,16 @@ from labthings_fastapi.dependencies.raw_thing import raw_thing_dependency
 from labthings_fastapi.outputs.mjpeg_stream import MJPEGStreamDescriptor
 from labthings_fastapi.outputs.blob import Blob
 from labthings_fastapi.types.numpy import NDArray
+import numpy as np
+from PIL import Image
+import io
 
 
 class JPEGBlob(Blob):
     media_type: str = "image/jpeg"
+
+class PNGBlob(Blob):
+    media_type: str = "image/png"
 
 
 @runtime_checkable
@@ -46,6 +52,18 @@ class CameraProtocol(Protocol):
         self,
         resolution: Literal["lores", "main", "full"] = "main",
     ) -> NDArray: ...
+
+    def capture_raw(
+        self,
+        get_states: bool = True,
+        get_processing_inputs: bool = True,
+    ) -> Any: ...
+
+    def raw_to_png(
+        self,
+        raw: Any,
+        use_cache: bool = False,
+    ) -> PNGBlob: ...
 
     def capture_jpeg(
         self,
@@ -133,9 +151,32 @@ class BaseCamera(Thing):
             self.lores_mjpeg_stream if stream_name == "lores" else self.mjpeg_stream
         )
         return portal.call(stream.next_frame_size)
+    
+
+class RawIsArrayCamera:
+    """A mixin for cameras that use arrays as their raw format"""
+    
+    @thing_action
+    def capture_raw(
+        self,
+        get_states: bool = True,  # noqa: unused-argument
+        get_processing_inputs: bool = True,  # noqa: unused-argument
+    ) -> NDArray:
+        return self.capture_array()
+
+    @thing_action
+    def raw_to_png(
+        self,
+        raw: NDArray,
+    ) -> PNGBlob:
+        image = Image.fromarray(raw.astype(np.uint8), mode="RGB")
+        out = io.BytesIO()
+        image.save(out, format="png")
+        return PNGBlob.from_bytes(out.getvalue())
 
 
-class CameraStub(BaseCamera):
+
+class CameraStub(BaseCamera, RawIsArrayCamera):
     """A stub for a camera, to allow dependencies
 
 

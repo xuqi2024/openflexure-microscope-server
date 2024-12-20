@@ -14,6 +14,9 @@ from openflexure_microscope_server.things.camera.simulation import SimulatedCame
 from openflexure_microscope_server.things.stage.dummy import DummyStage
 from openflexure_microscope_server.things.autofocus import AutofocusThing
 from openflexure_microscope_server.things.camera_stage_mapping import CameraStageMapper
+from openflexure_microscope_server.things.smart_scan import SmartScanThing, BackgroundDetectThing
+from openflexure_microscope_server.things.settings_manager import SettingsManager
+from openflexure_microscope_server.things.auto_recentre_stage import RecentringThing
 from openflexure_microscope_server.things import camera_stage_mapping
 
 camera_stage_mapping.DEFAULT_SETTLING_TIME = 0  # skip the settling time for tests
@@ -32,6 +35,10 @@ def thing_server():
     server.add_thing(DummyStage(step_time=0.000001), "/stage/")
     server.add_thing(AutofocusThing(), "/autofocus/")
     server.add_thing(CameraStageMapper(), "/camera_stage_mapping/")
+    server.add_thing(SmartScanThing(path_to_openflexure_stitch=r".\.venv_stitching\Scripts\openflexure-stitch.exe"), "/smart_scan/")
+    server.add_thing(BackgroundDetectThing(), "/background_detect/")
+    server.add_thing(SettingsManager(), "/settings/")
+    server.add_thing(RecentringThing(), "/auto_recentre_stage/")
     assert os.path.exists(os.path.join(temp_folder.name, "camera/"))
     # NB yield is important: otherwise, the temp folder gets deleted before the test runs
     yield server
@@ -40,6 +47,11 @@ def thing_server():
 @pytest.fixture
 def client(thing_server):
     with TestClient(thing_server.app) as client:
+        csm = thing_server.things["/camera_stage_mapping/"]
+        csm.thing_settings["image_to_stage_displacement_matrix"] = [
+            [10, 0],
+            [0, 10],
+        ]
         yield client
 
 
@@ -92,7 +104,11 @@ def test_capture_array(client):
     assert array.shape == (240, 320, 3)
 
 
-# Currently this fails, not yet sure why.
 def test_camera_stage_mapping_calibration(client):
     camera_stage_mapping = ThingClient.from_url("/camera_stage_mapping/", client)
     camera_stage_mapping.calibrate_xy()
+    matrix = camera_stage_mapping.image_to_stage_displacement_matrix
+
+def test_sample_scan(client):
+    scanner = ThingClient.from_url("/smart_scan/", client)
+    scanner.sample_scan()

@@ -183,6 +183,27 @@
             </div>
           </div>
         </li>
+        <li class="uk-open">
+          <a class="uk-accordion-title" href="#">Objective Switcher</a>
+          <div class="uk-accordion-content">
+            <div class="uk-margin">
+              <action-button
+                thing="stage"
+                action="move_nosepiece"
+                :submit-data="{ objective_number: 1 }"
+                :submit-label="'Objective #1'"
+                @error="modalError"
+              />
+              <action-button
+                thing="stage"
+                action="move_nosepiece"
+                :submit-data="{ objective_number: 2 }"
+                :submit-label="'Objective #2'"
+                @error="modalError"
+              />
+            </div>
+          </div>
+        </li>
       </ul>
     </div>
     <div v-else class="uk-text-warning">
@@ -239,6 +260,9 @@ export default {
         "camera_stage_mapping",
         "move_in_image_coordinates"
       );
+    },
+    things: function() {
+      return this.$store.getters["wot/thingDescriptions"];
     }
   },
 
