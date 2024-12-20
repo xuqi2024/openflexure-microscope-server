@@ -9,6 +9,13 @@
         submit-label="Enable slow Z moves"
         @error="modalError"
       />
+      <action-button
+        thing="stage"
+        action="query"
+        :submit-data="{ message: 'BLZH 0' }"
+        submit-label="Disable Z backlash"
+        @error="modalError"
+      />
     </div>
     
     
