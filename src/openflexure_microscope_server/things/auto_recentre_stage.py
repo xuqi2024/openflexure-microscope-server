@@ -7,11 +7,13 @@ import time
 from typing import Annotated, Any, Callable, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 from scipy.optimize import curve_fit
 from camera_stage_mapping import camera_stage_tracker
+from camera_stage_mapping import fft_image_tracking
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
 from labthings_fastapi.dependencies.invocation import CancelHook, InvocationLogger, InvocationCancelledError
 from labthings_fastapi.decorators import thing_action, thing_property
+from .stage import StageDependency as StageDep
 from labthings_sangaboard import SangaboardThing
 from labthings_picamera2.thing import StreamingPiCamera2
 from labthings_fastapi.types.numpy import NDArray, denumpify, DenumpifyingDict
@@ -163,7 +165,7 @@ class RangeofMotionThing(Thing):
                         autofocus.looping_autofocus(dz = 800)
                         image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                         image2=image2.tolist()
-                        offset = [x * 1 for x in csm.displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
+                        offset = [x * 1 for x in fft_image_tracking.displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
                         delta['x'] = int(offset[1])
                         delta['y'] = int(offset[0])
                         logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_z[axs]}")
@@ -233,7 +235,7 @@ class RangeofMotionThing(Thing):
                             image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                             image2=image2.tolist()
                             test_image2 = cam.grab_jpeg()
-                            offset = [x * 1 for x in csm.displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
+                            offset = [x * 1 for x in fft_image_tracking.displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
                             delta['x'] = int(offset[1])
                             delta['y'] = int(offset[0])
                             logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_small[axs]}")
@@ -247,7 +249,7 @@ class RangeofMotionThing(Thing):
                                 image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                                 image2=image2.tolist()
                                 failure_count = failure_count + 1
-                                offset = [x * 1 for x in csm.displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
+                                offset = [x * 1 for x in fft_image_tracking.displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
                                 delta['x'] = int(offset[1])
                                 delta['y'] = int(offset[0])
                                 logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_small[axs]}")
@@ -285,7 +287,7 @@ class RangeofMotionThing(Thing):
                         stage.move_relative(x = this_motion_step['x'][loop], y = this_motion_step['y'][loop], z = this_motion_step['z'])
                         image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                         image2=image2.tolist()
-                        offset = [x * 1 for x in csm.displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
+                        offset = [x * 1 for x in fft_image_tracking.displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
                         delta['x'] = int(offset[1])
                         delta['y'] = int(offset[0])
                         logger.info(f"Offset measured as {delta[axs]}")
@@ -322,6 +324,9 @@ class RangeofMotionThing(Thing):
             results['csm'] = csm.image_to_stage_displacement_matrix #This doesn't change on each run, it is data intrinsic to the microscope
             
             self.thing_settings["rom_data"] = DenumpifyingDict(results).model_dump()
+
+            with open("/var/openflexure/ROM_Test_Results.json", 'w') as file_object:
+                json.dump(results, file_object, indent = 3)
 
                 # import os
 
