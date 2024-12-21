@@ -461,7 +461,9 @@ class RecentringThing(Thing):
 
                     turning = quad_fit_func.deriv() #Differentiates the function and returns the coefficients of each term in the polynomial
 
-                    turning_loc = -turning[1] / (turning[0]) #The [0] refers to the first coefficient ie A in Ax + C where C is a constant term
+                    logging.info(f"Output of deriv function is {turning}")
+
+                    turning_loc = -turning[0] / (turning[1]) #The [0] refers to the first coefficient ie A in Ax + C where C is a constant term
 
                     logging.warning(sorted_all_heights)
                     if (                                       #Breaks the loop if the index of the maximum is anywhere but the start of the array
