@@ -365,8 +365,9 @@ class RecentringThing(Thing):
         self,
         autofocus: AutofocusDep,
         stage: StageDep,
+        logging: InvocationLogger,
         max_steps=15,
-        lateral_distance=5000,
+        lateral_distance=2000
     ):
         """Recentre the stage, based on the focal plane
 
@@ -400,6 +401,9 @@ class RecentringThing(Thing):
 
         autofocus.looping_autofocus()
 
+        logging.info(f"The intervals between steps is {dx}.")
+        logging.info(f"Starting position is {centre}")
+
         for direction in [0, 1]:
             # Start off with the current position, and moving in the positive direction
             focused_pos[direction] = [list(stage.position.values())]
@@ -428,11 +432,12 @@ class RecentringThing(Thing):
                 stage.move_absolute(
                     x=int(destination[0]), y=int(destination[1]), z=destination[2]
                 )
-                autofocus.looping_autofocus(autofocus, stage)
+                autofocus.looping_autofocus()
                 position = list(stage.position.values())
+                logging.info(f"Current position is {position}")
                 focused_pos[direction].append(position)
 
-                logging.info(focused_pos)
+                logging.info(focused_pos[direction])
 
                 steps += 1
                 if steps > max_steps:
@@ -442,8 +447,9 @@ class RecentringThing(Thing):
                     break
 
                 if len(focused_pos[direction]) > 4:
-                    all_heights = [x[2] for x in focused_pos[direction]]
-                    direction_index = [x[direction] for x in focused_pos[direction]]
+                    logging.info("Calculating turning point.")
+                    all_heights = [x[2] for x in focused_pos[direction]] #Extracting all focused z positions
+                    direction_index = [x[direction] for x in focused_pos[direction]] #Extracting all x/y positions depending on direction of travel
 
                     sorted_all_heights = [
                         x for y, x in sorted(zip(direction_index, all_heights))
@@ -451,14 +457,14 @@ class RecentringThing(Thing):
 
                     sorted_lateral = sorted(direction_index)
                     quad_fit = np.polyfit(sorted_lateral, sorted_all_heights, 2)
-                    quad_fit_func = np.poly1d(quad_fit)
+                    quad_fit_func = np.poly1d(quad_fit) #Turns polynomial into convenient class that makes it easier to operate on
 
-                    turning = quad_fit_func.deriv()
+                    turning = quad_fit_func.deriv() #Differentiates the function and returns the coefficients of each term in the polynomial
 
-                    turning_loc = -turning[0] / (turning[1])
+                    turning_loc = -turning[1] / (turning[0]) #The [0] refers to the first coefficient ie A in Ax + C where C is a constant term
 
                     logging.warning(sorted_all_heights)
-                    if (
+                    if (                                       #Breaks the loop if the index of the maximum is anywhere but the start of the array
                         np.argmax(sorted_all_heights) != 0
                         and np.argmax(sorted_all_heights) != len(all_heights) - 1
                     ):
@@ -479,14 +485,26 @@ class RecentringThing(Thing):
                             # plt.plot(sorted_lateral, quad_fit_func(sorted_lateral))
                             # plt.show()
                             pass
+                    break
 
             # Centre value is replaced by the maximum value recorded in that axis
-            centre[direction] = focused_pos[direction][np.argmax(all_heights)][
-                direction
-            ]
+            #centre[direction] = focused_pos[direction][np.argmax(all_heights)][
+            #    direction
+            #]
+            centre[direction] = turning_loc
+            logging.info(f"Moving to new center position {centre}")
             stage.move_absolute(x=centre[0], y=centre[1], z=centre[2])
             autofocus.looping_autofocus()
 
         logging.info(f"Centre of ROM is at {centre, stage.position['z']} \n")
+
+        results = {
+            "Calculated Centre": centre,
+            "Positions": sorted_all_heights,
+            "Interval": dx
+        }
+
+        with open("/var/openflexure/recentre_results.json", 'w') as file_object:
+            json.dump(results, file_object, indent = 3)
 
         return focused_pos
