@@ -391,6 +391,31 @@ class ScanExtension(BaseExtension):
 
         return current_image_is_background
 
+    def get_csm(
+        self,
+        ):
+        # Locate the autofocus extension
+        CSM_extension = find_extension("org.openflexure.camera_stage_mapping")
+        CSM_matrix = CSM_extension.image_to_stage_displacement_matrix
+        return CSM_matrix
+
+    def convert_to_steps(
+            self,
+            units: Literal['Motor steps', 'Pixels', 'FOV percent'],
+            stride_size: XyCoordinate,
+            ):
+        if str(units) != 'Motor steps':
+            stride_size[0], stride_size[1] = stride_size[1], stride_size[0]
+            csm_matrix = self.get_csm()
+            stride_size = np.dot(csm_matrix, stride_size)
+            if str(units) == 'FOV percent':
+                #TODO How to get resolution from stream?
+                stride_size[0] *= 832 / 100
+                stride_size[1] *= 624 / 100
+
+        return stride_size
+        
+
     ### Scanning
     def tile(
         self,
@@ -410,10 +435,16 @@ class ScanExtension(BaseExtension):
         annotations: Optional[Dict[str, str]] = None,
         tags: Optional[List[str]] = None,
         detect_empty_fields_and_skip_autofocus: bool = False,
+        xyunits: Literal['Motor steps', 'Pixels', 'FOV percent'] = 'Motor steps'
     ):
         metadata = metadata or {}
         annotations = annotations or {}
         tags = tags or []
+
+        starting_stride_size = stride_size.copy()
+
+        stride_size[:2] = self.convert_to_steps(xyunits, stride_size[:2])
+        logging.debug(f'Converted {starting_stride_size[:2]} in {xyunits} to {stride_size[:2]} motor steps')
 
         start = time.time()
 
@@ -595,6 +626,7 @@ class TileScanArgs(FullCaptureArgs):
         metadata={"example": [2000, 1500, 100]},
     )
     detect_empty_fields_and_skip_autofocus = fields.Boolean(load_default=False)
+    xyunits = fields.String(load_default="Motor steps", metadata={"example": "Motor steps"})
 
 
 class TileScanAPI(ActionView):
@@ -643,4 +675,5 @@ class TileScanAPI(ActionView):
                 detect_empty_fields_and_skip_autofocus=args.get(
                     "detect_empty_fields_and_skip_autofocus"
                 ),
+                xyunits=args.get("xyunits",)
             )
