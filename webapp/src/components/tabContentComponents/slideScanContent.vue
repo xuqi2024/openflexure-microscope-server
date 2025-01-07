@@ -10,12 +10,27 @@
           <li>
             <a class="uk-accordion-title" href="#">Configure</a>
             <div class="uk-accordion-content">
+            <div class="uk-margin">
+                <propertyControl
+                  thing-name="smart_scan"
+                  property-name="max_range"
+                  label="Maximum Distance (steps)"
+                />
+              </div>
+              <div class="uk-margin">
+                <propertyControl
+                  thing-name="smart_scan"
+                  property-name="autofocus_dz"
+                  label="Autofocus range (steps)"
+                />
+              </div>
               <div class="uk-margin">
                 <propertyControl
                   thing-name="smart_scan"
                   property-name="stack_dz"
                   label="Stack dz (steps)"
                 />
+                
               </div>
               <div class="uk-margin">
                 <propertyControl
@@ -45,11 +60,25 @@
                   label="Max image count (0 for unlimited)"
                 />
               </div>
+              <div class="uk-margin">
+                <propertyControl
+                  thing-name="smart_scan"
+                  property-name="stitch_tiff"
+                  label="When stitching, produce a pyramidal tiff"
+                />
+              </div>
             </div>
           </li>
           <li class="uk-open">
             <a class="uk-accordion-title" href="#">Scan Settings</a>
             <div class="uk-accordion-content">
+            <div class="uk-margin">
+                <propertyControl
+                  thing-name="smart_scan"
+                  property-name="skip_background"
+                  label="Detect and skip empty fields"
+                />
+              </div>
               <div class="uk-margin">
                 <propertyControl
                   thing-name="smart_scan"
@@ -126,6 +155,17 @@
             >
               Close
             </button>
+            <action-button
+            class="uk-button"
+            thing="smart_scan"
+            action="create_zip_of_scan"
+            submit-label="Download ZIP"
+            :can-terminate="false"
+            :submit-data="{ scan_name: lastScanName }"
+            :button-primary="true"
+            @response="downloadZipFile"
+            @error="modalError"
+          />
           </div>
         </div>
       </div>

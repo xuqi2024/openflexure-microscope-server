@@ -76,6 +76,19 @@
               @finished="updatePosition"
               @error="modalError"
             />
+            <action-button
+              thing="auto_recentre_stage"
+              action="recentre"
+              submit-label="Re-centre Stage"
+              :can-terminate="true"
+              :requires-confirmation="true"
+              :modal-progress="true"
+              :confirmation-message="
+                'The stage will now move, and autofocus will be used to find the centre of motion. This requires a sample to be visible in the microscope. OK to proceed?'
+              "
+              @finished="updatePosition"
+              @error="modalError"
+            />
           </div>
         </li>
 
@@ -145,6 +158,17 @@
         <li class="uk-open">
           <a class="uk-accordion-title" href="#">Image Capture</a>
           <div class="uk-accordion-content">
+          <div class="uk-margin">
+              <action-button
+                thing="camera"
+                action="capture_jpeg"
+                :submit-data="{ resolution: 'main' }"
+                :submit-label="'Low Resolution'"
+                :submit-on-event="'globalCaptureEvent'"
+                @response="handleCaptureResponse"
+                @error="modalError"
+              />
+            </div>
 
             <div class="uk-margin">
               <action-button

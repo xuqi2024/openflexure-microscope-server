@@ -80,6 +80,16 @@
                 </div>
               </div>
               <h3 class="uk-card-title">{{ item.name }}</h3>
+              <action-button
+                thing="smart_scan"
+                action="create_zip_of_scan"
+                submit-label="Download ZIP"
+                :can-terminate="false"
+                :submit-data="{ scan_name: item.name }"
+                :button-primary="true"
+                @response="downloadZipFile"
+                @error="modalError"
+              />
               <button
                 class="uk-button uk-button-default uk-width-1-1"
                 @click="deleteScan(item.name)"
