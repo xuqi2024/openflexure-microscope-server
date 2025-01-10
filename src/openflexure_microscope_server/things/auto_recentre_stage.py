@@ -311,7 +311,7 @@ class RangeofMotionThing(Thing):
                         offset = [x * 1 for x in fft_image_tracking.displacement_between_images(image_0 = image1, image_1 = image2, sigma=10, fractional_threshold=0.1, pad=True)] #Units is pixels
                         delta['x'] = int(offset[1])
                         delta['y'] = int(offset[0])
-                        logger.info(f"Offset measured as {delta[axs]}")
+                        logger.info(f"Offset measured as {np.abs(delta[axs])}")
                         if np.abs(delta[axs]) > motion_minimum:
                             logger.info("Motion detected.")
                             break
