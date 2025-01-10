@@ -1324,7 +1324,7 @@ class SmartScanThing(Thing):
         y_locs = []
 
         for i in range(
-            len(os.listdir(os.path.join(scan_path, "images"))) - 1
+            len([i for i in os.listdir((os.path.join(scan_path, "images"))) if os.path.isdir(i)]) - 1
         ):  # , str(i).zfill(3))))):
             stack_path = os.path.join(scan_path, "images", str(i), "stacks")
             FOV_loc = self.get_loc(stack_path)
