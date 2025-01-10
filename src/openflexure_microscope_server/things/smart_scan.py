@@ -1624,7 +1624,7 @@ class SmartScanThing(Thing):
                     ),
                 )
                 png = cam.raw_to_png(raw=raw_image, use_cache=True)
-                png.save(os.path.join(images_folder, name + ".png"))
+                # png.save(os.path.join(images_folder, name + ".png"))
                 # TODO: save metadata to PNG and eliminate the JPG.
                 img = Image.open(png.open())
                 jpeg_path = os.path.join(images_folder, name + ".jpeg")
