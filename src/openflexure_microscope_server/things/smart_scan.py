@@ -1005,7 +1005,7 @@ class SmartScanThing(Thing):
     @thing_property
     def overlap(self) -> float:
         """The z distance to perform an autofocus"""
-        return self.thing_settings.get("overlap", 0.35)
+        return self.thing_settings.get("overlap", 0.65)
 
     @overlap.setter
     def overlap(self, value: float) -> None:
