@@ -67,7 +67,7 @@
             :current-tab="currentTab"
             @set-tab="setTab"
           >
-            Stage calibration
+            Camera-Stage Mapping
           </tabIcon>
         </li>
       </ul>
