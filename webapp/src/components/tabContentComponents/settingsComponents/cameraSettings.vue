@@ -13,7 +13,7 @@
                 <a class="uk-accordion-title" href="#">Pi Camera Settings</a>
                 <div class="uk-accordion-content">
                   <PropertyControl
-                    label="Brightness (0-33251)"
+                    label="Exposure time (0-33251)"
                     property-name="exposure_time"
                     thing-name="camera"
                     :read-back-delay="1000"
