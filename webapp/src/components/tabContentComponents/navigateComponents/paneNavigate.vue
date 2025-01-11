@@ -158,7 +158,7 @@
         <li class="uk-open">
           <a class="uk-accordion-title" href="#">Image Capture</a>
           <div class="uk-accordion-content">
-          <div class="uk-margin">
+            <div class="uk-margin">
               <action-button
                 thing="camera"
                 action="capture_jpeg"
