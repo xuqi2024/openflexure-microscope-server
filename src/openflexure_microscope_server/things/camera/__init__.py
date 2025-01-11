@@ -219,7 +219,7 @@ class RawIsArrayCamera:
     ) -> PNGBlob:
         image = Image.fromarray(raw.astype(np.uint8), mode="RGB")
         out = io.BytesIO()
-        image.save(out, format="png")
+        image.save(out, format="png", compress_level=0)
         return PNGBlob.from_bytes(out.getvalue())
 
 
