@@ -386,7 +386,8 @@ class SmartScanThing(Thing):
         # TODO: This should be determined using sensible configuration.
         # If the working directory is `/var/openflexure` this will result
         # in scans being saved at `/var/openflexure/scans/`
-        return "/mnt/openflexure-data/scans"
+        # return "/mnt/openflexure-data/scans"
+        return "scans"
 
     @thing_action
     def mount_usb_storage(self):
@@ -441,7 +442,7 @@ class SmartScanThing(Thing):
         get filled in - so there's no guarantee, for now, that the numbers
         will correspond to order of creation. This may change in the future.
         """
-        self.mount_usb_storage()
+        # self.mount_usb_storage()
         if not os.path.exists(self.scans_folder_path):
             os.makedirs(self.scans_folder_path)
         if not scan_name:
@@ -658,15 +659,15 @@ class SmartScanThing(Thing):
         starting_position = None
         capture_thread = None
         # Temporary, for Tanzania trial: ensure a USB disk is connected
-        try:
-            self.mount_usb_storage()
-        except IOError:
-            logger.error(
-                "The USB storage device is not connected. You must connect "
-                "it before starting a scan."
-            )
-            time.sleep(1)
-            raise
+        # try:
+        #     self.mount_usb_storage()
+        # except IOError:
+        #     logger.error(
+        #         "The USB storage device is not connected. You must connect "
+        #         "it before starting a scan."
+        #     )
+        #     time.sleep(1)
+        #     raise
 
         self._scan_lock.acquire(timeout=0.1)
         start_time = time.strftime("%H:%M:%S")
