@@ -193,26 +193,6 @@ def generate_config(
             )
             fp.write(f"{names[i]}; ; {loc[1], loc[0]} \n")
 
-
-def raw2rggb(raw):
-    """Convert packed 10 bit raw to RGGB 8 bit"""
-    raw = np.asarray(raw)  # ensure it's an array
-    rggb = np.empty((616, 820, 4), dtype=np.uint8)
-    raw_w = rggb.shape[1] // 2 * 5
-    for plane, offset in enumerate([(1, 1), (0, 1), (1, 0), (0, 0)]):
-        rggb[:, ::2, plane] = raw[offset[0] :: 2, offset[1] : raw_w + offset[1] : 5]
-        rggb[:, 1::2, plane] = raw[
-            offset[0] :: 2, offset[1] + 2 : raw_w + offset[1] + 2 : 5
-        ]
-    return rggb
-
-
-def rggb2rgb(rggb):
-    return np.stack(
-        [rggb[..., 0], rggb[..., 1] // 2 + rggb[..., 2] // 2, rggb[..., 3]], axis=2
-    )
-
-
 class ChannelDistributions(BaseModel):
     means: list[float]
     standard_deviations: list[float]
