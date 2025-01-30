@@ -999,7 +999,7 @@ class SmartScanThing(Thing):
     @thing_property
     def max_image_count(self) -> int:
         """The maximum number of images to capture before we break"""
-        return self.thing_settings.get("max_image_count", 225)
+        return self.thing_settings.get("max_image_count", 0)
 
     @max_image_count.setter
     def max_image_count(self, value: int) -> None:
