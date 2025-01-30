@@ -1222,12 +1222,14 @@ class SmartScanThing(Thing):
                 [
                     self._script,
                     "--stitching_mode",
-                    "all",
+                    "only_stage_stitch",
                     f"{tiff_arg}",
                     "--minimum_overlap",
                     f"{round(overlap*0.7,2)}",
                     "--resize",
-                    "0.5",
+                    "1",
+                    "--max_stage_discrepancy",
+                    "130",
                     os.path.join(images_folder, 'images', "use"),
                 ]
             )
