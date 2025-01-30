@@ -1479,9 +1479,10 @@ class SmartScanThing(Thing):
                 # metadata["/stage/"]["position"]["x"] = current_pos[0]
                 # metadata["/stage/"]["position"]["y"] = current_pos[1]
                 # metadata["/stage/"]["position"]["z"] = stage.position["z"]
-                raw_image = cam.capture_raw(
-                    get_states=False, get_processing_inputs=False
-                )
+                # raw_image = cam.capture_raw(
+                #     get_states=False, get_processing_inputs=False
+                # )
+                raw_image = 0
                 return raw_image, metadata
             except Exception as e:
                 logger.error(f"An error occurred while capturing: {e}", exc_info=e)
@@ -1490,11 +1491,11 @@ class SmartScanThing(Thing):
         def save_capture(name, raw_name, raw_image, img, metadata, current_pos):
             try:
                 # Save the raw image
-                (
-                    raw_image.image_data.save(
-                        os.path.join(images_folder, raw_name + ".raw")
-                    ),
-                )
+                # (
+                #     raw_image.image_data.save(
+                #         os.path.join(images_folder, raw_name + ".raw")
+                #     ),
+                # )
                 # png = cam.raw_to_png(raw=raw_image, use_cache=True)
                 # png.save(os.path.join(images_folder, name + ".png"))
                 # TODO: save metadata to PNG and eliminate the JPG.
