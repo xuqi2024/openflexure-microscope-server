@@ -1701,7 +1701,7 @@ class SmartScanThing(Thing):
     def stack_height(self) -> int:
         """The number of images to capture and save in a stack
         Defaults to 1 unless you need to see either side of focus"""
-        return self.thing_settings.get("stack_height", 9)
+        return self.thing_settings.get("stack_height", 1)
 
     @stack_height.setter
     def stack_height(self, value: int) -> None:
