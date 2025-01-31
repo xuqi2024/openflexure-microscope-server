@@ -133,6 +133,10 @@ def steps_from_centre(current_loc, starting_loc, dx, dy):
     step_size = np.array([dx, dy])
     return np.max(np.abs(np.divide(np.subtract(current_loc, starting_loc), step_size)))
 
+def steps_from_point(current_loc, starting_loc, dx, dy):
+    step_size = np.array([dx, dy])
+    return np.sum(np.abs(np.divide(np.subtract(current_loc, starting_loc), step_size)))
+
 
 # def set_template(microscope, pos):
 #     microscope.move(pos)
@@ -262,8 +266,7 @@ class BackgroundDetectThing(Thing):
         the returned value (between 0 and 100) is the fraction of the image
         that is background.
         """
-        current_image = cam.grab_jpeg()
-        current_image = np.array(Image.open(current_image.open()))
+        current_image = cam.capture_array()[...,:3]
 
         # we're working in the LUV colourspace as it collect colours together in a human-intuitive way
         current_image_LUV = cv2.cvtColor(current_image, cv2.COLOR_RGB2LUV)
@@ -478,17 +481,17 @@ class SmartScanThing(Thing):
         logger.debug(f"Moving to {loc}")
         x_positions = len(set([i[0] for i in focused_path]))
         y_positions = len(set([i[1] for i in focused_path]))
-        if x_positions >= 3 and y_positions >= 3:
-            z = int(self.fit_next_z(loc, focused_path))
-            # z = z - ((self.stack_test_height-1)/2 +4)*self.stack_dz
-        elif len(focused_path) > 1:
+        # if x_positions >= 3 and y_positions >= 3:
+        #     z = int(self.fit_next_z(loc, focused_path))
+        #     # z = z - ((self.stack_test_height-1)/2 +4)*self.stack_dz
+        if len(focused_path) > 1:
             z_index = closest(loc, focused_path)
             z = int(
                 focused_path[z_index][2]
             )  # - ((self.stack_test_height-1)/2 +6)*self.stack_dz
         else:
             z = stage.position["z"]  # - ((self.stack_test_height-1)/2 +7)*self.stack_dz
-        stage.move_absolute(x=loc[0], y=loc[1], z=z-35)
+        stage.move_absolute(x=loc[0], y=loc[1], z=z-200 - ((self.stack_test_height-1)/2 +4)*self.stack_dz)
 
         # x_move = loc[0] - current_pos[0]
         # y_move = loc[1] - current_pos[1]
@@ -939,9 +942,11 @@ class SmartScanThing(Thing):
                 path = temp_path.copy()
                 path = sorted(
                     path,
+                    # Test whether we're any faster going to the next nearest site, sorted by closeness to
+                    # first the current position, and then the centre
                     key=lambda x: (
+                        steps_from_point(x, loc[:2], dx, dy),
                         steps_from_centre(x, true_path[0][:2], dx, dy),
-                        distance_to_site(loc[:2], x),
                     ),
                 )
                 # self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
@@ -1515,16 +1520,16 @@ class SmartScanThing(Thing):
             except Exception as e:
                 logger.error(f"An error occurred while saving {name}: {e}", exc_info=e)
 
-        x_positions = len(set([i[0] for i in focused_path]))
-        y_positions = len(set([i[1] for i in focused_path]))
-        if x_positions < 3 or y_positions < 3:
-            logger.debug("We're just starting, so doing a full autofocus")
-            undershoot_z = -((self.stack_test_height - 1) / 2 + 6) * self.stack_dz - 300
-        else:
-            logger.debug("We've got a good idea where we should be skipping autofocus")
-            undershoot_z = -((self.stack_test_height - 1) / 2 + 4) * self.stack_dz - 300
-        stage.move_relative(z=undershoot_z)
-        stage.move_relative(z=460)
+        # x_positions = len(set([i[0] for i in focused_path]))
+        # y_positions = len(set([i[1] for i in focused_path]))
+        # if x_positions < 3 or y_positions < 3:
+        #     logger.debug("We're just starting, so doing a full autofocus")
+        #     undershoot_z = -((self.stack_test_height - 1) / 2 + 6) * self.stack_dz - 300
+        # else:
+        #     logger.debug("We've got a good idea where we should be skipping autofocus")
+        #     undershoot_z = -((self.stack_test_height - 1) / 2 + 4) * self.stack_dz - 300
+        # stage.move_relative(z=undershoot_z)
+        stage.move_relative(z=150)
         captures = 0
         capture_list = []
         metadata_list = []
