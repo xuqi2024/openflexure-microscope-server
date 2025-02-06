@@ -491,7 +491,7 @@ class SmartScanThing(Thing):
             )  # - ((self.stack_test_height-1)/2 +6)*self.stack_dz
         else:
             z = stage.position["z"]  # - ((self.stack_test_height-1)/2 +7)*self.stack_dz
-        stage.move_absolute(x=loc[0], y=loc[1], z=z-200 - ((self.stack_test_height-1)/2 +4)*self.stack_dz)
+        stage.move_absolute(x=loc[0], y=loc[1], z=z)
 
         # x_move = loc[0] - current_pos[0]
         # y_move = loc[1] - current_pos[1]
@@ -917,6 +917,52 @@ class SmartScanThing(Thing):
                             )
                     capture_thread = new_save_thread
                     capture_thread.start()
+
+                    
+                    # if not os.path.isdir(os.path.join(images_folder, 'stacked')):
+                    #     os.makedirs(os.path.join(images_folder, 'stacked'))
+                    # output = os.path.join('/var','openflexure',images_folder, 'stacked', f'{current_pos[0]}_{current_pos[1]}.jpeg')
+
+                    # output = f"--output={output}"
+
+                    # logger.info(output)
+                    # time.sleep(4)
+                    # image_list = glob.glob(os.path.join('/var','openflexure',images_folder, "stacks", f"{current_pos[0]}_{current_pos[1]}", "*.jpeg"))
+
+                    # cmd = (
+                    #     [
+                    #         "focus-stack",
+                    #         output,
+                    #         "--jpgquality=100",
+                    #         image_list[0],
+                    #         image_list[1],
+                    #         image_list[2],
+                    #         image_list[3],
+                    #         image_list[4],
+                    #         image_list[5],
+                    #         image_list[6]
+                    #     ]
+                    # )
+
+                    # logger.info(cmd)
+
+                    # p = Popen(cmd, stdout=PIPE, stderr=STDOUT, bufsize=1, universal_newlines=True)
+                    # os.set_blocking(p.stdout.fileno(), False)
+                    # while p.poll() is None:
+                    #     try:
+                    #         output = p.stdout.readline()
+                    #         if output != "" and output is not None:
+                    #             logger.info(output)
+                    #     except:
+                    #         pass
+
+                    # for line in p.stdout:
+                    #     try:
+                    #         output = p.stdout.readline()
+                    #         if output != "" and output is not None:
+                    #             logger.info(output)
+                    #     except:
+                    #         pass
 
                     logger.info(f"Captured image number {len(focused_path)}")
 
@@ -1529,6 +1575,7 @@ class SmartScanThing(Thing):
         #     logger.debug("We've got a good idea where we should be skipping autofocus")
         #     undershoot_z = -((self.stack_test_height - 1) / 2 + 4) * self.stack_dz - 300
         # stage.move_relative(z=undershoot_z)
+        stage.move_relative(z = - 200 - ((self.stack_test_height-1)/2 +4)*self.stack_dz)
         stage.move_relative(z=150)
         captures = 0
         capture_list = []
