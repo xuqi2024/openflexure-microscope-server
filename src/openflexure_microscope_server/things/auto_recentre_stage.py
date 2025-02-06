@@ -188,6 +188,7 @@ class RangeofMotionThing(Thing):
                         delta['y'] = int(offset[0])
                         logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_z[axs]}")
                         focused_positions.append(stage.position)  #focused_positions is used for z calibration
+                        cor_lat_steps.append(offset)
                         if np.abs(delta[wrong_axis]) > wrong_axis_max_z[wrong_axis]:
                             logger.info(f"Parasitic motion in the wrong axis detected. Displacement in {wrong_axis} was found as {delta[wrong_axis]}.")
                             axis_error = True
@@ -274,8 +275,6 @@ class RangeofMotionThing(Thing):
                                 delta['x'] = int(offset[1])
                                 delta['y'] = int(offset[0])
                                 logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_small[axs]}")
-                                cor_lat_steps.append(offset)
-
 
                             if np.abs(delta[axs]) < minimum_offset_small[axs] and failure_count == 3:  #this means the edge has been found
                                 logger.info(f"Edge of loop {i} has been found.")
