@@ -524,8 +524,6 @@ class RecentringThing(Thing):
             logging.info(f"Moving to new center position {centre}")
             stage.move_absolute(x=centre[0], y=centre[1], z=centre[2])
             autofocus.looping_autofocus()
-            test_image = cam.grab_jpeg()
-            test_image.save(f"{filepath}recentre_pos{i}.jpeg")
 
         logging.info(f"Centre of ROM is at {centre, stage.position['z']} \n")
 
