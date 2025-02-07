@@ -1,0 +1,19 @@
+{
+    "things": {
+        "/camera/": "labthings_picamera2.thing:StreamingPiCamera2",
+        "/stage/": "labthings_sangaboard:SangaboardThing",
+        "/auto_recentre_stage/": "openflexure_microscope_server.things.auto_recentre_stage:RecentringThing",
+        "/autofocus/": "openflexure_microscope_server.things.autofocus:AutofocusThing",
+        "/camera_stage_mapping/": "openflexure_microscope_server.things.camera_stage_mapping:CameraStageMapper",
+        "/system_control/": "openflexure_microscope_server.things.system_control:SystemControlThing",
+        "/settings/": "openflexure_microscope_server.things.settings_manager:SettingsManager",
+        "/smart_scan/": {
+            "class": "openflexure_microscope_server.things.smart_scan:SmartScanThing",
+            "kwargs": {
+                "path_to_openflexure_stitch": "application/openflexure-stitching/.venv/bin/openflexure-stitch"
+            }
+        },
+        "/background_detect/": "openflexure_microscope_server.things.smart_scan:BackgroundDetectThing"
+    },
+    "settings_folder": "/var/openflexure/settings/"
+}

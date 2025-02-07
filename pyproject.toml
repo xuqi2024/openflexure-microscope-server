@@ -15,13 +15,11 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 dependencies = [
-  "labthings-fastapi[server] == 0.0.6",
+  "labthings-fastapi[server] == 0.0.7",
   "labthings-sangaboard",
-  "labthings-picamera2 == 0.0.1-dev1",
-  #"camera-stage-mapping @ git+https://gitlab.com/openflexure/microscope-extensions/camera-stage-mapping.git@31dc6dfffc4f6be3998dbf5671dcc8cc65e4bf44",
-  "camera-stage-mapping ~= 0.1.6",
+  "camera-stage-mapping ~= 0.1.7",
   "opencv-python ~= 4.7.0",
-  "numpy",
+  "numpy < 2.0",
   "matplotlib ~=3.9.2",
   "scipy ~=1.14",
 ]
@@ -29,7 +27,19 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "labthings-fastapi[dev]",
+  "ruff",
+  "mypy[reports]",
+  "mypy-gitlab-code-quality",
+#  "pytest-gitlab-code-quality", # pytest version constraint clashes with labthings
+  "pytest",
 ]
+pi = [
+  "labthings-picamera2 == 0.0.2-dev1",
+]
+
+[project.scripts]
+openflexure-microscope-server = "openflexure_microscope_server.server:serve_from_cli"
+
 
 [project.urls]
 "Homepage" = "https://openflexure.org/"
@@ -51,49 +61,13 @@ build-backend = "setuptools.build_meta"
 # don't believe it's critical at present, because we don't use 
 # the Python package - we distribute a tarball directly.
 
-[tool.black]
-exclude = '(\.eggs|\.git|\.venv|\venv|node_modules/)'
-
-[tool.isort]
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-ensure_newline_before_comments = true
-line_length = 88
-
-[tool.pylint.'MESSAGES CONTROL']
-# W1203 warns about using f strings in logging statements.
-# I'm really not concerned about the performance implications of this,
-# particularly as we often have the log level set quite high.  I think
-# for our current purposes, using f strings in logging statements is
-# more readable and thus a good idea in many places - I've disabled
-# this warning code globally for that reason.
-disable = "fixme,C,R,W1203"
-max-line-length = 88
-
 [tool.mypy]
 plugins = ["pydantic.mypy"]
 
 [tool.ruff]
 target-version = "py39"
 
-[tool.poe.executor]
-type = "virtualenv"
-location = ".venv"
-
-[tool.poe.tasks]
-black = "black ."
-black_check = "black --check ."
-ruff = "ruff . --fix"
-ruff_check = "ruff ."
-isort = "isort openflexure_microscope"
-pylint = "pylint openflexure_microscope"
-mypy = "mypy --cobertura-xml-report openflexure_microscope openflexure_microscope"
-test = "pytest . --junitxml=pytest_report.xml"
-serve = "python -m openflexure_microscope.api.app"
-
-format = ["black", "isort", "ruff"]
-lint = ["ruff_check", "pylint", "mypy"]
-
-check = ["format", "lint", "test"]
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]

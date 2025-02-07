@@ -5,6 +5,7 @@ This module provides some settings management across the other Things, and
 for code that currently lives in clients but needs to persist settings on
 the server.
 """
+
 from collections.abc import Mapping
 from socket import gethostname
 from typing import Annotated, Any, MutableMapping, Optional, Sequence
@@ -13,7 +14,8 @@ from fastapi import Depends, HTTPException, Request
 from labthings_fastapi.dependencies.metadata import GetThingStates
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.decorators import thing_action, thing_property
-from labthings_fastapi.server import find_thing_server, ThingServer
+from labthings_fastapi.dependencies.thing_server import find_thing_server
+from labthings_fastapi.server import ThingServer
 from labthings_fastapi.dependencies.invocation import InvocationLogger
 
 
@@ -28,10 +30,7 @@ def recursive_update(old_dict: MutableMapping, update: Mapping):
     """Update a dictionary recursively"""
     for k, v in update.items():
         if isinstance(v, Mapping):
-            if (
-                k in old_dict 
-                and isinstance(old_dict[k], MutableMapping)
-            ):
+            if k in old_dict and isinstance(old_dict[k], MutableMapping):
                 recursive_update(old_dict[k], v)
             else:
                 old_dict[k] = dict(**v)
@@ -54,11 +53,13 @@ class SettingsManager(Thing):
     def external_metadata(self) -> Mapping:
         """External metadata stored in the server's settings"""
         return self.thing_settings.get("external_metadata", {})
-    
+
     @thing_action
-    def update_external_metadata(self, data: Mapping, key: Optional[str] = None) -> None:
+    def update_external_metadata(
+        self, data: Mapping, key: Optional[str] = None
+    ) -> None:
         """Add or replace keys in the external metadata.
-        
+
         The data supplied will be merged into the existing dictionary
         recursively, i.e. if a key exists, it will be added to rather than
         replaced.
@@ -79,7 +80,7 @@ class SettingsManager(Thing):
     @thing_action
     def delete_external_metadata(self, key: str) -> None:
         """Delete a key from the stored metadata.
-        
+
         The key may contain forward slashes, which are understood to separate
         levels of the dictionary - i.e. `'a/c'` will remove the `c` key from a
         dictionary that looks like: `{'a': {'c': 1}, 'b': {'d': 2}}`
@@ -90,11 +91,10 @@ class SettingsManager(Thing):
             del subdict[key.split("/")[-1]]
         except KeyError:
             raise HTTPException(
-                status_code=404,
-                detail="The specified key '{key}' was not found"
+                status_code=404, detail="The specified key '{key}' was not found"
             )
         self.thing_settings["external_metadata"] = metadata
-    
+
     @thing_property
     def microscope_id(self) -> UUID:
         """A unique identifier for this microscope"""
@@ -116,6 +116,7 @@ class SettingsManager(Thing):
     def external_metadata_in_state(self) -> Sequence[str]:
         """A list of strings that are included in the "state" metadata"""
         return self.thing_settings.get("external_metadata_in_state", [])
+
     @external_metadata_in_state.setter
     def external_metadata_in_state(self, keys: Sequence[str]):
         """Set the keys from external metadata that are returned in state"""
@@ -139,7 +140,9 @@ class SettingsManager(Thing):
         return state
 
     @thing_action
-    def save_all_thing_settings(self, thing_server: ThingServerDep, logger: InvocationLogger) -> None:
+    def save_all_thing_settings(
+        self, thing_server: ThingServerDep, logger: InvocationLogger
+    ) -> None:
         """Ensure all the Things sync their settings to disk.
 
         Normally, each Thing has a `thing_settings` attribute that can be
@@ -160,7 +163,4 @@ class SettingsManager(Thing):
                     f"Could not write {name} settings to disk: permission error."
                 )
             except FileNotFoundError:
-                logger.warning(
-                    f"Could not write {name} settings, folder not found"
-                )
-
+                logger.warning(f"Could not write {name} settings, folder not found")

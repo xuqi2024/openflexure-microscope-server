@@ -3,6 +3,7 @@ OpenFlexure Microscope API test Thing
 
 This Thing is intended only for use testing out the API and client(s).
 """
+
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.decorators import thing_action, thing_property
 from labthings_fastapi.dependencies.invocation import CancelHook, InvocationLogger
