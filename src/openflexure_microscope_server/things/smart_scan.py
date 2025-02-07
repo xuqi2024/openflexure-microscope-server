@@ -492,19 +492,19 @@ class SmartScanThing(Thing):
         loc = [path[0][0], path[0][1]]
         path.remove(path[0])
         logger.debug(f"Moving to {loc}")
-        x_positions = len(set([i[0] for i in focused_path]))
-        y_positions = len(set([i[1] for i in focused_path]))
-        if x_positions >= 3 and y_positions >= 3:
-            z = int(self.fit_next_z(loc, focused_path))
-            # z = z - ((self.stack_test_height-1)/2 +4)*self.stack_dz
-        elif len(focused_path) > 1:
+        # x_positions = len(set([i[0] for i in focused_path]))
+        # y_positions = len(set([i[1] for i in focused_path]))
+        # if x_positions >= 3 and y_positions >= 3:
+        #     z = int(self.fit_next_z(loc, focused_path))
+        #     # z = z - ((self.stack_test_height-1)/2 +4)*self.stack_dz
+        if len(focused_path) > 1:
             z_index = closest(loc, focused_path)
             z = int(
                 focused_path[z_index][2]
             )  # - ((self.stack_test_height-1)/2 +6)*self.stack_dz
         else:
             z = stage.position["z"]  # - ((self.stack_test_height-1)/2 +7)*self.stack_dz
-        stage.move_absolute(x=stage.position["x"], y=stage.position["y"], z=z - 35)
+        stage.move_absolute(x=loc[0], y=loc[1], z=z-50)
 
         x_move = loc[0] - current_pos[0]
         y_move = loc[1] - current_pos[1]
@@ -533,12 +533,12 @@ class SmartScanThing(Thing):
         #     )
 
         # TODO: when do we just want to use this? Definitely if the current FOV was background
-        for i in range(closed_loop_split):
-            csm.move_in_image_coordinates(
-                stage=stage,
-                x=-pixel_move[0] * (1 - closed_loop_ratio),
-                y=-pixel_move[1] * (1 - closed_loop_ratio),
-            )
+        # for i in range(closed_loop_split):
+        #     csm.move_in_image_coordinates(
+        #         stage=stage,
+        #         x=-pixel_move[0] * (1 - closed_loop_ratio),
+        #         y=-pixel_move[1] * (1 - closed_loop_ratio),
+        #     )
 
         return loc + [z]
 
@@ -700,14 +700,10 @@ class SmartScanThing(Thing):
             steps_per_pixel_x = CSM[0][1]
             steps_per_pixel_y = CSM[1][0]
 
-            dx = int(steps_per_pixel_x * arr.shape[1] * -(1 + overlap * 1.5))
-            dy = int(steps_per_pixel_y * arr.shape[0] * -(1 + overlap * 1.5))
+            dx = int(steps_per_pixel_x * arr.shape[1] * -1.6)
+            dy = int(steps_per_pixel_y * arr.shape[0] * -1.6)
 
-            logger.info(arr.shape)
-            # logger.info(cam.)
-
-            # dx = int(np.abs(np.dot(np.array([0, arr.shape[1] * (1 - overlap)]), CSM)[0]))
-            # dy = int(np.abs(np.dot(np.array([arr.shape[0] * (1 - overlap), 0]), CSM)[1]))
+            logger.info(f'{dx}, {dy}')
 
             logger.info(f"Running a scan with an overlap between images of {overlap}")
             logger.debug(f"Overlap of {overlap}, movements of {dx}, {dy}")
@@ -1005,7 +1001,7 @@ class SmartScanThing(Thing):
     @thing_property
     def overlap(self) -> float:
         """The z distance to perform an autofocus"""
-        return self.thing_settings.get("overlap", 0.65)
+        return self.thing_settings.get("overlap", 0.6)
 
     @overlap.setter
     def overlap(self, value: float) -> None:
@@ -1572,6 +1568,8 @@ class SmartScanThing(Thing):
 
             focused_path.append([current_pos[0], current_pos[1], focused_height])
 
+        current_pos[1] += y_dist
+        # stage.move_absolute(x = current_pos[0], y = current_pos[1])
         return focused_path, current_pos
 
     @thing_action
@@ -1615,7 +1613,7 @@ class SmartScanThing(Thing):
                 logger.error(f"An error occurred while capturing: {e}", exc_info=e)
                 return 0, 0
 
-        def save_capture(name, raw_name, raw_image, metadata, current_pos):
+        def save_capture(name, raw_name, raw_image, img, metadata, current_pos):
             try:
                 # Save the raw image
                 (
@@ -1623,12 +1621,12 @@ class SmartScanThing(Thing):
                         os.path.join(images_folder, raw_name + ".raw")
                     ),
                 )
-                png = cam.raw_to_png(raw=raw_image, use_cache=True)
+                # png = cam.raw_to_png(raw=raw_image, use_cache=True)
                 # png.save(os.path.join(images_folder, name + ".png"))
                 # TODO: save metadata to PNG and eliminate the JPG.
-                img = Image.open(png.open())
+                # img = Image.open(png.open())
                 jpeg_path = os.path.join(images_folder, name + ".jpeg")
-                img.save(jpeg_path, quality=100, subsampling=0)
+                PIL_image = Image.fromarray(img.astype('uint8'), 'RGB').save(jpeg_path, quality=100, subsampling=0)
                 try:
                     exif_dict = piexif.load(jpeg_path)
                     exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
@@ -1640,16 +1638,8 @@ class SmartScanThing(Thing):
             except Exception as e:
                 logger.error(f"An error occurred while saving {name}: {e}", exc_info=e)
 
-        x_positions = len(set([i[0] for i in focused_path]))
-        y_positions = len(set([i[1] for i in focused_path]))
-        if x_positions < 3 or y_positions < 3:
-            logger.debug("We're just starting, so doing a full autofocus")
-            undershoot_z = -((self.stack_test_height - 1) / 2 + 6) * self.stack_dz - 300
-        else:
-            logger.debug("We've got a good idea where we should be skipping autofocus")
-            undershoot_z = -((self.stack_test_height - 1) / 2 + 4) * self.stack_dz - 300
-        stage.move_relative(z=undershoot_z)
-        stage.move_relative(z=260)
+        stage.move_relative(z = - 200 - ((self.stack_test_height-1)/2 +4)*self.stack_dz)
+        stage.move_relative(z=150)
         captures = 0
         capture_list = []
         metadata_list = []
@@ -1669,7 +1659,7 @@ class SmartScanThing(Thing):
             stage.move_relative(x=0, y=0, z=stack_dz)
             time.sleep(0.3)
             # processed_images.append(process_raw_image(rggb2rgb(raw2rggb(img_array))))
-            processed_images.append(0)
+            processed_images.append(cam.capture_array()[...,:3])
             # _, frame = cv2.imencode('.JPEG', processed_images[-1])
             # sharpnesses.append(len(frame))
             sharpnesses.append(cam.grab_jpeg_size(stream_name="lores"))
@@ -1692,16 +1682,16 @@ class SmartScanThing(Thing):
                         f"Could't find focus. Gone too far. Peak was image {np.argmax(sharpnesses)}. List is {sharpnesses}"
                     )
                     stage.move_relative(
-                        x=0, y=0, z=-(500 + max_stack_height * stack_dz)
+                        x=0, y=0, z=-(self.autofocus_dz + 200)
                     )
-                    # stage.move_relative(x = 0, y = 0, z = 200)
+                    stage.move_relative(x = 0, y = 0, z = 200)
                     m = autofocus.move_and_measure(
-                        dz=[0, 500 + max_stack_height * stack_dz]
+                        dz=[0, self.autofocus_dz]
                     )
                     stage.move_relative(
-                        x=0, y=0, z=-(500 + max_stack_height * stack_dz)
+                        x=0, y=0, z=-(self.autofocus_dz + 200)
                     )
-                    stage.move_relative(x=0, y=0, z=100)
+                    stage.move_relative(x=0, y=0, z=200)
 
                     _, heights, sizes = self.move_data(
                         len(m.stage_positions) - 2, data=m
@@ -1723,16 +1713,16 @@ class SmartScanThing(Thing):
                     logger.debug(
                         f"Could't find focus. Took {len(sharpnesses)} images and the best one was at {np.argmax(sharpnesses)}. List is {sharpnesses}"
                     )
-                    stage.move_absolute(z=capture_heights[np.argmax(sharpnesses)])
                     stage.move_relative(
-                        x=0, y=0, z=-(500 + max_stack_height * stack_dz)
+                        # x=0, y=0, z=-(500 + max_stack_height * stack_dz)
+                        x=0, y=0, z=-(self.autofocus_dz)
                     )
                     # stage.move_relative(x = 0, y = 0, z = 200)
                     m = autofocus.move_and_measure(
-                        dz=[0, 500 + max_stack_height * stack_dz]
+                        dz=[0, self.autofocus_dz] #TODO this needs a minimum size
                     )
                     stage.move_relative(
-                        x=0, y=0, z=-(500 + max_stack_height * stack_dz)
+                        x=0, y=0, z=-(self.autofocus_dz)
                     )
                     stage.move_relative(x=0, y=0, z=100)
 
@@ -1785,6 +1775,7 @@ class SmartScanThing(Thing):
                 focused_image_name,
                 focused_raw_name,
                 capture_list[sharpest_index],
+                processed_images[sharpest_index],
                 metadata_list[sharpest_index],
                 current_pos,
             )
@@ -1793,6 +1784,7 @@ class SmartScanThing(Thing):
                     os.path.join(current_site_folder, f"{i}"),
                     os.path.join("raw", current_site_folder, f"{stage.position['z']}"),
                     capture_list[i],
+                    processed_images[i],
                     metadata_list[i],
                     current_pos,
                 )
