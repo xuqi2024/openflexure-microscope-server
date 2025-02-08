@@ -174,8 +174,9 @@ class RangeofMotionThing(Thing):
 
                     logger.info(f"Medium sized steps to find Z calibration for loop {i}")
 
+                    stage_coords.append(stage.position)
+
                     for loop in range(4):
-                        stage_coords.append(stage.position)
                         logger.info(f"Current position is {stage.position}")
                         image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                         image1=image1.tolist()
@@ -189,6 +190,7 @@ class RangeofMotionThing(Thing):
                         logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_z[axs]}")
                         focused_positions.append(stage.position)  #focused_positions is used for z calibration
                         cor_lat_steps.append(offset)
+                        stage_coords.append(stage.position)
                         if np.abs(delta[wrong_axis]) > wrong_axis_max_z[wrong_axis]:
                             logger.info(f"Parasitic motion in the wrong axis detected. Displacement in {wrong_axis} was found as {delta[wrong_axis]}.")
                             axis_error = True
@@ -229,10 +231,10 @@ class RangeofMotionThing(Thing):
                         #Big movement
                         logger.info(f"Current position is {stage.position}")
                         logger.info(f"Large sized step for loop {i}")
-                        stage_coords.append(stage.position)
                         csm.move_in_image_coordinates(x = this_big_step_size['x'], y = this_big_step_size['y'])
                         autofocus.looping_autofocus(dz = 1000)
                         logger.info(f"Current position is {stage.position}")
+                        stage_coords.append(stage.position)
 
                         lateral_positions = [i[axs] for i in focused_positions]
                         z_positions = [i['z'] for i in focused_positions]
@@ -243,7 +245,6 @@ class RangeofMotionThing(Thing):
                         logger.info(f"3 small sized steps for loop {i}")
                         failure_count = 0
                         for loop in range(3):
-                            stage_coords.append(stage.position)
                             focused_positions.append(stage.position)
                             image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                             image1=image1.tolist()
@@ -259,6 +260,7 @@ class RangeofMotionThing(Thing):
                             logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_small[axs]}")
                             logger.info(f"Current position is {stage.position}")
                             cor_lat_steps.append(offset)
+                            
                             if np.abs(delta[wrong_axis]) > wrong_axis_max_small[wrong_axis]:
                                 logger.info(f"Parasitic motion in the wrong axis detected. Displacement in {wrong_axis} was found as {delta[wrong_axis]}.")
                                 axis_error = True
@@ -276,13 +278,14 @@ class RangeofMotionThing(Thing):
                                 delta['y'] = int(offset[0])
                                 logger.info(f"Displacement found was {np.abs(delta[axs])}. Minimum offset is {minimum_offset_small[axs]}")
 
+                            stage_coords.append(stage.position)
+
                             if np.abs(delta[axs]) < minimum_offset_small[axs] and failure_count == 3:  #this means the edge has been found
                                 logger.info(f"Edge of loop {i} has been found.")
                                 test_image1.save(f"{filepath}loop{i}_image1.jpeg")
                                 test_image2.save(f"{filepath}loop{i}_image2.jpeg")
                                 break
                     
-                        stage_coords.append(stage.position)
                         focused_positions.append(stage.position)
 
                     #Now we move the stage until we detect movement and take that position as final. This is to account for the extra motion carried out by the big step.
@@ -315,7 +318,8 @@ class RangeofMotionThing(Thing):
                             logger.info("Motion detected.")
                             break
 
-                    stage_coords.append(stage.position)
+                    stage_coords[np.shape(stage_coords)[0] - 1] = stage.position
+                    #stage_coords.append(stage.position)
 
                     final_pos = stage.position
                     
