@@ -349,6 +349,11 @@ class RangeofMotionThing(Thing):
             
             self.thing_settings["rom_data"] = DenumpifyingDict(results).model_dump()
 
+            with open('/var/openflexure/settings/camera_stage_mapping/settings.json') as f:
+                csm_settings = json.load(f)
+
+            results['pixels/step'] = csm_settings['last_calibration']['linear_calibration_x']['pixels_per_step']
+
             with open("/var/openflexure/ROM_Test_Results.json", 'w') as file_object:
                 json.dump(results, file_object, indent = 3)
 
