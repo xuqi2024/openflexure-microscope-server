@@ -468,6 +468,7 @@ class SmartScanThing(Thing):
         csm: CSMDep,
         cam: CamDep,
         current_pos: list[int],
+        background_detect: BackgroundDep,
     ) -> list[int]:
         """Remove the first point from the path, and move there.
 
@@ -486,80 +487,54 @@ class SmartScanThing(Thing):
         #     # z = z - ((self.stack_test_height-1)/2 +4)*self.stack_dz
         if len(focused_path) > 1:
             z_index = closest(loc, focused_path)
-            z = int(
-                focused_path[z_index][2]
-            )  # - ((self.stack_test_height-1)/2 +6)*self.stack_dz
+            nearest_difference = distance_to_site(focused_path[z_index], loc)
+            neighbours = [i for i in focused_path if distance_to_site(i, loc) < 1.6 * nearest_difference]
+            z_neighbours = [i[2] for i in neighbours]
+            z = np.min(z_neighbours)
         else:
             z = stage.position["z"]  # - ((self.stack_test_height-1)/2 +7)*self.stack_dz
-        stage.move_absolute(x=loc[0], y=loc[1], z=z)
 
-        # x_move = loc[0] - current_pos[0]
-        # y_move = loc[1] - current_pos[1]
+        x_move = loc[0] - current_pos[0]
+        y_move = loc[1] - current_pos[1]
 
-        # CSM = np.array(csm.image_to_stage_displacement_matrix)
+        CSM = np.array(csm.image_to_stage_displacement_matrix)
 
-        # pixel_move = np.dot(
-        #     np.array([y_move, x_move]),
-        #     np.linalg.inv(CSM),
-        # )
+        pixel_move = np.dot(
+            np.array([y_move, x_move]),
+            np.linalg.inv(CSM),
+        )
 
-        # if abs(pixel_move[0]) > cam.stream_resolution[1] or abs(pixel_move[1]) > cam.stream_resolution[0]:
-        #     logger.info('open loop move')
-        #     # # TODO: when do we just want to use this? Definitely if the current FOV was background
-        #     csm.move_in_image_coordinates(
-        #         stage=stage,
-        #         x=-pixel_move[0],
-        #         y=-pixel_move[1]
-        #         )
-        # else:
-        #     if abs(pixel_move[0]) > abs(pixel_move[1]):
-        #         pixel_move[1] = 0
-        #     else:
-        #         pixel_move[0] = 0
+        logger.info(pixel_move)
+        if np.all(np.abs(pixel_move) < 1):
+            pass
+        # elif abs(pixel_move[0]) > .8*cam.stream_resolution[0] or abs(pixel_move[1]) > .8*cam.stream_resolution[1] or not background_detect.image_is_sample():
+        if background_detect.image_is_sample():
+            logger.info('open loop move')
+        # # TODO: when do we just want to use this? Definitely if the current FOV was background
+            csm.certify_move_in_image_coordinates(
+                stage = stage,
+                cam = cam,
+                logger = logger,
+                x = 0.2*pixel_move[0]*(np.abs(CSM[0,1])/CSM[0,1]),
+                y = 0.2*pixel_move[1]*(np.abs(CSM[1,0])/CSM[1,0]),
+                threshold = 15
+            )
+            logger.info('closed move complete')
+            csm.move_in_image_coordinates(
+                stage=stage,
+                x=-pixel_move[0]*0.8,
+                y=-pixel_move[1]*0.8
+                )
+            logger.info('move complete')
+        else:
+            csm.move_in_image_coordinates(
+                stage=stage,
+                x=-pixel_move[0],
+                y=-pixel_move[1]
+                )
 
-        #     logger.info(f"{x_move} {y_move} {pixel_move}")
+        stage.move_absolute(x=stage.position['x'], y=stage.position['y'], z=z)
 
-        #     closed_loop_split = 1
-        #     closed_loop_ratio = 1 / closed_loop_split
-
-        #     for i in range(closed_loop_split):
-        #         csm.certify_move_in_image_coordinates(
-        #             stage = stage,
-        #             cam = cam,
-        #             logger = logger,
-        #             x = -1*pixel_move[0]*closed_loop_ratio*(np.abs(CSM[0,1])/CSM[0,1]),
-        #             y = -1*pixel_move[1]*closed_loop_ratio*(np.abs(CSM[1,0])/CSM[1,0]),
-        #             threshold = 10
-        # #         )
-        # def sign(x):
-        #     return bool(x > 0) - bool(x < 0)
-
-        # if abs(pixel_move[0]) > abs(pixel_move[1]):
-        #     pixel_move[1] = 0
-        # else:
-        #     pixel_move[0] = 0
-
-        # logger.info(pixel_move)
-        # logger.info(sign(-1*pixel_move[0]*0.1*(np.abs(CSM[0,1])/CSM[0,1]))*100)
-        # logger.info(sign(-1*pixel_move[1]*0.1*(np.abs(CSM[1,0])/CSM[1,0]))*100)
-
-        # logger.info(-pixel_move[0]-sign(-1*pixel_move[0]*0.1*(np.abs(CSM[0,1])/CSM[0,1]))*100)
-        # logger.info(-pixel_move[1]-sign(-1*pixel_move[1]*0.1*(np.abs(CSM[1,0])/CSM[1,0]))*100)
-
-        # csm.certify_move_in_image_coordinates(
-        #     stage = stage,
-        #     cam = cam,
-        #     logger = logger,
-        #     x = sign(-1*pixel_move[0]*0.1*(np.abs(CSM[0,1])/CSM[0,1]))*100,
-        #     y = sign(-1*pixel_move[1]*0.1*(np.abs(CSM[1,0])/CSM[1,0]))*100,
-        #     threshold = 10
-        # )
-
-        # csm.move_in_image_coordinates(
-        #     stage=stage,
-        #     x=-pixel_move[0], #-sign(-1*pixel_move[0]*0.1*(np.abs(CSM[0,1])/CSM[0,1]))*100,
-        #     y=-pixel_move[1] #-sign(-1*pixel_move[1]*0.1*(np.abs(CSM[1,0])/CSM[1,0]))*100
-        #     )
 
         return loc + [stage.position['z']]
 
@@ -803,6 +778,7 @@ class SmartScanThing(Thing):
                     csm=csm,
                     cam=cam,
                     current_pos=current_pos,
+                    background_detect=background_detect
                 )
 
                 # true_path.append([loc[0], loc[1], stage.position["z"]])
@@ -830,17 +806,11 @@ class SmartScanThing(Thing):
                     capture_image = True
                     # if not, it's sample. run an autofocus and use the updated height
                     new_pos = [
-                        [stage.position["x"] - dx, stage.position["y"]],
-                        [stage.position["x"] + dx, stage.position["y"]],
-                        [stage.position["x"], stage.position["y"] - dy],
-                        [stage.position["x"], stage.position["y"] + dy],
+                        [current_pos[0] - dx, current_pos[1]],
+                        [current_pos[0] + dx, current_pos[1]],
+                        [current_pos[0], current_pos[1] - dy],
+                        [current_pos[0], current_pos[1] + dy],
                     ]
-                    # new_pos = [
-                    #     [current_pos[0] - dx, current_pos[1]],
-                    #     [current_pos[0] + dx, current_pos[1]],
-                    #     [current_pos[0], current_pos[1] - dy],
-                    #     [current_pos[0], current_pos[1] + dy],
-                    # ]
                     for pos in new_pos:
                         if (
                             pos not in [sublist[:2] for sublist in true_path]
@@ -903,8 +873,8 @@ class SmartScanThing(Thing):
                         current_pos=current_pos,
                     )
 
-                    loc = list(stage.position.values())
                     loc[2] = focused_height
+                    stage.move_absolute(x = stage.position['x'],y = stage.position['y'],z = loc[2])
                     focused_path.append(loc)
 
                     if capture_thread:  # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
@@ -917,52 +887,6 @@ class SmartScanThing(Thing):
                             )
                     capture_thread = new_save_thread
                     capture_thread.start()
-
-                    
-                    # if not os.path.isdir(os.path.join(images_folder, 'stacked')):
-                    #     os.makedirs(os.path.join(images_folder, 'stacked'))
-                    # output = os.path.join('/var','openflexure',images_folder, 'stacked', f'{current_pos[0]}_{current_pos[1]}.jpeg')
-
-                    # output = f"--output={output}"
-
-                    # logger.info(output)
-                    # time.sleep(4)
-                    # image_list = glob.glob(os.path.join('/var','openflexure',images_folder, "stacks", f"{current_pos[0]}_{current_pos[1]}", "*.jpeg"))
-
-                    # cmd = (
-                    #     [
-                    #         "focus-stack",
-                    #         output,
-                    #         "--jpgquality=100",
-                    #         image_list[0],
-                    #         image_list[1],
-                    #         image_list[2],
-                    #         image_list[3],
-                    #         image_list[4],
-                    #         image_list[5],
-                    #         image_list[6]
-                    #     ]
-                    # )
-
-                    # logger.info(cmd)
-
-                    # p = Popen(cmd, stdout=PIPE, stderr=STDOUT, bufsize=1, universal_newlines=True)
-                    # os.set_blocking(p.stdout.fileno(), False)
-                    # while p.poll() is None:
-                    #     try:
-                    #         output = p.stdout.readline()
-                    #         if output != "" and output is not None:
-                    #             logger.info(output)
-                    #     except:
-                    #         pass
-
-                    # for line in p.stdout:
-                    #     try:
-                    #         output = p.stdout.readline()
-                    #         if output != "" and output is not None:
-                    #             logger.info(output)
-                    #     except:
-                    #         pass
 
                     logger.info(f"Captured image number {len(focused_path)}")
 
@@ -1246,6 +1170,40 @@ class SmartScanThing(Thing):
             raise HTTPException(404, "File not found")
         return FileResponse(path)
 
+    def stack_start(self, logger, images_folder, current_pos) -> None:
+        """Combine a z-stack into a single focused image"""
+        if not os.path.isdir(os.path.join(images_folder, 'stacked')):
+            os.makedirs(os.path.join(images_folder, 'stacked'))
+        
+        output_path = os.path.join('/var','openflexure',images_folder, 'stacked', f'{current_pos[0]}_{current_pos[1]}.jpeg')
+
+        output = f"--output={output_path}"
+
+        image_list = glob.glob(os.path.join('/var','openflexure',images_folder, "stacks", f"{current_pos[0]}_{current_pos[1]}", "*.jpeg"))
+        image_list.sort(key=lambda x: os.path.getmtime(x), reverse=False)
+
+        cmd = [
+                "focus-stack",
+                output,
+                "--jpgquality=100",
+            ]
+
+        cmd += image_list
+
+        logger.info(cmd)
+
+        self._stacking = Popen(
+            cmd
+        )
+
+        while not os.path.isfile(output_path):
+            time.sleep(0.1)
+        
+        time.sleep(1)
+
+        exif_dict = piexif.load(image_list[int((len(image_list)-1)/2)])
+        piexif.insert(piexif.dump(exif_dict), output_path)
+
     _preview_stitch_popen = None
 
     def preview_stitch_start(self, logger, scan_name: str, overlap, loc) -> None:
@@ -1280,7 +1238,9 @@ class SmartScanThing(Thing):
                     "--resize",
                     "1",
                     "--max_stage_discrepancy",
-                    "130",
+                    "200",
+                    "--min_peak_quality",
+                    "0.9995",
                     os.path.join(images_folder, 'images', "use"),
                 ]
             )
@@ -1397,7 +1357,9 @@ class SmartScanThing(Thing):
                 "--resize",
                 "1",
                 "--max_stage_discrepancy",
-                "130",
+                "200",
+                "--min_peak_quality",
+                "0.9995",
                 os.path.join(images_folder, "images", "use"),
             ],
         )
@@ -1529,8 +1491,12 @@ class SmartScanThing(Thing):
             try:
                 metadata = metadata_getter()
                 # metadata["/stage/"]["true_stage_position"] = dict(stage.position)
-                # metadata["/stage/"]["position"]["x"] = current_pos[0]
-                # metadata["/stage/"]["position"]["y"] = current_pos[1]
+                metadata["/stage/"]["position"]["x"] = current_pos[0]
+                metadata["/stage/"]["position"]["y"] = current_pos[1]
+                # This is a really ugly hack and I don't understand it - moving in closed loop needs the CSM inversing for stitching?
+                metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][0][1] = metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][0][1]*-1
+                metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][1][0] = metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][1][0]*-1
+                # metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'] = list(csm_matrix*-1)
                 # metadata["/stage/"]["position"]["z"] = stage.position["z"]
                 # raw_image = cam.capture_raw(
                 #     get_states=False, get_processing_inputs=False
@@ -1555,14 +1521,15 @@ class SmartScanThing(Thing):
                 # img = Image.open(png.open())
                 jpeg_path = os.path.join(images_folder, name + ".jpeg")
                 PIL_image = Image.fromarray(img.astype('uint8'), 'RGB').save(jpeg_path, quality=100, subsampling=0)
-                try:
-                    exif_dict = piexif.load(jpeg_path)
-                    exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
-                        metadata
-                    ).encode("utf-8")
-                    piexif.insert(piexif.dump(exif_dict), jpeg_path)
-                except:
-                    pass
+                # try:
+                exif_dict = piexif.load(jpeg_path)
+                exif_dict['0th'][piexif.ImageIFD.DateTime] = time.strftime('%Y:%m:%d %H:%M:%S')
+                exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
+                    metadata
+                ).encode("utf-8")
+                piexif.insert(piexif.dump(exif_dict), jpeg_path)
+                # except:
+                #     pass
             except Exception as e:
                 logger.error(f"An error occurred while saving {name}: {e}", exc_info=e)
 
@@ -1703,7 +1670,7 @@ class SmartScanThing(Thing):
         # if not os.path.isdir(os.path.join(images_folder, "use", "raw")):
         #     os.makedirs(os.path.join(images_folder, "use", "raw"))
         focused_image_name = os.path.join(
-            "use", f"{stage.position['x']}_{stage.position['y']}"
+            "use", f"{current_pos[0]}_{current_pos[1]}"
         )
         focused_raw_name = os.path.join(
             "raw", f"{stage.position['x']}_{stage.position['y']}"
