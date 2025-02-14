@@ -353,7 +353,7 @@ class CameraStageMapper(Thing):
         logger: InvocationLogger,
         x: float,
         y: float,
-        threshold: int = 5,
+        threshold: int = 15,
     ):
         """Move by a given number of pixels on the camera and verify using cross correlation
 
@@ -386,8 +386,8 @@ class CameraStageMapper(Thing):
             )
 
         resize = 0.5
-        undershoot = 0.8
-        image_0 = Image.open(cam.grab_jpeg().open())
+        undershoot = 0.95
+        image_0 = Image.fromarray(cam.capture_array()[...,:3].astype('uint8'), 'RGB')
 
         starting_pos = stage.position
 
@@ -395,7 +395,7 @@ class CameraStageMapper(Thing):
         x_move = x
         attempts = 0
         while attempts < 5 and [x_move, y_move] != [0, 0]:
-            logger.debug(f"Trying to move by {x_move} {y_move}")
+            logger.info(f"Trying to move by {x_move} {y_move}")
             relative_move: np.ndarray = np.dot(
                 np.array([y_move, x_move]),
                 np.array(self.image_to_stage_displacement_matrix),
@@ -405,7 +405,7 @@ class CameraStageMapper(Thing):
                 x=int(relative_move[0] * undershoot),
                 y=int(relative_move[1] * undershoot),
             )
-            image_1 = Image.open(cam.grab_jpeg().open())
+            image_1 = Image.fromarray(cam.capture_array()[...,:3].astype('uint8'), 'RGB')
 
             offset = [
                 int(i / resize)
@@ -414,18 +414,18 @@ class CameraStageMapper(Thing):
                 )
             ][::-1]
 
-            logger.debug(f"Measured offset is {offset}")
+            logger.info(f"Measured offset is {offset}")
 
             if np.all(np.abs(np.subtract(offset, [x, y])) < threshold):
                 # logger.info('Good move')
                 break
             # TODO: safe divide to avoid div/0
             elif (
-                np.any(np.abs(offset / np.array([x, y])) < 0.02)
-                or np.any(offset > np.max(np.array([[x, 30], [y, 30]])) * 1.3)
+                # np.any(np.abs(offset / np.array([x, y])) < 0.02)
+                np.any(offset > np.max(np.array([[x, 30], [y, 30]])) * 1.3)
                 or np.any(np.subtract(np.abs(offset), np.abs(np.array([x, y]))) > 20)
             ):
-                logger.debug("Correlation didn't look good, retrying")
+                logger.info("Correlation didn't look good, retrying")
                 stage.move_relative(
                     x=int(-relative_move[0] * undershoot),
                     y=int(-relative_move[1] * undershoot),
@@ -439,8 +439,8 @@ class CameraStageMapper(Thing):
                         np.array(self.image_to_stage_displacement_matrix),
                     )
                     stage.move_relative(
-                        x=int(relative_move[0] + math.copysign(40, relative_move[0])),
-                        y=int(relative_move[1] + math.copysign(40, relative_move[1])),
+                        x=int(relative_move[0] + math.copysign(0, relative_move[0])),
+                        y=int(relative_move[1] + math.copysign(0, relative_move[1])),
                     )
                     break
                 undershoot *= 0.95
@@ -462,6 +462,7 @@ class CameraStageMapper(Thing):
                 if attempts >= 5:
                     logger.warning("Closed loop move didn't look successful")
                     break
+                    #TODO: could return how far it has moved to update the next move?
 
     @thing_action
     def split_certified_move_in_image_coordinates(
@@ -493,31 +494,34 @@ class CameraStageMapper(Thing):
 
         stream_resolution = cam.stream_resolution
 
-        # TODO limit move to one FOV
-        x_count = np.abs(np.floor(x / (0.5 * stream_resolution[0])))
-        x_remainder = x % x_count
+        x_step_size = 0.7 * stream_resolution[0]
+        y_step_size = 0.7 * stream_resolution[1]
 
-        y_count = np.abs(np.floor(y / (0.5 * stream_resolution[1])))
-        y_remainder = y % y_count
+        # TODO limit move to one FOV
+        x_count = np.copysign(np.floor(np.abs(x / x_step_size)), x)
+        x_remainder = x - (x_count*x_step_size)
+
+        y_count = np.copysign(np.floor(np.abs(y / y_step_size)), y)
+        y_remainder = y - (y_count*y_step_size)
 
         logger.info(
             f"We're wanting to move {x}, {y}. Splitting it into moving by half the FOV {x_count}, {y_count} times, then an extra {x_remainder}, {y_remainder}"
         )
-        for i in range(int(x_count)):
+        for i in range(int(abs(x_count))):
             self.certify_move_in_image_coordinates(
-                stage, cam, 0.5 * stream_resolution[0], 0
+                stage, cam, logger, math.copysign(x_step_size, x), 0
             )
             if i % 3 == 2:
                 autofocus.looping_autofocus()
-        for i in range(int(y_count)):
+        for i in range(int(abs(y_count))):
             self.certify_move_in_image_coordinates(
-                stage, cam, 0, 0.5 * stream_resolution[1]
+                stage, cam, logger, 0, math.copysign(y_step_size, y)
             )
             if i % 3 == 2:
                 autofocus.looping_autofocus()
 
-        self.certify_move_in_image_coordinates(stage, cam, x_remainder, 0)
-        self.certify_move_in_image_coordinates(stage, cam, 0, y_remainder)
+        self.certify_move_in_image_coordinates(stage, cam, logger,  x_remainder, 0)
+        self.certify_move_in_image_coordinates(stage, cam, logger, 0,  y_remainder)
 
     @thing_property
     def thing_state(self) -> dict[str, Any]:
