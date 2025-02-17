@@ -508,29 +508,37 @@ class SmartScanThing(Thing):
         if np.all(np.abs(pixel_move) < 1):
             pass
         # elif abs(pixel_move[0]) > .8*cam.stream_resolution[0] or abs(pixel_move[1]) > .8*cam.stream_resolution[1] or not background_detect.image_is_sample():
-        if background_detect.image_is_sample():
+        elif background_detect.image_is_sample():
             logger.info('open loop move')
         # # TODO: when do we just want to use this? Definitely if the current FOV was background
-            csm.certify_move_in_image_coordinates(
+            closed_loop_move = [
+                pixel_move[0], #*(np.abs(CSM[1,0])/CSM[1,0]),
+                pixel_move[1] #*(np.abs(CSM[0,1])/CSM[0,1]),
+            ]
+            closed_loop_move = [
+                math.copysign(200,i) if np.abs(i) > 200 else 0 for i in closed_loop_move
+            ]
+            logger.info(closed_loop_move)
+            [x_offset, y_offset] = csm.certify_move_in_image_coordinates(
                 stage = stage,
                 cam = cam,
                 logger = logger,
-                x = 0.2*pixel_move[0]*(np.abs(CSM[0,1])/CSM[0,1]),
-                y = 0.2*pixel_move[1]*(np.abs(CSM[1,0])/CSM[1,0]),
-                threshold = 15
+                x = closed_loop_move[0],
+                y = closed_loop_move[1],
+                threshold = 25
             )
             logger.info('closed move complete')
             csm.move_in_image_coordinates(
                 stage=stage,
-                x=-pixel_move[0]*0.8,
-                y=-pixel_move[1]*0.8
+                x=(pixel_move[0]-x_offset),
+                y=(pixel_move[1]-y_offset)
                 )
-            logger.info('move complete')
+            logger.info(f'{pixel_move[0]-closed_loop_move[0]}')
         else:
             csm.move_in_image_coordinates(
                 stage=stage,
-                x=-pixel_move[0],
-                y=-pixel_move[1]
+                x=pixel_move[0],
+                y=pixel_move[1]
                 )
 
         stage.move_absolute(x=stage.position['x'], y=stage.position['y'], z=z)
@@ -1494,8 +1502,8 @@ class SmartScanThing(Thing):
                 metadata["/stage/"]["position"]["x"] = current_pos[0]
                 metadata["/stage/"]["position"]["y"] = current_pos[1]
                 # This is a really ugly hack and I don't understand it - moving in closed loop needs the CSM inversing for stitching?
-                metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][0][1] = metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][0][1]*-1
-                metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][1][0] = metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][1][0]*-1
+                metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][0][1] = metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][0][1]
+                metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][1][0] = metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][1][0]
                 # metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'] = list(csm_matrix*-1)
                 # metadata["/stage/"]["position"]["z"] = stage.position["z"]
                 # raw_image = cam.capture_raw(
