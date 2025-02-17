@@ -386,7 +386,7 @@ class CameraStageMapper(Thing):
             )
 
         resize = 0.5
-        undershoot = 0.95
+        undershoot = 0.9
         image_0 = Image.fromarray(cam.capture_array()[...,:3].astype('uint8'), 'RGB')
 
         starting_pos = stage.position
@@ -394,7 +394,7 @@ class CameraStageMapper(Thing):
         y_move = y
         x_move = x
         attempts = 0
-        while attempts < 5 and [x_move, y_move] != [0, 0]:
+        while [x_move, y_move] != [0, 0]:
             logger.info(f"Trying to move by {x_move} {y_move}")
             relative_move: np.ndarray = np.dot(
                 np.array([y_move, x_move]),
@@ -417,8 +417,8 @@ class CameraStageMapper(Thing):
             logger.info(f"Measured offset is {offset}")
 
             if np.all(np.abs(np.subtract(offset, [x, y])) < threshold):
-                # logger.info('Good move')
-                break
+                logger.info('Good move')
+                return offset
             # TODO: safe divide to avoid div/0
             elif (
                 # np.any(np.abs(offset / np.array([x, y])) < 0.02)
@@ -442,7 +442,7 @@ class CameraStageMapper(Thing):
                         x=int(relative_move[0] + math.copysign(0, relative_move[0])),
                         y=int(relative_move[1] + math.copysign(0, relative_move[1])),
                     )
-                    break
+                    return [x_move, y_move]
                 undershoot *= 0.95
             else:
                 x_move = x - offset[0]
@@ -461,7 +461,7 @@ class CameraStageMapper(Thing):
                 undershoot *= 0.95
                 if attempts >= 5:
                     logger.warning("Closed loop move didn't look successful")
-                    break
+                    return [x_move, y_move]
                     #TODO: could return how far it has moved to update the next move?
 
     @thing_action
