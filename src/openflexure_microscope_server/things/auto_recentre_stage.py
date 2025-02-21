@@ -3,6 +3,7 @@ import logging
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
+from labthings_fastapi.dependencies.invocation import InvocationLogger
 from labthings_fastapi.decorators import thing_action
 from .stage import StageDependency as StageDep
 from openflexure_microscope_server.things.autofocus import AutofocusThing
@@ -18,6 +19,7 @@ class RecentringThing(Thing):
         self,
         autofocus: AutofocusDep,
         stage: StageDep,
+        logger: InvocationLogger,
         max_steps=15,
         lateral_distance=5000,
     ):
@@ -85,16 +87,14 @@ class RecentringThing(Thing):
                 position = list(stage.position.values())
                 focused_pos[direction].append(position)
 
-                logging.info(focused_pos)
-
                 steps += 1
                 if steps > max_steps:
-                    logging.warning(
+                    logger.warning(
                         "Couldn't find a suitable position. Roughly centre the stage and check your sample is suitable for autofocus"
                     )
                     break
 
-                if len(focused_pos[direction]) > 4:
+                if len(focused_pos[direction]) >= 4:
                     all_heights = [x[2] for x in focused_pos[direction]]
                     direction_index = [x[direction] for x in focused_pos[direction]]
 
@@ -110,13 +110,14 @@ class RecentringThing(Thing):
 
                     turning_loc = -turning[0] / (turning[1])
 
-                    logging.warning(sorted_all_heights)
+                    test_sorted_all_heights = [i * np.sign(quad_fit[0]) for i in sorted_all_heights]
+
                     if (
-                        np.argmax(sorted_all_heights) != 0
-                        and np.argmax(sorted_all_heights) != len(all_heights) - 1
+                        np.argmin(test_sorted_all_heights) != 0
+                        and np.argmin(test_sorted_all_heights) != len(all_heights) - 1
                     ):
-                        logging.info(
-                            f"Breaking because the highest point is at {np.argmax(sorted_all_heights)} in the list"
+                        logger.info(
+                            f"Breaking because the turning point is at {np.argmin(test_sorted_all_heights)} in the list"
                         )
                         # plt.plot(sorted_lateral, sorted_all_heights,'.')
                         # plt.plot(sorted_lateral, quad_fit_func(sorted_lateral))
@@ -140,6 +141,6 @@ class RecentringThing(Thing):
             stage.move_absolute(x=centre[0], y=centre[1], z=centre[2])
             autofocus.looping_autofocus()
 
-        logging.info(f"Centre of ROM is at {centre, stage.position['z']} \n")
+        logger.info(f"Centre of ROM is at {centre, stage.position['z']} \n")
 
         return focused_pos
