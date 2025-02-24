@@ -8,7 +8,6 @@ See repository root for licensing information.
 
 from __future__ import annotations
 from contextlib import contextmanager
-import logging
 import time
 from typing import Annotated, Mapping, Optional, Sequence
 
@@ -16,15 +15,24 @@ from fastapi import Depends
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.blocking_portal import BlockingPortal
-from labthings_fastapi.decorators import thing_action
+from labthings_fastapi.decorators import thing_action, thing_property
 from labthings_fastapi.types.numpy import NDArray
+from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
+from labthings_fastapi.types.numpy import NDArray, denumpify, DenumpifyingDict
+from labthings_fastapi.dependencies.invocation import (
+    InvocationCancelledError,
+    InvocationLogger,
+)
 from .camera import RawCameraDependency as Camera
 from .camera import CameraDependency as WrappedCamera
 from .stage import StageDependency as Stage
+from .settings_manager import SettingsManager
 import numpy as np
 from pydantic import BaseModel
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages 
 
-
+Settings = direct_thing_client_dependency(SettingsManager, "/settings/")
 ### Autofocus utilities
 
 
@@ -80,7 +88,7 @@ class JPEGSharpnessMonitor:
         return data_index, final_z_position
 
     def move_data(
-        self, istart: int, istop: Optional[int] = None
+        self, istart: int, istop: Optional[int] = None, logger = InvocationLogger, data: Optional[dict] = None
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Extract sharpness as a function of (interpolated) z"""
         if istop is None:
@@ -103,7 +111,7 @@ class JPEGSharpnessMonitor:
                 raise e
         if stop < 1:
             stop = len(jpeg_times)
-            logging.debug("changing stop to %s", (stop))
+            # logger.info(f"changing stop to {stop}")
         jpeg_times = jpeg_times[start:stop]
         jpeg_zs: np.ndarray = np.interp(
             jpeg_times, stage_times, stage_zs
@@ -251,3 +259,114 @@ class AutofocusThing(Thing):
         cutoff = threshold * (peak - base)
 
         return current_sharpness >= base + cutoff
+
+    @thing_action
+    def autofocus_report(self, m: SharpnessMonitorDep, stage: Stage, wrappedcamera: WrappedCamera, settings: Settings, logger: InvocationLogger, repeats: int = 20, plots: bool = True, notes: str = "None"):
+        '''Repeatedly run autofocus and test whether the resulting position is as sharp as expected
+        and whether the stage has overshot.'''
+
+        # Looping autofocus to find a point that we can autofocus on reliably
+        self.looping_autofocus(stage, m)
+
+        # Set up our results tracking
+        results = {
+            'overshot': 0,
+            'fraction': [],
+            'total': 0
+        }
+
+        all_sweeps = {}
+
+        for i in range(repeats):
+            # Get the data from the autofocus
+            logger.info(f"Running autofocus {i+1} out of {repeats}")
+            data = self.fast_autofocus(m)
+
+            all_sweeps[f'{i}'] = {}
+
+            # There's 7 components to an autofocus dataset:
+            # down, still, up, still, down, still, up to focus
+            for starts in range(7):
+                offset = len(data.stage_positions) - 8
+                _, heights, sizes = m.move_data(istart=starts+offset, data = data)       
+                
+                all_sweeps[f'{i}'][starts] = {}
+
+                all_sweeps[f'{i}'][starts]['heights'] = heights
+                all_sweeps[f'{i}'][starts]['sizes'] = sizes
+            
+            results['total'] += 1
+
+            # the data collection is the 3rd in the list
+            sweep_heights = all_sweeps[f'{i}'][2]['heights']
+            sweep_sizes = all_sweeps[f'{i}'][2]['sizes']
+            
+            # the aligning to peak step is the 7th
+            align_heights = all_sweeps[f'{i}'][6]['heights']
+            align_sizes = all_sweeps[f'{i}'][6]['sizes']
+
+            # peak is the sharpest from the collection step, base is the least show
+            peak = np.max(sweep_sizes)
+            base = np.min(sweep_sizes)
+            sweep_range = (peak - base)
+
+            # align result is the sharpness when the alignment ends
+            align_result = align_sizes[-1]
+            align_range = (align_result - base)
+            
+            # find the ratio between the highest sharpness from the collection step and the final sharpness
+            results['fraction'].append(align_range / sweep_range)
+
+            # check whether the sharpest image in the alignment step is where the autofocus ends
+            if np.max(align_sizes) != align_result:
+                results['overshot'] += 1
+
+        if plots:
+            date_stamp = time.strftime("%Y-%m-%d")
+            time_stamp =  time.strftime("%H_%M")
+            with PdfPages(f"logs/{date_stamp}_{time_stamp}_focus.pdf") as pdf:
+                time_stamp =  time.strftime("%H:%M")
+                # this is a data / title page summarising the data
+                f, ax = plt.subplots(1,1)
+                ax.text(0.1, 0.8,f"""Autofocus test was run at {time_stamp} on {date_stamp}.
+                Out of {results['total']} trials, it appears that {results['overshot']} overshot.
+                User notes are {notes}.
+                Microscope name is {settings.hostname}
+                """,
+                horizontalalignment='left',verticalalignment='center', transform=ax.transAxes, wrap=True)
+                ax.axis('off')
+                pdf.savefig(f)
+                plt.close(f)
+
+                # this is a histogram of results['fraction'] showing how often the result seems too low
+                f, ax = plt.subplots(1,1)
+                counts, bins = np.histogram(results['fraction'])
+                plt.stairs(counts, bins)
+                ax.set_xlabel('Result height over alignment sweep ratio (ideally 1)')
+                pdf.savefig(f)
+                plt.close(f)
+
+                # this plots the data collection and alignment sweeps. ideally, they'll have the same form and peak
+                for i in range(len(all_sweeps)):
+                    sweep_heights = all_sweeps[f'{i}'][2]['heights']
+                    sweep_sizes = all_sweeps[f'{i}'][2]['sizes']
+                    
+                    align_heights = all_sweeps[f'{i}'][6]['heights']
+                    align_sizes = all_sweeps[f'{i}'][6]['sizes']
+                    f,ax = plt.subplots(1,1)
+                    ax.plot(sweep_heights, sweep_sizes, '.', label = 'Collection step')
+                    ax.plot(align_heights, align_sizes, '.', label = 'Alignment step')
+                    plt.legend()
+                    pdf.savefig(f)
+                    plt.close(f)
+        
+        self.thing_settings["focus_data"] = DenumpifyingDict(results).model_dump()
+        logger.info(f"Out of {results['total']} trials, it appears that {results['overshot']} overshot.")
+        return results
+
+    
+    @thing_property
+    def focus_data(self):
+        """The results of the last calibration that was run
+        """
+        return self.thing_settings.get("focus_data", None)
