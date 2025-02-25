@@ -250,7 +250,7 @@ class BackgroundDetectThing(Thing):
                 "Background is not set: you need to calibrate background detection."
             )
         return np.all(
-            np.abs(image - np.array(d.means)[np.newaxis, np.newaxis, :])
+            np.abs(image[:,:,1:] - np.array(d.means)[np.newaxis, np.newaxis, :])
             < np.array(d.standard_deviations)[np.newaxis, np.newaxis, :]
             * self.tolerance,
             axis=2,
@@ -297,11 +297,10 @@ class BackgroundDetectThing(Thing):
         # we're working in the LUV colourspace as it collect colours together in a human-intuitive way
         background_LUV = cv2.cvtColor(background, cv2.COLOR_RGB2LUV)
 
-        ch1 = (background_LUV.T[0]).flatten()
         ch2 = (background_LUV.T[1]).flatten()
         ch3 = (background_LUV.T[2]).flatten()
 
-        points = np.array([np.asarray(ch1), np.asarray(ch2), np.asarray(ch3)]).T
+        points = np.array([np.asarray(ch2), np.asarray(ch3)]).T
 
         # we get the mean and standard deviation of values in each channel
         mu, std = np.apply_along_axis(norm.fit, 0, points)
@@ -1501,10 +1500,6 @@ class SmartScanThing(Thing):
                 # metadata["/stage/"]["true_stage_position"] = dict(stage.position)
                 metadata["/stage/"]["position"]["x"] = current_pos[0]
                 metadata["/stage/"]["position"]["y"] = current_pos[1]
-                # This is a really ugly hack and I don't understand it - moving in closed loop needs the CSM inversing for stitching?
-                metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][0][1] = metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][0][1]
-                metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][1][0] = metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'][1][0]
-                # metadata["/camera_stage_mapping/"]['image_to_stage_displacement_matrix'] = list(csm_matrix*-1)
                 # metadata["/stage/"]["position"]["z"] = stage.position["z"]
                 # raw_image = cam.capture_raw(
                 #     get_states=False, get_processing_inputs=False
