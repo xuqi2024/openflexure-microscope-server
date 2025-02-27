@@ -394,7 +394,7 @@ class CameraStageMapper(Thing):
         y_move = y
         x_move = x
         attempts = 0
-        while [x_move, y_move] != [0, 0]:
+        if [x_move, y_move] != [0, 0]:
             logger.info(f"Trying to move by {x_move} {y_move}")
             relative_move: np.ndarray = np.dot(
                 np.array([y_move, x_move]),
@@ -458,11 +458,14 @@ class CameraStageMapper(Thing):
                 if np.abs(x_move) < threshold and np.abs(y_move) < threshold:
                     x_move = 0
                     y_move = 0
+                    return offset
                 undershoot *= 0.95
                 if attempts >= 5:
                     logger.warning("Closed loop move didn't look successful")
                     return [x_move, y_move]
                     #TODO: could return how far it has moved to update the next move?
+        else:
+            return [0, 0]
 
     @thing_action
     def split_certified_move_in_image_coordinates(
