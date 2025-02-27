@@ -506,33 +506,29 @@ class SmartScanThing(Thing):
         logger.info(pixel_move)
         if np.all(np.abs(pixel_move) < 1):
             pass
-        # elif abs(pixel_move[0]) > .8*cam.stream_resolution[0] or abs(pixel_move[1]) > .8*cam.stream_resolution[1] or not background_detect.image_is_sample():
         elif background_detect.image_is_sample():
-            logger.info('open loop move')
-        # # TODO: when do we just want to use this? Definitely if the current FOV was background
-            closed_loop_move = [
-                pixel_move[0], #*(np.abs(CSM[1,0])/CSM[1,0]),
-                pixel_move[1] #*(np.abs(CSM[0,1])/CSM[0,1]),
-            ]
-            closed_loop_move = [
-                math.copysign(200,i) if np.abs(i) > 200 else 0 for i in closed_loop_move
-            ]
-            logger.info(closed_loop_move)
-            [x_offset, y_offset] = csm.certify_move_in_image_coordinates(
-                stage = stage,
-                cam = cam,
-                logger = logger,
-                x = closed_loop_move[0],
-                y = closed_loop_move[1],
-                threshold = 25
-            )
-            logger.info('closed move complete')
-            csm.move_in_image_coordinates(
-                stage=stage,
-                x=(pixel_move[0]-x_offset),
-                y=(pixel_move[1]-y_offset)
-                )
-            logger.info(f'{pixel_move[0]-closed_loop_move[0]}')
+        # Move in each axis separately
+            for axis in [0,1]:
+                move = [0, 0]
+                move[axis] = pixel_move[axis]
+                closed_loop_move = [0,0]
+                closed_loop_move[axis] = math.copysign(200,move[axis]) if np.abs(move[axis]) > 100 else 0
+                if closed_loop_move[axis] != 0:
+                    [x_offset, y_offset] = csm.certify_move_in_image_coordinates(
+                        stage = stage,
+                        cam = cam,
+                        logger = logger,
+                        x = closed_loop_move[0],
+                        y = closed_loop_move[1],
+                        threshold = 35
+                    )
+                    x_move += x_offset
+                    y_move += y_offset
+                    csm.move_in_image_coordinates(
+                        stage=stage,
+                        x=(move[0]-x_offset),
+                        y=(move[1]-y_offset)
+                        )
         else:
             csm.move_in_image_coordinates(
                 stage=stage,
