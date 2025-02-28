@@ -267,6 +267,61 @@ class AutofocusThing(Thing):
         # Looping autofocus to find a point that we can autofocus on reliably
         self.looping_autofocus(stage, m)
 
+        results, all_sweeps = self.run_sweeps(repeats, m, logger)
+        
+        results['date_stamp'] = time.strftime("%Y-%m-%d")
+        results['time_stamp'] =  time.strftime("%H_%M")
+        results['hostname'] = settings.hostname
+
+        if plots:
+            self.plot_report(results, notes, all_sweeps)
+        
+        self.thing_settings["focus_data"] = results
+        logger.info(f"Out of {results['total']} trials, it appears that {results['overshot']} overshot.")
+        return results
+
+    def plot_report(self, results, notes, all_sweeps):
+        with PdfPages(f"logs/{results['date_stamp']}_{results['time_stamp']}_focus.pdf") as pdf:
+            self.title_page(results, notes, pdf)
+            self.plot_sweeps(results, all_sweeps, pdf)
+
+    def plot_sweeps(self, results, all_sweeps, pdf):
+    # this is a histogram of results['fraction'] showing how often the result seems too low
+        f, ax = plt.subplots(1,1)
+        counts, bins = np.histogram(results['fraction'])
+        plt.stairs(counts, bins)
+        ax.set_xlabel('Result height over alignment sweep ratio (ideally 1)')
+        pdf.savefig(f)
+        plt.close(f)
+
+        # this plots the data collection and alignment sweeps. ideally, they'll have the same form and peak
+        for i in range(len(all_sweeps)):
+            sweep_heights = all_sweeps[f'{i}'][2]['heights']
+            sweep_sizes = all_sweeps[f'{i}'][2]['sizes']
+            
+            align_heights = all_sweeps[f'{i}'][6]['heights']
+            align_sizes = all_sweeps[f'{i}'][6]['sizes']
+            f,ax = plt.subplots(1,1)
+            ax.plot(sweep_heights, sweep_sizes, '.', label = 'Collection step')
+            ax.plot(align_heights, align_sizes, '.', label = 'Alignment step')
+            plt.legend()
+            pdf.savefig(f)
+            plt.close(f)
+
+    def title_page(self, results, notes, pdf):
+        # this is a data / title page summarising the data
+        f, ax = plt.subplots(1,1)
+        ax.text(0.1, 0.8,f"""Autofocus test was run at {results['time_stamp']} on {results['date_stamp']}.
+        Out of {results['total']} trials, it appears that {results['overshot']} overshot.
+        User notes are {notes}.
+        Microscope name is {results['hostname']}
+        """,
+        horizontalalignment='left',verticalalignment='center', transform=ax.transAxes, wrap=True)
+        ax.axis('off')
+        pdf.savefig(f)
+        plt.close(f)
+    
+    def run_sweeps(self, repeats, m, logger):
         # Set up our results tracking
         results = {
             'overshot': 0,
@@ -314,60 +369,14 @@ class AutofocusThing(Thing):
             align_range = (align_result - base)
             
             # find the ratio between the highest sharpness from the collection step and the final sharpness
-            results['fraction'].append(align_range / sweep_range)
+            results['fraction'].append(float(align_range / sweep_range))
 
             # check whether the sharpest image in the alignment step is where the autofocus ends
             if np.max(align_sizes) != align_result:
                 results['overshot'] += 1
-
-        if plots:
             
-        
-        self.thing_settings["focus_data"] = DenumpifyingDict(results).model_dump()
-        logger.info(f"Out of {results['total']} trials, it appears that {results['overshot']} overshot.")
-        return results
+        return results, all_sweeps
 
-    def plot_report(results):
-        with PdfPages(f"logs/{date_stamp}_{time_stamp}_focus.pdf") as pdf:
-            title_page(results, pdf)
-
-            # this is a histogram of results['fraction'] showing how often the result seems too low
-            f, ax = plt.subplots(1,1)
-            counts, bins = np.histogram(results['fraction'])
-            plt.stairs(counts, bins)
-            ax.set_xlabel('Result height over alignment sweep ratio (ideally 1)')
-            pdf.savefig(f)
-            plt.close(f)
-
-            # this plots the data collection and alignment sweeps. ideally, they'll have the same form and peak
-            for i in range(len(all_sweeps)):
-                sweep_heights = all_sweeps[f'{i}'][2]['heights']
-                sweep_sizes = all_sweeps[f'{i}'][2]['sizes']
-                
-                align_heights = all_sweeps[f'{i}'][6]['heights']
-                align_sizes = all_sweeps[f'{i}'][6]['sizes']
-                f,ax = plt.subplots(1,1)
-                ax.plot(sweep_heights, sweep_sizes, '.', label = 'Collection step')
-                ax.plot(align_heights, align_sizes, '.', label = 'Alignment step')
-                plt.legend()
-                pdf.savefig(f)
-                plt.close(f)
-    
-    def title_page(results, pdf):
-        date_stamp = time.strftime("%Y-%m-%d")
-        time_stamp =  time.strftime("%H_%M")
-        # this is a data / title page summarising the data
-        f, ax = plt.subplots(1,1)
-        ax.text(0.1, 0.8,f"""Autofocus test was run at {time_stamp} on {date_stamp}.
-        Out of {results['total']} trials, it appears that {results['overshot']} overshot.
-        User notes are {notes}.
-        Microscope name is {settings.hostname}
-        """,
-        horizontalalignment='left',verticalalignment='center', transform=ax.transAxes, wrap=True)
-        ax.axis('off')
-        pdf.savefig(f)
-        plt.close(f)
-    
     @thing_property
     def focus_data(self):
         """The results of the last calibration that was run
