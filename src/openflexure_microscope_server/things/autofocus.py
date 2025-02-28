@@ -290,7 +290,7 @@ class AutofocusThing(Thing):
             self.plot_report(results, notes, all_sweeps)
         
         self.thing_settings["focus_data"] = results
-        logger.info(f"Out of {results['total']} trials, it appears that {results['overshot']} overshot.")
+        logger.info("Out of %s trials, it appears that %s overshot.", results['total'], results['overshot'])
         return results
 
     def plot_report(self, results, notes, all_sweeps):
@@ -353,7 +353,7 @@ class AutofocusThing(Thing):
 
         for i in range(repeats):
             # Get the data from the autofocus
-            logger.info(f"Running autofocus {i+1} out of {repeats}")
+            logger.info("Running autofocus %i out of %i", i+1, repeats)
             data = self.fast_autofocus(sharpness_monitor)
 
             all_sweeps[f'{i}'] = {}
