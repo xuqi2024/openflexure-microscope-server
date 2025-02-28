@@ -275,7 +275,11 @@ class AutofocusThing(Thing):
         """"Perform an autofocus calibration and optionally produce a PDF of results
         
         Repeatedly run autofocus, and test whether the resulting position
-        is as sharp as expected and whether the stage has overshot."""
+        is as sharp as expected and whether the stage has overshot.
+        
+        repeats: the number of autofocuses to run during the trial, default 20
+        plots: whether to produce a PDF plotting results. bool, default True
+        notes: any user notes to pass to the report, such as changes to the gears. default None."""
 
         # Looping autofocus to find a point that we can autofocus on reliably
         self.looping_autofocus(stage, sharpness_monitor)
