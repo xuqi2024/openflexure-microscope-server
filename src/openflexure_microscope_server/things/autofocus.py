@@ -304,6 +304,8 @@ class AutofocusThing(Thing):
             f,ax = plt.subplots(1,1)
             ax.plot(sweep_heights, sweep_sizes, '.', label = 'Collection step')
             ax.plot(align_heights, align_sizes, '.', label = 'Alignment step')
+            ax.set_xlabel('z position (steps)')
+            ax.set_ylabel('Filesize')
             plt.legend()
             pdf.savefig(f)
             plt.close(f)
