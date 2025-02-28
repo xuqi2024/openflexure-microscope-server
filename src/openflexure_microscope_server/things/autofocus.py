@@ -148,7 +148,7 @@ class AutofocusThing(Thing):
     @thing_action
     def fast_autofocus(
         self,
-        m: SharpnessMonitorDep,
+        sharpness_monitor: SharpnessMonitorDep,
         dz: int = 2000,
         start: str = "centre",
     ) -> SharpnessDataArrays:
@@ -158,27 +158,27 @@ class AutofocusThing(Thing):
         the position where the image was sharpest. We'll then move back down, and
         finally up to the sharpest point.
         """
-        with m.run():
+        with sharpness_monitor.run():
             # Move to (-dz / 2)
             if start == "centre":
-                m.focus_rel(-dz / 2)
+                sharpness_monitor.focus_rel(-dz / 2)
             # Move to dz while monitoring sharpness
             # i: Sharpness monitor index for this move
             # z: Final z position after move
-            i, z = m.focus_rel(dz, block_cancellation=True)
+            i, z = sharpness_monitor.focus_rel(dz, block_cancellation=True)
             # Get the z position with highest sharpness from the previous move (index i)
-            fz: int = m.sharpest_z_on_move(i)
+            fz: int = sharpness_monitor.sharpest_z_on_move(i)
             # Move all the way to the start so it's consistent
-            i, z = m.focus_rel(-dz)
+            i, z = sharpness_monitor.focus_rel(-dz)
             # Move to the target position fz (relative move of (fz - z))
-            m.focus_rel(fz - z)
+            sharpness_monitor.focus_rel(fz - z)
             # Return all focus data
-            return m.data_dict()
+            return sharpness_monitor.data_dict()
 
     @thing_action
     def move_and_measure(
         self,
-        m: SharpnessMonitorDep,
+        sharpness_monitor: SharpnessMonitorDep,
         dz: Sequence[int],
         wait: float = 0,
     ) -> SharpnessDataArrays:
@@ -194,16 +194,16 @@ class AutofocusThing(Thing):
         If `wait` is specified, we will wait for that many seconds
         between moves.
         """
-        with m.run():
+        with sharpness_monitor.run():
             for i, current_dz in enumerate(dz):
                 if i > 0 and wait > 0:
                     time.sleep(wait)
-                m.focus_rel(current_dz)
-            return m.data_dict()
+                sharpness_monitor.focus_rel(current_dz)
+            return sharpness_monitor.data_dict()
 
     @thing_action
     def looping_autofocus(
-        self, stage: Stage, m: SharpnessMonitorDep, dz=2000, start="centre"
+        self, stage: Stage, sharpness_monitor: SharpnessMonitorDep, dz=2000, start="centre"
     ):
         """Repeatedly autofocus the stage until it looks focused.
 
@@ -216,14 +216,14 @@ class AutofocusThing(Thing):
         attempts = 0
         backlash = 200
 
-        with m.run():
+        with sharpness_monitor.run():
             while repeat and attempts < 10:
                 if start == "centre":
                     stage.move_relative(x=0, y=0, z=-(backlash + dz / 2))
                     stage.move_relative(x=0, y=0, z=backlash)
 
-                i, z = m.focus_rel(dz, block_cancellation=True)
-                _, heights, sizes = m.move_data(i)
+                i, z = sharpness_monitor.focus_rel(dz, block_cancellation=True)
+                _, heights, sizes = sharpness_monitor.move_data(i)
 
                 peak_height = heights[np.argmax(sizes)]
                 height_min = np.min(heights)
@@ -260,14 +260,14 @@ class AutofocusThing(Thing):
         return current_sharpness >= base + cutoff
 
     @thing_action
-    def autofocus_report(self, m: SharpnessMonitorDep, stage: Stage, wrappedcamera: WrappedCamera, settings: Settings, logger: InvocationLogger, repeats: int = 20, plots: bool = True, notes: str = "None"):
+    def autofocus_report(self, sharpness_monitor: SharpnessMonitorDep, stage: Stage, wrappedcamera: WrappedCamera, settings: Settings, logger: InvocationLogger, repeats: int = 20, plots: bool = True, notes: str = "None"):
         '''Repeatedly run autofocus and test whether the resulting position is as sharp as expected
         and whether the stage has overshot.'''
 
         # Looping autofocus to find a point that we can autofocus on reliably
-        self.looping_autofocus(stage, m)
+        self.looping_autofocus(stage, sharpness_monitor)
 
-        results, all_sweeps = self.run_sweeps(repeats, m, logger)
+        results, all_sweeps = self.run_sweeps(repeats, sharpness_monitor, logger)
         
         results['date_stamp'] = time.strftime("%Y-%m-%d")
         results['time_stamp'] =  time.strftime("%H_%M")
@@ -321,7 +321,7 @@ class AutofocusThing(Thing):
         pdf.savefig(f)
         plt.close(f)
     
-    def run_sweeps(self, repeats, m, logger):
+    def run_sweeps(self, repeats, sharpness_monitor, logger):
         # Set up our results tracking
         results = {
             'overshot': 0,
@@ -334,7 +334,7 @@ class AutofocusThing(Thing):
         for i in range(repeats):
             # Get the data from the autofocus
             logger.info(f"Running autofocus {i+1} out of {repeats}")
-            data = self.fast_autofocus(m)
+            data = self.fast_autofocus(sharpness_monitor)
 
             all_sweeps[f'{i}'] = {}
 
@@ -342,7 +342,7 @@ class AutofocusThing(Thing):
             # down, still, up, still, down, still, up to focus
             for starts in range(7):
                 offset = len(data.stage_positions) - 8
-                _, heights, sizes = m.move_data(istart=starts+offset, data = data)       
+                _, heights, sizes = sharpness_monitor.move_data(istart=starts+offset, data = data)       
                 
                 all_sweeps[f'{i}'][starts] = {}
 
