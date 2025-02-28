@@ -70,6 +70,7 @@ class JPEGSharpnessMonitor:
             self.running = False
 
     def focus_rel(self, dz: int, **kwargs) -> tuple[int, int]:
+        """Monitor focus while moving in z"""
         # Store the start time and position
         self.stage_times.append(time.time())
         self.stage_positions.append(self.stage.position)
@@ -260,9 +261,21 @@ class AutofocusThing(Thing):
         return current_sharpness >= base + cutoff
 
     @thing_action
-    def autofocus_report(self, sharpness_monitor: SharpnessMonitorDep, stage: Stage, wrappedcamera: WrappedCamera, settings: Settings, logger: InvocationLogger, repeats: int = 20, plots: bool = True, notes: str = "None"):
-        '''Repeatedly run autofocus and test whether the resulting position is as sharp as expected
-        and whether the stage has overshot.'''
+    def autofocus_report(
+        self,
+        sharpness_monitor: SharpnessMonitorDep,
+        stage: Stage,
+        wrappedcamera: WrappedCamera,
+        settings: Settings,
+        logger: InvocationLogger,
+        repeats: int = 20,
+        plots: bool = True,
+        notes: str = "None"
+    ):
+        """"Perform an autofocus calibration and optionally produce a PDF of results
+        
+        Repeatedly run autofocus, and test whether the resulting position
+        is as sharp as expected and whether the stage has overshot."""
 
         # Looping autofocus to find a point that we can autofocus on reliably
         self.looping_autofocus(stage, sharpness_monitor)
@@ -286,7 +299,8 @@ class AutofocusThing(Thing):
             self.plot_sweeps(results, all_sweeps, pdf)
 
     def plot_sweeps(self, results, all_sweeps, pdf):
-    # this is a histogram of results['fraction'] showing how often the result seems too low
+        """Plot the sharpness against height of the autofocus measurement move and final move to peak"""
+        # this is a histogram of results['fraction'] showing how often the result seems too low
         f, ax = plt.subplots(1,1)
         counts, bins = np.histogram(results['fraction'])
         plt.stairs(counts, bins)
@@ -311,6 +325,7 @@ class AutofocusThing(Thing):
             plt.close(f)
 
     def title_page(self, results, notes, pdf):
+        """Adds a title page to the plots pdf, with the microscope name, the time / date and any notes"""
         # this is a data / title page summarising the data
         f, ax = plt.subplots(1,1)
         ax.text(0.1, 0.8,f"""Autofocus test was run at {results['time_stamp']} on {results['date_stamp']}.
@@ -324,6 +339,9 @@ class AutofocusThing(Thing):
         plt.close(f)
     
     def run_sweeps(self, repeats, sharpness_monitor, logger):
+        """Collect the autofocus success data by running multiple autofocuses, and extracting the
+        relevant move data. Interprets the relevant data by comparing the location and the height
+        of the autofocus movements."""
         # Set up our results tracking
         results = {
             'overshot': 0,
@@ -381,6 +399,5 @@ class AutofocusThing(Thing):
 
     @thing_property
     def focus_data(self):
-        """The results of the last calibration that was run
-        """
+        """The results of the last calibration that was run"""
         return self.thing_settings.get("focus_data", None)
