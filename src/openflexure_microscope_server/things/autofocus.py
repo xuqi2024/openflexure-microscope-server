@@ -18,9 +18,8 @@ from labthings_fastapi.dependencies.blocking_portal import BlockingPortal
 from labthings_fastapi.decorators import thing_action, thing_property
 from labthings_fastapi.types.numpy import NDArray
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
-from labthings_fastapi.types.numpy import NDArray, denumpify, DenumpifyingDict
+from labthings_fastapi.types.numpy import NDArray
 from labthings_fastapi.dependencies.invocation import (
-    InvocationCancelledError,
     InvocationLogger,
 )
 from .camera import RawCameraDependency as Camera
@@ -376,11 +375,9 @@ class AutofocusThing(Thing):
             results['total'] += 1
 
             # the data collection is the 3rd in the list
-            sweep_heights = all_sweeps[f'{i}'][2]['heights']
             sweep_sizes = all_sweeps[f'{i}'][2]['sizes']
             
             # the aligning to peak step is the 7th
-            align_heights = all_sweeps[f'{i}'][6]['heights']
             align_sizes = all_sweeps[f'{i}'][6]['sizes']
 
             # peak is the sharpest from the collection step, base is the least show
