@@ -245,7 +245,7 @@ class AutofocusThing(Thing):
     @thing_action
     def verify_focus_sharpness(
         self, sweep_sizes: list, camera: WrappedCamera, threshold: float = 0.95
-    ):
+    ) -> bool:
         """Take the sharpness curve of the autofocus, and the size of the current frame
         to see if the autofocus completed successfully. Returns True if current sharpness
         is within "leniency" number of frames from the peak of the autofocus"""
@@ -269,7 +269,7 @@ class AutofocusThing(Thing):
         repeats: int = 20,
         plots: bool = True,
         notes: str = "None"
-    ):
+    ) -> dict:
         """"Perform an autofocus calibration and optionally produce a PDF of results
         
         Repeatedly run autofocus, and test whether the resulting position
@@ -277,7 +277,7 @@ class AutofocusThing(Thing):
         
         repeats: the number of autofocuses to run during the trial, default 20
         plots: whether to produce a PDF plotting results. bool, default True
-        notes: any user notes to pass to the report, such as changes to the gears. default None."""
+        notes: any user notes to pass to the report, such as changes to the gears. default 'None'."""
 
         # Looping autofocus to find a point that we can autofocus on reliably
         self.looping_autofocus(stage, sharpness_monitor)
@@ -291,18 +291,31 @@ class AutofocusThing(Thing):
         if plots:
             self.plot_report(results, notes, all_sweeps)
         
+        # Set the autofocus settings to record the results of the last calibration
         self.thing_settings["focus_data"] = results
         logger.info("Out of %s trials, it appears that %s overshot.", results['total'], results['overshot'])
         return results
 
-    def plot_report(self, results, notes, all_sweeps):
+    def plot_report(self, results: dict, notes: str, all_sweeps: dict) -> None:
+        """Take the results, notes and raw data from the calibration, and produce a
+        PDF of the outcomes of the trial. Includes a title page and one graph per sweep.
+        
+        results: a dict, the interpreted results of the calibration procedure
+        notes: string, any user notes that the report should highlight
+        all_sweeps: the raw data from the calibration for plotting
+        """
         with PdfPages(f"logs/{results['date_stamp']}_{results['time_stamp']}_focus.pdf") as pdf:
             self.title_page(results, notes, pdf)
             self.plot_sweeps(results, all_sweeps, pdf)
 
-    def plot_sweeps(self, results, all_sweeps, pdf):
-        """Plot the sharpness against height of the autofocus measurement move and final move to peak"""
-        # this is a histogram of results['fraction'] showing how often the result seems too low
+    def plot_sweeps(self, results: dict, all_sweeps: dict, pdf: PdfPages) -> None:
+        """Plot the sharpness against height of the autofocus measurement move and final move to peak
+        
+        results: a dict, the interpreted results of the calibration procedure
+        all_sweeps: the raw data from the calibration for plotting
+        pdf: the PdfPages object that we are writing to
+        """
+        # This is a histogram of results['fraction'] showing how often the result seems too low
         f, ax = plt.subplots(1,1)
         counts, bins = np.histogram(results['fraction'])
         plt.stairs(counts, bins)
@@ -310,7 +323,7 @@ class AutofocusThing(Thing):
         pdf.savefig(f)
         plt.close(f)
 
-        # this plots the data collection and alignment sweeps. ideally, they'll have the same form and peak
+        # This plots the data collection and alignment sweeps. Ideally, they'll have the same form and peak
         for i in range(len(all_sweeps)):
             sweep_heights = all_sweeps[f'{i}'][2]['heights']
             sweep_sizes = all_sweeps[f'{i}'][2]['sizes']
@@ -358,11 +371,13 @@ class AutofocusThing(Thing):
             logger.info("Running autofocus %i out of %i", i+1, repeats)
             data = self.fast_autofocus(sharpness_monitor)
 
+            #TODO: can we replace these with just 'data'?
             all_sweeps[f'{i}'] = {}
 
             # There's 7 components to an autofocus dataset:
             # down, still, up, still, down, still, up to focus
             for starts in range(7):
+                #TODO: what is offset, and why is it 8 less than the length of the move?
                 offset = len(data.stage_positions) - 8
                 _, heights, sizes = sharpness_monitor.move_data(istart=starts+offset, data = data)       
                 
@@ -379,7 +394,7 @@ class AutofocusThing(Thing):
             # the aligning to peak step is the 7th
             align_sizes = all_sweeps[f'{i}'][6]['sizes']
 
-            # peak is the sharpest from the collection step, base is the least show
+            # peak is the sharpest from the collection step, base is the least sharp
             peak = np.max(sweep_sizes)
             base = np.min(sweep_sizes)
             sweep_range = (peak - base)
@@ -398,6 +413,6 @@ class AutofocusThing(Thing):
         return results, all_sweeps
 
     @thing_property
-    def focus_data(self):
+    def focus_data(self) -> Optional[dict]:
         """The results of the last calibration that was run"""
         return self.thing_settings.get("focus_data", None)
