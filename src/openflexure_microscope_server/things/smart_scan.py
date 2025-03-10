@@ -1440,17 +1440,10 @@ class SmartScanThing(Thing):
                     pass
             except Exception as e:
                 logger.error(f"An error occurred while saving {name}: {e}", exc_info=e)
-
-        x_positions = len(set([i[0] for i in focused_path]))
-        y_positions = len(set([i[1] for i in focused_path]))
-        if x_positions < 3 or y_positions < 3:
-            logger.debug("We're just starting, so doing a full autofocus")
-            undershoot_z = -((self.stack_test_height - 1) / 2 + 6) * self.stack_dz - 300
-        else:
-            logger.debug("We've got a good idea where we should be skipping autofocus")
-            undershoot_z = -((self.stack_test_height - 1) / 2 + 4) * self.stack_dz - 300
-        stage.move_relative(z=undershoot_z)
-        stage.move_relative(z=460)
+        # Aiming to move too low by backlash correction + half the stack height  + 4 extra steps
+        # Extra steps because it's better being too low than too high
+        stage.move_relative(z=- (100 + ((self.stack_test_height - 1) / 2 + 4) * self.stack_dz))
+        stage.move_relative(z=100)
         captures = 0
         capture_list = []
         metadata_list = []
