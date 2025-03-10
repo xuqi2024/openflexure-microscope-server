@@ -54,6 +54,49 @@
       </div>
 
       <div v-show="stepValue == 2">
+        <h3>Background calibration</h3>
+        <div v-if="isBackgroundCalibrated">
+          <p>
+            <b
+              >Your background has already been calibrated. Click Next
+              to move on.</b
+            >
+          </p>
+        </div>
+        <div v-else-if="!canBackgroundCalibrated">
+          <p>
+            <b
+              >Issue calibrating background. Is your camera connected?</b
+            >
+          </p>
+        </div>
+        <div v-else>
+          <p>
+            <b
+              >Follow the steps below to set your background,
+              for automated sample scanning.</b
+            >
+          </p>
+          <ul class="uk-list uk-list-bullet">
+            <li>Insert a sample to the microscope</li>
+            <li>
+              Move the slide to an area with no sample.
+            </li>
+          </ul>
+
+          <miniStreamDisplay
+            v-if="stepValue == 2"
+            class="mini-preview"
+          ></miniStreamDisplay>
+
+          <p>Once you're ready, click calibrate background appearance.</p>
+
+          <BackgroundCalibrationSettings>
+        </div>
+      </div>
+
+
+      <div v-show="stepValue == 3">
         <h3>Camera-stage mapping</h3>
         <div v-if="isCSMCalibrated">
           <p>
@@ -87,7 +130,7 @@
           </ul>
 
           <miniStreamDisplay
-            v-if="stepValue == 2"
+            v-if="stepValue == 3"
             class="mini-preview"
           ></miniStreamDisplay>
 
@@ -99,7 +142,7 @@
         </div>
       </div>
 
-      <div v-show="stepValue == 3">
+      <div v-show="stepValue == 4">
         <p>
           <b>Calibration complete</b>
         </p>
@@ -118,7 +161,7 @@
           Cancel
         </button>
         <button
-          v-show="stepValue == 3"
+          v-show="stepValue == 4"
           class="uk-button uk-button-default"
           type="button"
           @click="stepValue = 0"
@@ -126,7 +169,7 @@
           Restart
         </button>
         <button
-          v-show="stepValue < 3"
+          v-show="stepValue < 4"
           class="uk-button uk-button-primary uk-margin-left"
           type="button"
           @click="increment()"
@@ -134,7 +177,7 @@
           Next
         </button>
         <button
-          v-show="stepValue == 3"
+          v-show="stepValue == 4"
           class="uk-button uk-button-primary uk-margin-left"
           type="button"
           @click="hide()"
@@ -149,6 +192,7 @@
 <script>
 import cameraCalibrationSettings from "../tabContentComponents/settingsComponents/cameraSettingsComponents/cameraCalibrationSettings.vue";
 import CSMCalibrationSettings from "../tabContentComponents/settingsComponents/CSMSettingsComponents/CSMCalibrationSettings.vue";
+import BackgroundCalibrationSettings from "../tabContentComponents/settingsComponents/backgroundSettingsComponents/BackgroundCalibrationSettings.vue";
 import miniStreamDisplay from "../genericComponents/miniStreamDisplay.vue";
 
 export default {
@@ -157,6 +201,7 @@ export default {
   components: {
     cameraCalibrationSettings,
     CSMCalibrationSettings,
+    BackgroundCalibrationSettings,
     miniStreamDisplay
   },
 
@@ -165,7 +210,8 @@ export default {
       ready: false,
       stepValue: 0,
       isCSMCalibrated: undefined,
-      isLSTCalibrated: undefined
+      isLSTCalibrated: undefined,
+      isBackgroundCalibrated: undefined
     };
   },
 
@@ -180,10 +226,17 @@ export default {
         "calibrate_lens_shading" in this.thingDescription("camera").actions
       );
     },
+    canBackgroundCalibrated: function() {
+      // Assert background extension is enabled
+      return (
+        "set_background" in this.thingDescription("background_detect").actions
+      );
+    },
     isUseful: function() {
       var CSMUseful = this.canCSMCalibrated && !this.isCSMCalibrated;
       var LSTUseful = this.canLSTCalibrated && !this.isLSTCalibrated;
-      return CSMUseful || LSTUseful;
+      var BackgroundUseful = this.canBackgroundCalibrated && !this.isBackgroundCalibrated;
+      return CSMUseful || LSTUseful || BackgroundUseful;
     },
     cameraUri: function() {
       return `${this.$store.getters.baseUri}/camera/`;
@@ -209,6 +262,12 @@ export default {
         this.isLSTCalibrated = await this.readThingProperty(
           "camera",
           "lens_shading_is_static"
+        );
+      }
+      if (this.canBackgroundCalibrated) {
+        this.isBackgroundCalibrated = await this.readThingProperty(
+          "background_detect",
+          "background_distributions"
         );
       }
       // Check if this calibration wizard can actually do anything useful
@@ -243,7 +302,7 @@ export default {
 
     increment: function() {
       // Upper bound on section number
-      if (this.stepValue < 3) {
+      if (this.stepValue < 4) {
         this.stepValue = this.stepValue + 1;
         return true;
       }
