@@ -246,7 +246,7 @@ class BackgroundDetectThing(Thing):
                 "Background is not set: you need to calibrate background detection."
             )
         return np.all(
-            np.abs(image - np.array(d.means)[np.newaxis, np.newaxis, :])
+            np.abs(image[:,:,1:] - np.array(d.means)[np.newaxis, np.newaxis, :])
             < np.array(d.standard_deviations)[np.newaxis, np.newaxis, :]
             * self.tolerance,
             axis=2,
@@ -294,11 +294,10 @@ class BackgroundDetectThing(Thing):
         # we're working in the LUV colourspace as it collect colours together in a human-intuitive way
         background_LUV = cv2.cvtColor(background, cv2.COLOR_RGB2LUV)
 
-        ch1 = (background_LUV.T[0]).flatten()
         ch2 = (background_LUV.T[1]).flatten()
         ch3 = (background_LUV.T[2]).flatten()
 
-        points = np.array([np.asarray(ch1), np.asarray(ch2), np.asarray(ch3)]).T
+        points = np.array([np.asarray(ch2), np.asarray(ch3)]).T
 
         # we get the mean and standard deviation of values in each channel
         mu, std = np.apply_along_axis(norm.fit, 0, points)
