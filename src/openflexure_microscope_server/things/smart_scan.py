@@ -145,7 +145,6 @@ def generate_config(
     camera_to_sample_matrix,
     csm_calibration_width,
     img_width,
-    logger,
 ):
     positions = np.array(positions)
     mean_loc = np.mean(positions, axis=0)
@@ -520,7 +519,6 @@ class SmartScanThing(Thing):
         metadata_getter: GetThingStates,
         csm: CSMDep,
         background_detect: BackgroundDep,
-        recentre: RecentreStage,
         settings: Settings,
         scan_name: str = "",
     ):
@@ -1325,7 +1323,7 @@ class SmartScanThing(Thing):
                 logger.error(f"An error occurred while capturing: {e}", exc_info=e)
                 return 0, 0
 
-        def save_capture(name, raw_name, raw_image, img, metadata, current_pos):
+        def save_capture(name, img, metadata):
             try:
                 jpeg_path = os.path.join(images_folder, name + ".jpeg")
                 Image.fromarray(img.astype('uint8'), 'RGB').save(jpeg_path, quality=95, subsampling=0)
