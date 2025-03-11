@@ -893,9 +893,15 @@ class SmartScanThing(Thing):
                 exc_info=e,
             )
             raise e
+        except TimeoutError as e:
+            logger.error(
+                f"The scan stopped because the camera took too long to return an image: {e}",
+                exc_info=e,
+            )
+            raise e
         except Exception as e:
             logger.error(
-                f"The scan stopped because of an error: {e}",
+                f"The scan stopped because of an error: {e}"
                 "We will attempt to stitch and archive the images acquired " "so far.",
                 exc_info=e,
             )
