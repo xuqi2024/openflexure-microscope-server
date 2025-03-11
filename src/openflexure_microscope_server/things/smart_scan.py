@@ -1068,7 +1068,7 @@ class SmartScanThing(Thing):
         for f in os.listdir(self.scans_folder_path):
             path = os.path.join(self.scans_folder_path, f)
             if os.path.isdir(path):
-                images_folder = os.path.join(path, "images")
+                images_folder = os.path.join(path, "images", "stacks")
                 if os.path.isdir(images_folder):
                     number_of_images = len(os.listdir(images_folder))
                 else:
