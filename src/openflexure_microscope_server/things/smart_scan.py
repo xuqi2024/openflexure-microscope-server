@@ -990,7 +990,7 @@ class SmartScanThing(Thing):
     @thing_property
     def max_range(self) -> int:
         """The maximum distance from the centre of the scan before we break"""
-        return self.thing_settings.get("max_range", 45000)
+        return self.thing_settings.get("max_range", 18000)
 
     @max_range.setter
     def max_range(self, value: int) -> None:
@@ -1037,7 +1037,7 @@ class SmartScanThing(Thing):
     @thing_property
     def overlap(self) -> float:
         """The z distance to perform an autofocus"""
-        return self.thing_settings.get("overlap", 0.45)
+        return self.thing_settings.get("overlap", 0.4)
 
     @overlap.setter
     def overlap(self, value: float) -> None:
@@ -1683,7 +1683,7 @@ class SmartScanThing(Thing):
         Suggested is 50 for 60-100x
         100 for 40x
         200 for 20x"""
-        return self.thing_settings.get("stack_dz", 10)
+        return self.thing_settings.get("stack_dz", 50)
 
     @stack_dz.setter
     def stack_dz(self, value: int) -> None:
