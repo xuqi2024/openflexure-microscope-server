@@ -1221,13 +1221,15 @@ class SmartScanThing(Thing):
                 [
                     self._script,
                     "--stitching_mode",
-                    "all",
+                    "only_stage_stitch",
                     f"{tiff_arg}",
                     "--minimum_overlap",
                     f"{round(overlap*0.7,2)}",
                     "--resize",
-                    "0.5",
-                    os.path.join(images_folder, 'images', "use"),
+                    "1",
+                    "--max_stage_discrepancy",
+                    "130",
+                    os.path.join(images_folder, 'images', "use")
                 ]
             )
             # TODO: remove the previous scan preview when a new one starts
