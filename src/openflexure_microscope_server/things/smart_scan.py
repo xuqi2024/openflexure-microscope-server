@@ -133,6 +133,10 @@ def steps_from_centre(current_loc, starting_loc, dx, dy):
     step_size = np.array([dx, dy])
     return np.max(np.abs(np.divide(np.subtract(current_loc, starting_loc), step_size)))
 
+def steps_from_point(current_loc, starting_loc, dx, dy):
+    step_size = np.array([dx, dy])
+    return np.sum(np.abs(np.divide(np.subtract(current_loc, starting_loc), step_size)))
+
 
 # def set_template(microscope, pos):
 #     microscope.move(pos)
@@ -868,11 +872,15 @@ class SmartScanThing(Thing):
                     else:
                         logger.info(f"Rejected moving to {i} as it is out of range")
                 path = temp_path.copy()
+
+                # Sort the future path depending on which is
+                # a) closest to the current location (by images, not motor step size)
+                # b) closest to the centre of the scan, also by images
                 path = sorted(
                     path,
                     key=lambda x: (
+                        steps_from_point(x, loc[:2], dx, dy),
                         steps_from_centre(x, true_path[0][:2], dx, dy),
-                        distance_to_site(loc[:2], x),
                     ),
                 )
                 # self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
