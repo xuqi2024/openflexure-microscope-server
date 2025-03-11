@@ -1,6 +1,5 @@
 # ruff: noqa: E722
 
-import re
 import shutil
 import zipfile
 import threading
@@ -15,18 +14,14 @@ import time
 from PIL import Image
 from pydantic import BaseModel
 from scipy.stats import norm
-from scipy.ndimage import zoom
-from scipy.interpolate import interp1d
-from copy import deepcopy
 from scipy.optimize import curve_fit
 from datetime import datetime, timedelta
 from subprocess import CompletedProcess, Popen, PIPE, SubprocessError, run, STDOUT
-from threading import Event, Thread
+from threading import Thread
 import glob
 import zipfile
 import json
 import piexif
-import math
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.metadata import GetThingStates
@@ -111,8 +106,6 @@ def limit_focus_change(prev_pos, prev_z, new_pos, new_z, limit):
     else:
         movement_ratio = np.divide(focus_change, dist, dtype="float64")
 
-    # print('Movement ratio is {0} in z per lateral step. The limit is {1}'.format(round(movement_ratio, 4), round(limit,4)))
-    # print(f'This is the distance between {prev_pos}, {prev_z} and {new_pos}, {new_z}')
 
     if movement_ratio > limit:
         return "reject"
@@ -137,29 +130,6 @@ def steps_from_point(current_loc, starting_loc, dx, dy):
     step_size = np.array([dx, dy])
     return np.sum(np.abs(np.divide(np.subtract(current_loc, starting_loc), step_size)))
 
-
-# def set_template(microscope, pos):
-#     microscope.move(pos)
-#     background = microscope.grab_image_array()
-#     background_LUV = cv2.cvtColor(background, cv2.COLOR_RGB2LUV)
-
-#     ch1 = (background_LUV.T[0]).flatten()
-#     ch2 = (background_LUV.T[1]).flatten()
-#     ch3 = (background_LUV.T[2]).flatten()
-
-#     points = np.array([np.asarray(ch1),np.asarray(ch2),np.asarray(ch3)]).T
-
-#     # we get the mean and standard deviation of values in each channel
-
-#     mu, std = np.apply_along_axis(norm.fit, 0, points)
-#     stats_list = np.vstack([mu, std])
-#     return stats_list
-
-
-def distance_to_site(current, next):
-    next = np.array(next, dtype="float64")
-    current = np.array(current, dtype="float64")
-    return np.sqrt((next[1] - current[1]) ** 2 + (next[0] - current[0]) ** 2)
 
 
 def scale_csm(csm_matrix, calibration_width, img_width):
@@ -465,9 +435,6 @@ class SmartScanThing(Thing):
         logger: InvocationLogger,
         path: list[list[int]],
         focused_path: list[list[int]],
-        csm: CSMDep,
-        cam: CamDep,
-        current_pos: list[int],
     ) -> list[int]:
         """Remove the first point from the path, and move there.
 
@@ -616,13 +583,6 @@ class SmartScanThing(Thing):
                     )
             else:
                 pass
-                # logger.warning(
-                #     "This scan will run in a spiral from the starting point "
-                #     f"until you cancel it, or until it has moved by {max_dist} steps "
-                #     "in every direction. Make sure you watch it run to stop it leaving "
-                #     "the area of interest, or (worse) leading the microscope's range "
-                #     "of motion."
-                #     )
 
             # Record the starting position so we can move back there afterwards
             autofocus.looping_autofocus(dz=self.autofocus_dz)
@@ -646,20 +606,14 @@ class SmartScanThing(Thing):
             # TODO: generalise to have 2D displacements for x and y (as the
             # camera and stage may not be aligned).
             CSM = csm.image_to_stage_displacement_matrix
-            csm_calibration_width = csm.last_calibration["image_resolution"][1]
 
             overlap = self.overlap
 
-            steps_per_pixel_x = CSM[0][1]
-            steps_per_pixel_y = CSM[1][0]
-
-            # dx = int(steps_per_pixel_x * arr.shape[1] * (1 - overlap))
-            # dy = int(steps_per_pixel_y * arr.shape[0] * (1 - overlap))
 
             dx = int(np.abs(np.dot(np.array([0, arr.shape[1] * (1 - overlap)]), CSM)[0]))
             dy = int(np.abs(np.dot(np.array([arr.shape[0] * (1 - overlap), 0]), CSM)[1]))
 
-            logger.info(f'{dx} {dy}')
+            logger.info(f'Scan step sizes are {dx} {dy}')
 
             logger.info(f"Running a scan with an overlap between images of {overlap}")
             logger.debug(f"Overlap of {overlap}, movements of {dx}, {dy}")
@@ -757,9 +711,7 @@ class SmartScanThing(Thing):
                 # if more than 92% of the image is background, treat it as background and continue
                 if not image_is_sample:
                     logger.info(f"Skipping {stage.position} as it is {round(background_detect.background_fraction(),0)}% background.")
-                    capture_image = False
                 else:
-                    capture_image = True
                     # if not, it's sample. run an autofocus and use the updated height
                     new_pos = [
                         [stage.position["x"] - dx, stage.position["y"]],
@@ -767,57 +719,12 @@ class SmartScanThing(Thing):
                         [stage.position["x"], stage.position["y"] - dy],
                         [stage.position["x"], stage.position["y"] + dy],
                     ]
-                    # new_pos = [
-                    #     [current_pos[0] - dx, current_pos[1]],
-                    #     [current_pos[0] + dx, current_pos[1]],
-                    #     [current_pos[0], current_pos[1] - dy],
-                    #     [current_pos[0], current_pos[1] + dy],
-                    # ]
                     for pos in new_pos:
                         if (
                             pos not in [sublist[:2] for sublist in true_path]
                             and pos not in path
                         ):
                             path.append(pos)
-
-                    # attempts = 0
-                    # if self.autofocus_dz > 200:
-                        # while True:
-                        #     jpeg_zs, jpeg_sizes = autofocus.looping_autofocus(dz=self.autofocus_dz, start = 'base')
-                        #     time.sleep(0.2)
-                        #     autofocus_success = autofocus.verify_focus_sharpness(sweep_sizes = jpeg_sizes, wrappedcamera = CamDep, threshold = 0.8)
-                        #     logger.debug(f"We just tested the focus! Result was {autofocus_success}")
-
-                        #     if autofocus_success:
-                        #         # if there have been successful autofocuses in this scan, find the closest one in x-y
-                        #         # test if the change in z between them exceeds a ratio (indicating a failed autofocus)
-                        #         if len(focused_path) > 0:
-                        #             nearest_focused_site = focused_path[closest(loc, focused_path)]
-                        #             # result = limit_focus_change(
-                        #             #     nearest_focused_site[0:2],
-                        #             #     nearest_focused_site[-1],
-                        #             #     loc[0:2],
-                        #             #     current_height,
-                        #             #     0.5,
-                        #             # )
-                        #             result = "accept"
-
-                        #         # if there haven't been any previous autofocuses, we have to assume this one worked
-                        #         else:
-                        #             result = "accept"
-                        #     else:
-                        #         result = "reject"
-
-                        #     # if the autofocus worked, add the current position to the list of successful locations
-                        #     if result == "accept":
-                        #         loc = list(stage.position.values())
-                        #         focused_path.append(loc)
-                        #         break
-                        #     if attempts >= 3:
-                        #         logger.warning("Could not autofocus after 3 attempts.")
-                        #         break
-                        #     stage.move_absolute(z=int(loc[2]))
-                        #     attempts += 1
 
                     focused_height, new_save_thread = self.smart_stack(
                         cancel=cancel,
@@ -859,9 +766,6 @@ class SmartScanThing(Thing):
                 # add the current position to the list of all positions visited
                 true_path.append(loc)
 
-                #if len(names) > 1:
-                #    generate_config(images_folder, positions, names, CSM, csm_calibration_width, img_width, logger)
-
                 temp_path = []
 
                 self.update_thumbnail(os.path.join(images_folder, 'use'), logger)
@@ -883,7 +787,6 @@ class SmartScanThing(Thing):
                         steps_from_centre(x, true_path[0][:2], dx, dy),
                     ),
                 )
-                # self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
 
         except InvocationCancelledError:
             logger.error("Stopping scan because it was cancelled.")
@@ -920,7 +823,6 @@ class SmartScanThing(Thing):
                     autofocus.looping_autofocus(dz=self.autofocus_dz)
             finally:
                 self._scan_lock.release()
-            # self.create_zip_of_scan(logger = logger, scan_name = scan_folder.split('scans/')[1], download_zip = False)
             logger.info("Processing images, please wait")
             self.preview_stitch_wait()
             self.correlate_wait()
@@ -1357,13 +1259,10 @@ class SmartScanThing(Thing):
                 if ".ome.tiff" in file:
                     tiff_name = os.path.split(file)[1]
                 if any(banned_name in file for banned_name in files_to_delay):
-                    # logger.info(f'we only add {file} into zip at the end of the scan')
                     pass
                 elif file in current_zip:
-                    # logger.info(f'{file} is already in zip')
                     pass
                 elif ".zip" in file:  # or 'raw' in file:
-                    # logger.info('Not adding the .zip to itself')
                     pass
                 else:
                     logger.debug(f"appending {file} to zip")
@@ -1405,11 +1304,8 @@ class SmartScanThing(Thing):
         cam: CamDep,
         metadata_getter: GetThingStates,
         images_folder,
-        start="base",
-        autofocus_dz=2000,
         image_stack_height=9,
         stack_dz=50,
-        focused_path=[],
         current_pos=0,
     ):
         # This is the number of images we test.
@@ -1424,13 +1320,6 @@ class SmartScanThing(Thing):
             """
             try:
                 metadata = metadata_getter()
-                # metadata["/stage/"]["true_stage_position"] = dict(stage.position)
-                # metadata["/stage/"]["position"]["x"] = current_pos[0]
-                # metadata["/stage/"]["position"]["y"] = current_pos[1]
-                # metadata["/stage/"]["position"]["z"] = stage.position["z"]
-                # raw_image = cam.capture_raw(
-                #     get_states=False, get_processing_inputs=False
-                # )
                 raw_image = 0
                 return raw_image, metadata
             except Exception as e:
@@ -1439,16 +1328,6 @@ class SmartScanThing(Thing):
 
         def save_capture(name, raw_name, raw_image, img, metadata, current_pos):
             try:
-                # Save the raw image
-                # (
-                #     raw_image.image_data.save(
-                #         os.path.join(images_folder, raw_name + ".raw")
-                #     ),
-                # )
-                # png = cam.raw_to_png(raw=raw_image, use_cache=True)
-                # png.save(os.path.join(images_folder, name + ".png"))
-                # TODO: save metadata to PNG and eliminate the JPG.
-                # img = Image.open(png.open())
                 jpeg_path = os.path.join(images_folder, name + ".jpeg")
                 Image.fromarray(img.astype('uint8'), 'RGB').save(jpeg_path, quality=95, subsampling=0)
                 try:
@@ -1485,8 +1364,6 @@ class SmartScanThing(Thing):
             stage.move_relative(x=0, y=0, z=stack_dz)
             time.sleep(0.3)
             processed_images.append(cam.capture_array()[...,:3])
-            # _, frame = cv2.imencode('.JPEG', processed_images[-1])
-            # sharpnesses.append(len(frame))
             sharpnesses.append(cam.grab_jpeg_size(stream_name="lores"))
             capture_list.append(img_array)
             metadata_list.append(img_metadata)
@@ -1506,10 +1383,8 @@ class SmartScanThing(Thing):
                         f"Could't find focus. Gone too far. Peak was image {np.argmax(sharpnesses)}. List is {sharpnesses}"
                     )
                     stage.move_relative(
-                        # x=0, y=0, z=-(500 + max_stack_height * stack_dz)
                         x=0, y=0, z=-(self.autofocus_dz)
                     )
-                    # stage.move_relative(x = 0, y = 0, z = 200)
                     m = autofocus.move_and_measure(
                         dz=[0, self.autofocus_dz] #TODO this needs a minimum size
                     )
@@ -1542,7 +1417,6 @@ class SmartScanThing(Thing):
                     stage.move_relative(
                         x=0, y=0, z=-(500 + max_stack_height * stack_dz)
                     )
-                    # stage.move_relative(x = 0, y = 0, z = 200)
                     m = autofocus.move_and_measure(
                         dz=[0, 500 + max_stack_height * stack_dz]
                     )
@@ -1589,8 +1463,6 @@ class SmartScanThing(Thing):
             os.makedirs(os.path.join(images_folder, current_site_folder))
         if not os.path.isdir(os.path.join(images_folder, "raw", current_site_folder)):
             os.makedirs(os.path.join(images_folder, "raw", current_site_folder))
-        # if not os.path.isdir(os.path.join(images_folder, "use", "raw")):
-        #     os.makedirs(os.path.join(images_folder, "use", "raw"))
         focused_image_name = os.path.join(
             "use", f"{stage.position['x']}_{stage.position['y']}"
         )
@@ -1665,7 +1537,6 @@ class SmartScanThing(Thing):
         if sorted(approach) == approach and sorted(recede, reverse=True) == recede:
             return "success"
         elif accept_chevy:
-            # logger.info("testing cheby")
             dz = heights[1] - heights[0]
             centre_index = len(heights) // 2
 
@@ -1742,9 +1613,8 @@ class SmartScanThing(Thing):
                 raise e
         if stop < 1:
             stop = len(jpeg_times)
-            # logging.debug("changing stop to %s", (stop))
         jpeg_times = jpeg_times[start:stop]
         jpeg_zs: np.ndarray = np.interp(
             jpeg_times, stage_times, stage_zs
-        )  # np.ndarray[float]
+        )
         return jpeg_times, jpeg_zs, jpeg_sizes[start:stop]
