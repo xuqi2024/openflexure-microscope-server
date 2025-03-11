@@ -475,87 +475,19 @@ class SmartScanThing(Thing):
         loc = [path[0][0], path[0][1]]
         path.remove(path[0])
         logger.debug(f"Moving to {loc}")
-        x_positions = len(set([i[0] for i in focused_path]))
-        y_positions = len(set([i[1] for i in focused_path]))
-        if x_positions >= 3 and y_positions >= 3:
-            z = int(self.fit_next_z(loc, focused_path))
-            # z = z - ((self.stack_test_height-1)/2 +4)*self.stack_dz
-        elif len(focused_path) > 1:
+        
+        # If we've got other images to base off, get a list of nearby sites
+        # and move to the z position of the lowest one
+        if len(focused_path) > 1:
             z_index = closest(loc, focused_path)
-            z = int(
-                focused_path[z_index][2]
-            )  # - ((self.stack_test_height-1)/2 +6)*self.stack_dz
+            nearest_difference = distance_to_site(focused_path[z_index], loc)
+            neighbours = [i for i in focused_path if distance_to_site(i, loc) < 1.6 * nearest_difference]
+            z_neighbours = [i[2] for i in neighbours]
+            z = np.min(z_neighbours)
         else:
-            z = stage.position["z"]  # - ((self.stack_test_height-1)/2 +7)*self.stack_dz
+            z = stage.position["z"]
+
         stage.move_absolute(x=loc[0], y=loc[1], z=z-35)
-
-        # x_move = loc[0] - current_pos[0]
-        # y_move = loc[1] - current_pos[1]
-
-        # CSM = np.array(csm.image_to_stage_displacement_matrix)
-
-        # pixel_move = np.dot(
-        #     np.array([y_move, x_move]),
-        #     np.linalg.inv(CSM),
-        # )
-
-        # if abs(pixel_move[0]) > cam.stream_resolution[1] or abs(pixel_move[1]) > cam.stream_resolution[0]:
-        #     logger.info('open loop move')
-        #     # # TODO: when do we just want to use this? Definitely if the current FOV was background
-        #     csm.move_in_image_coordinates(
-        #         stage=stage,
-        #         x=-pixel_move[0],
-        #         y=-pixel_move[1]
-        #         )
-        # else:
-        #     if abs(pixel_move[0]) > abs(pixel_move[1]):
-        #         pixel_move[1] = 0
-        #     else:
-        #         pixel_move[0] = 0
-
-        #     logger.info(f"{x_move} {y_move} {pixel_move}")
-
-        #     closed_loop_split = 1
-        #     closed_loop_ratio = 1 / closed_loop_split
-
-        #     for i in range(closed_loop_split):
-        #         csm.certify_move_in_image_coordinates(
-        #             stage = stage,
-        #             cam = cam,
-        #             logger = logger,
-        #             x = -1*pixel_move[0]*closed_loop_ratio*(np.abs(CSM[0,1])/CSM[0,1]),
-        #             y = -1*pixel_move[1]*closed_loop_ratio*(np.abs(CSM[1,0])/CSM[1,0]),
-        #             threshold = 10
-        # #         )
-        # def sign(x):
-        #     return bool(x > 0) - bool(x < 0)
-
-        # if abs(pixel_move[0]) > abs(pixel_move[1]):
-        #     pixel_move[1] = 0
-        # else:
-        #     pixel_move[0] = 0
-
-        # logger.info(pixel_move)
-        # logger.info(sign(-1*pixel_move[0]*0.1*(np.abs(CSM[0,1])/CSM[0,1]))*100)
-        # logger.info(sign(-1*pixel_move[1]*0.1*(np.abs(CSM[1,0])/CSM[1,0]))*100)
-
-        # logger.info(-pixel_move[0]-sign(-1*pixel_move[0]*0.1*(np.abs(CSM[0,1])/CSM[0,1]))*100)
-        # logger.info(-pixel_move[1]-sign(-1*pixel_move[1]*0.1*(np.abs(CSM[1,0])/CSM[1,0]))*100)
-
-        # csm.certify_move_in_image_coordinates(
-        #     stage = stage,
-        #     cam = cam,
-        #     logger = logger,
-        #     x = sign(-1*pixel_move[0]*0.1*(np.abs(CSM[0,1])/CSM[0,1]))*100,
-        #     y = sign(-1*pixel_move[1]*0.1*(np.abs(CSM[1,0])/CSM[1,0]))*100,
-        #     threshold = 10
-        # )
-
-        # csm.move_in_image_coordinates(
-        #     stage=stage,
-        #     x=-pixel_move[0], #-sign(-1*pixel_move[0]*0.1*(np.abs(CSM[0,1])/CSM[0,1]))*100,
-        #     y=-pixel_move[1] #-sign(-1*pixel_move[1]*0.1*(np.abs(CSM[1,0])/CSM[1,0]))*100
-        #     )
 
         return loc + [stage.position['z']]
 
@@ -1513,17 +1445,10 @@ class SmartScanThing(Thing):
                     pass
             except Exception as e:
                 logger.error(f"An error occurred while saving {name}: {e}", exc_info=e)
-
-        x_positions = len(set([i[0] for i in focused_path]))
-        y_positions = len(set([i[1] for i in focused_path]))
-        if x_positions < 3 or y_positions < 3:
-            logger.debug("We're just starting, so doing a full autofocus")
-            undershoot_z = -((self.stack_test_height - 1) / 2 + 6) * self.stack_dz - 300
-        else:
-            logger.debug("We've got a good idea where we should be skipping autofocus")
-            undershoot_z = -((self.stack_test_height - 1) / 2 + 4) * self.stack_dz - 300
-        stage.move_relative(z=undershoot_z)
-        stage.move_relative(z=460)
+        # Aiming to move too low by backlash correction + half the stack height  + 4 extra steps
+        # Extra steps because it's better being too low than too high
+        stage.move_relative(z=- (100 + ((self.stack_test_height - 1) / 2 + 4) * self.stack_dz))
+        stage.move_relative(z=100)
         captures = 0
         capture_list = []
         metadata_list = []
