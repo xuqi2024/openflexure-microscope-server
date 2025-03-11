@@ -19,7 +19,6 @@ from datetime import datetime, timedelta
 from subprocess import CompletedProcess, Popen, PIPE, SubprocessError, run, STDOUT
 from threading import Thread
 import glob
-import zipfile
 import json
 import piexif
 
