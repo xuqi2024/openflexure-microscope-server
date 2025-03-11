@@ -1447,6 +1447,7 @@ class SmartScanThing(Thing):
                 PIL_image = Image.fromarray(img.astype('uint8'), 'RGB').save(jpeg_path, quality=100, subsampling=0)
                 try:
                     exif_dict = piexif.load(jpeg_path)
+                    exif_dict['0th'][piexif.ImageIFD.DateTime] = time.strftime('%Y:%m:%d %H:%M:%S')
                     exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
                         metadata
                     ).encode("utf-8")
