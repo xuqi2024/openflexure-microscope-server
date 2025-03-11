@@ -476,11 +476,15 @@ class SmartScanThing(Thing):
         loc = [path[0][0], path[0][1]]
         path.remove(path[0])
         logger.debug(f"Moving to {loc}")
+        
+        # If we've got other images to base off, get a list of nearby sites
+        # and move to the z position of the lowest one
         if len(focused_path) > 1:
             z_index = closest(loc, focused_path)
-            z = int(
-                focused_path[z_index][2]
-            )
+            nearest_difference = distance_to_site(focused_path[z_index], loc)
+            neighbours = [i for i in focused_path if distance_to_site(i, loc) < 1.6 * nearest_difference]
+            z_neighbours = [i[2] for i in neighbours]
+            z = np.min(z_neighbours)
         else:
             z = stage.position["z"]
 
