@@ -1450,7 +1450,7 @@ class SmartScanThing(Thing):
                 # TODO: save metadata to PNG and eliminate the JPG.
                 # img = Image.open(png.open())
                 jpeg_path = os.path.join(images_folder, name + ".jpeg")
-                PIL_image = Image.fromarray(img.astype('uint8'), 'RGB').save(jpeg_path, quality=100, subsampling=0)
+                Image.fromarray(img.astype('uint8'), 'RGB').save(jpeg_path, quality=95, subsampling=0)
                 try:
                     exif_dict = piexif.load(jpeg_path)
                     exif_dict['0th'][piexif.ImageIFD.DateTime] = time.strftime('%Y:%m:%d %H:%M:%S')
