@@ -1483,10 +1483,14 @@ class SmartScanThing(Thing):
             capture_heights.append(stage.position["z"])
             img_array, img_metadata = capture_image(stage=stage)
             stage.move_relative(x=0, y=0, z=stack_dz)
-            time.sleep(0.3)
-            processed_images.append(cam.capture_array()[...,:3])
-            # _, frame = cv2.imencode('.JPEG', processed_images[-1])
-            # sharpnesses.append(len(frame))
+            # Collect a high res array, downsampling by 2 in each axis
+            processed_images.append(
+                cv2.resize(
+                    cam.highres_mode_and_capture_array(),
+                    (0,0),
+                    fx = 0.5,
+                    fy = 0.5)
+                )
             sharpnesses.append(cam.grab_jpeg_size(stream_name="lores"))
             capture_list.append(img_array)
             metadata_list.append(img_metadata)

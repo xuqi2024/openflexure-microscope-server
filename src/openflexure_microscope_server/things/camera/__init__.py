@@ -8,7 +8,7 @@ See repository root for licensing information.
 
 from __future__ import annotations
 import logging
-from typing import Any, Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable, Annotated, Optional
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.decorators import thing_action, thing_property
@@ -49,6 +49,9 @@ class CameraProtocol(Protocol):
     @property
     def stream_active(self) -> bool:
         "Whether the MJPEG stream is active"
+        ...
+
+    def highres_mode_and_capture_array(self):
         ...
 
     @property
@@ -244,6 +247,10 @@ class CameraStub(BaseCamera, RawIsArrayCamera):
     @thing_property
     def stream_active(self) -> bool:
         "Whether the MJPEG stream is active"
+        raise NotImplementedError("Cameras must not inherit from CameraStub")
+    
+    @thing_action
+    def highres_mode_and_capture_array(self):
         raise NotImplementedError("Cameras must not inherit from CameraStub")
 
     @thing_action
