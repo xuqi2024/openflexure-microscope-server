@@ -1345,6 +1345,8 @@ class SmartScanThing(Thing):
                 "1",
                 "--max_stage_discrepancy",
                 "130",
+                "--min_peak_quality",
+                "0.9995",
                 os.path.join(images_folder, "images", "use"),
             ],
         )
