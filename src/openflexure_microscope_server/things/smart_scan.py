@@ -909,11 +909,12 @@ class SmartScanThing(Thing):
                     number_of_images = len(os.listdir(images_folder))
                 else:
                     number_of_images = 0
+                modified = max(os.stat(root).st_mtime for root,_,_ in os.walk(path))
                 scans.append(
                     ScanInfo(
                         name=f,
                         created=os.path.getctime(path),
-                        modified=os.path.getmtime(path),
+                        modified=modified,
                         number_of_images=number_of_images,
                     )
                 )
