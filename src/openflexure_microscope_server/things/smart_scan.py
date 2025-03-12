@@ -682,18 +682,14 @@ class SmartScanThing(Thing):
                     stage,
                     logger,
                     path=path,
-                    focused_path=focused_path,
-                    csm=csm,
-                    cam=cam,
-                    current_pos=current_pos,
+                    focused_path=focused_path
                 )
 
-                # true_path.append([loc[0], loc[1], stage.position["z"]])
                 current_pos = loc
 
                 if not self.preview_stitch_running() and len(focused_path) > 2:
                     self.preview_stitch_start(logger, scan_name, overlap, loc)
-                if self.stitch_automatically:
+                if self.stitch_automatically and len(focused_path) > 2:
                     if not self.correlate_running():
                         self.correlate_start(os.path.join(images_folder, 'use'), overlap=overlap)
 
@@ -705,7 +701,7 @@ class SmartScanThing(Thing):
                 else:
                     image_is_sample = True
 
-                # if more than 92% of the image is background, treat it as background and continue
+                # if less than background_fraction% of the image is sample, treat it as background and continue
                 if not image_is_sample:
                     logger.info(f"Skipping {stage.position} as it is {round(background_detect.background_fraction(),0)}% background.")
                 else:
@@ -724,18 +720,14 @@ class SmartScanThing(Thing):
                             path.append(pos)
 
                     focused_height, new_save_thread = self.smart_stack(
-                        cancel=cancel,
                         logger=logger,
                         autofocus=autofocus,
                         stage=stage,
                         cam=cam,
                         metadata_getter=metadata_getter,
                         images_folder=images_folder,
-                        start="base",
-                        autofocus_dz=self.autofocus_dz,
                         image_stack_height=self.stack_height,
                         stack_dz=self.stack_dz,
-                        focused_path=focused_path,
                         current_pos=current_pos,
                     )
 
@@ -1294,7 +1286,6 @@ class SmartScanThing(Thing):
     @thing_action
     def smart_stack(
         self,
-        cancel: CancelHook,
         logger: InvocationLogger,
         autofocus: AutofocusDep,
         stage: StageDep,
@@ -1452,38 +1443,24 @@ class SmartScanThing(Thing):
         current_site_folder = os.path.join(
             "stacks", f"{current_pos[0]}_{current_pos[1]}"
         )
-        if not os.path.isdir(os.path.join(images_folder, 'raw')):
-            os.makedirs(os.path.join(images_folder, 'raw'))
         if not os.path.isdir(os.path.join(images_folder, "use")):
             os.makedirs(os.path.join(images_folder, "use"))
         if not os.path.isdir(os.path.join(images_folder, current_site_folder)):
             os.makedirs(os.path.join(images_folder, current_site_folder))
-        if not os.path.isdir(os.path.join(images_folder, "raw", current_site_folder)):
-            os.makedirs(os.path.join(images_folder, "raw", current_site_folder))
         focused_image_name = os.path.join(
             "use", f"{stage.position['x']}_{stage.position['y']}"
         )
-        focused_raw_name = os.path.join(
-            "raw", f"{stage.position['x']}_{stage.position['y']}"
-        )
-
         def save_captures():
             save_capture(
                 focused_image_name,
-                focused_raw_name,
-                capture_list[sharpest_index],
                 processed_images[sharpest_index],
-                metadata_list[sharpest_index],
-                current_pos,
+                metadata_list[sharpest_index]
             )
             for i in range(start_index, end_index + 1):
                 save_capture(
                     os.path.join(current_site_folder, f"{i}"),
-                    os.path.join("raw", current_site_folder, f"{stage.position['z']}"),
-                    capture_list[i],
                     processed_images[i],
-                    metadata_list[i],
-                    current_pos,
+                    metadata_list[i]
                 )
 
         save_thread = Thread(target=save_captures)
