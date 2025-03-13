@@ -34,7 +34,7 @@ dev = [
   "pytest",
 ]
 pi = [
-  "labthings-picamera2 == 0.0.2-dev1",
+  "labthings-picamera2 == 0.0.2",
 ]
 
 [project.scripts]
