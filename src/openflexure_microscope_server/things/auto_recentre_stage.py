@@ -118,7 +118,7 @@ class RangeofMotionThing(Thing):
                 csm.move_in_image_coordinates(x = step_size['x'], y = step_size['y'])
                 if autofocus_proc == True:
                     focus_data = autofocus.looping_autofocus(dz = focus_range)
-                if np.max(focus_data[1]) < base_sharp:  #Autofocuses only when the previous sharpness value wasn't good enough
+                if np.max(focus_data[1]) < base_sharp and autofocus_proc == True:  #Autofocuses only when the previous sharpness value wasn't good enough
                     logger.info(f"Max sharpness is {np.max(focus_data[1])} which is less than the base sharpness {base_sharp}. Refocusing before continuing.")
                     focus_data = autofocus.looping_autofocus(dz = focus_range)
                 image2 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
@@ -132,6 +132,10 @@ class RangeofMotionThing(Thing):
             logger.info("Using the stage to measure the range of motion")
             start_time = time.time() #starts the timer
             filepath = "/var/openflexure/" #Location where any images or JSON files are saved
+
+            m = autofocus.looping_autofocus(dz = 1000)
+
+            base_sharp = np.max(m[1]) - 5000 
             
             #Generates all the required dictionaries for all the different step sizes it will need to complete the ROM test
             step_sizes_small, minimum_offset_small, z_steps, minimum_offset_z, step_sizes_big = dict_generate(20, 50, 200)
@@ -140,7 +144,14 @@ class RangeofMotionThing(Thing):
             with open('/var/openflexure/settings/camera_stage_mapping/settings.json') as f:
                 csm_settings = json.load(f)
 
-            pixel_per_step = csm_settings['last_calibration']['linear_calibration_x']['pixels_per_step']
+            #pixel_per_step = csm_settings['last_calibration']['linear_calibration_x']['pixels_per_step']
+
+            #Should extract x and y separately because this assumes x and y are the same but for now it just averages between the two.
+            pixel_per_step = ((1/abs(csm.image_to_stage_displacement_matrix[0][1])) + (1/abs(csm.image_to_stage_displacement_matrix[1][0])))/4
+
+            logger.info(f"{csm.image_to_stage_displacement_matrix[0][1]}, {csm.image_to_stage_displacement_matrix[1][0]}")
+            logger.info(f"pixel per step = {pixel_per_step}")
+            logger.info(csm.last_calibration.dict['camera_stage_mapping_calibration']['image_to_stage_displacement'])
 
             this_big_step_size = {}
             this_small_step_size = {}
@@ -190,8 +201,7 @@ class RangeofMotionThing(Thing):
                     z_cal_step[axs] = z_steps[axs] * dir 
 
                     m = autofocus.looping_autofocus(dz = 1000)
-
-                    base_sharp = 70000  #The lowest sharpness value allowed. If below this, autofocus procedure occurs
+                    #The lowest sharpness value allowed. If below this, autofocus procedure occurs. This is the maximum sharpness value of the first autofocus that occurs.
 
                     #m saves all the data from the autofocus and m[1] is the array of all the file sizes so the maximum one is the most in focus image.
                     #This base_sharp is used to check whether the images later are in focus
@@ -263,7 +273,7 @@ class RangeofMotionThing(Thing):
                         #Predicts best z move based on first 4 moves to avoid hitting sample
                         #Each movement should improve the fit
                         
-                        relative_move = dir * 2 * res_dic[axs]/pixel_per_step
+                        relative_move = dir * 2 * res_dic[axs]/(2*pixel_per_step) #This is the number of steps to cover 200% of the FOV.
                         z_dest = quadratic(stage.position[axs] + relative_move, *parameters)
                         z_diff = z_dest - stage.position['z']
 
@@ -296,6 +306,7 @@ class RangeofMotionThing(Thing):
                             if np.abs(delta[wrong_axis]) > wrong_axis_max_small[wrong_axis]:
                                 logger.info(f"Parasitic motion in the wrong axis detected. Displacement in {wrong_axis} was found as {delta[wrong_axis]}.")
                                 axis_error = True
+                                stage_coords.append(stage.position)
                                 break 
 
                             #Refocuses and tests new image to check that the focus wasn't just off
