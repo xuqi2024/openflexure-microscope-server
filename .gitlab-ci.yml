@@ -59,11 +59,17 @@ meta-build-image:
     - web
 
 # Python formatting and static analysis with ruff
-ruff:
+ruff-lint:
   stage: analysis
   extends: .python
   script:
     - ruff check
+
+# Python formatting and static analysis with ruff
+ruff-format:
+  stage: analysis
+  extends: .python
+  script:
     - ruff format --check
 
 # Python type checking with Mypy

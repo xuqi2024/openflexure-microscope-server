@@ -615,7 +615,7 @@ class SmartScanThing(Thing):
 
             logger.info(
                 f"Generated normalisation image with shape {white_norm.shape}, "
-                f"max {white_norm.max(axis=(0,1))}, min {white_norm.min(axis=(0,1))}"
+                f"max {white_norm.max(axis=(0, 1))}, min {white_norm.min(axis=(0, 1))}"
             )
             norm_inputs = {
                 "luminance": lum,
@@ -660,7 +660,7 @@ class SmartScanThing(Thing):
                     )
                     save_time = time.time()
                     logger.info(
-                        f"Acquired {name} in {acquisition_time-capture_start:.1f}s then {save_time-acquisition_time:.1f}s saving to disk"
+                        f"Acquired {name} in {acquisition_time - capture_start:.1f}s then {save_time - acquisition_time:.1f}s saving to disk"
                     )
                 except Exception as e:
                     logger.error(
@@ -691,7 +691,7 @@ class SmartScanThing(Thing):
                 # if more than 92% of the image is background, treat it as background and continue
                 if not image_is_sample:
                     logger.info(
-                        f"Skipping {stage.position} as it is {round(background_detect.background_fraction(),0)}% background."
+                        f"Skipping {stage.position} as it is {round(background_detect.background_fraction(), 0)}% background."
                     )
                 else:
                     # if not, it's sample. run an autofocus and use the updated height
@@ -826,7 +826,7 @@ class SmartScanThing(Thing):
         except Exception as e:
             logger.error(
                 f"The scan stopped because of an error: {e}",
-                "We will attempt to stitch and archive the images acquired " "so far.",
+                "We will attempt to stitch and archive the images acquired so far.",
                 exc_info=e,
             )
             raise e
@@ -1084,7 +1084,7 @@ class SmartScanThing(Thing):
                     "--stitching_mode",
                     "only_correlate",
                     "--minimum_overlap",
-                    f"{round(overlap*0.9, 2)}",
+                    f"{round(overlap * 0.9, 2)}",
                     images_folder,
                 ]
             )
@@ -1164,7 +1164,7 @@ class SmartScanThing(Thing):
                 "all",
                 f"{tiff_arg}",
                 "--minimum_overlap",
-                f"{round(overlap*0.9,2)}",
+                f"{round(overlap * 0.9, 2)}",
                 images_folder,
             ],
         )
@@ -1193,7 +1193,7 @@ class SmartScanThing(Thing):
             )
         # logger.info("Creating zip archive of images (may take some time)...")
 
-        zip_fname = f'{os.path.join(scan_folder, "images")}.zip'
+        zip_fname = f"{os.path.join(scan_folder, 'images')}.zip"
 
         # Create an empty zip file - we don't want to autofill it with files,
         # as some of them should only be added at the end (as we can't overwrite)
