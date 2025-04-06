@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional
+import logging
 
 from labthings_fastapi.server import cli, ThingServer
 import uvicorn
@@ -39,16 +40,25 @@ def serve_from_cli(argv: Optional[list[str]] = None):
                 "disable_existing_loggers": False,
             },
         )
-
     except BaseException as e:
         if args.fallback:
-            print(f"Error: {e}")
+            logging.error(f"Error: {e}")
             fallback_server = "labthings_fastapi.server.fallback:app"
-            print(f"Starting fallback server {fallback_server}.")
+            logging.info(f"Starting fallback server {fallback_server}.")
+            log_history = None
+            try:
+                root_logger = logging.getLogger()
+                logfile_path = root_logger.root.handlers[0].baseFilename
+                with open(logfile_path) as log_file:
+                    log_history = log_file.read()
+            except BaseException as e:
+                logging.error(f"Error: {e}")
+                logging.info("Cannot send logging history to fallback server")
             app = cli.object_reference_to_object(fallback_server)
             app.labthings_config = config
             app.labthings_server = server
             app.labthings_error = e
+            app.log_history = log_history
             uvicorn.run(
                 app,
                 host=args.host,
