@@ -1,8 +1,8 @@
 import logging
 from logging.handlers import RotatingFileHandler
 import os
-
-from fastapi.responses import PlainTextResponse
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 OFM_LOG_FOLDER = "/var/openflexure/logs/"
 OFM_LOG_FILE = os.path.join(OFM_LOG_FOLDER, "openflexure_microscope.log")
@@ -24,8 +24,6 @@ def configure_logging():
         format_str = "[%(asctime)s] [%(levelname)s] <%(name)s> %(message)s"
         handler.setFormatter(logging.Formatter(format_str))
         root_logger.addHandler(handler)
-        ofm_format_str = "[%(asctime)s] [%(levelname)s] %(message)s"
-        OFM_HANDLER.setFormatter(logging.Formatter(ofm_format_str))
         root_logger.addHandler(OFM_HANDLER)
 
     except PermissionError as e:
@@ -47,7 +45,7 @@ def retrieve_log() -> PlainTextResponse:
     All logs, including `uvicorn.access` are logged to the OFM_LOG_FILE (see above)
     ths is the best place to get logs about crashes.
     """
-    return PlainTextResponse(OFM_HANDLER.log_history)
+    return JSONResponse(content=jsonable_encoder(OFM_HANDLER.log_history))
 
 
 def retrieve_log_from_file() -> PlainTextResponse:
@@ -72,13 +70,30 @@ class OFMHandler(logging.Handler):
         super().__init__(level=level)
         self._log = []
         self._max_logs = max_logs
+        # start at -1 so first record is 0
+        self._running_counter = -1
+
+    def _as_record_dict(self, record):
+        """
+        Format the record into the dictoionary structure expected by the server
+        """
+        msg = record.message
+        self._running_counter += 1
+        return {
+            "timestamp": record.asctime,
+            "level": record.levelname,
+            "summary": msg.split("\n")[0],
+            "message": record.getMessage(),
+            "sequence": self._running_counter,
+            "expanded": False,
+        }
 
     def append_record(self, record):
         """
         Use the built in formatter to format the record, then save
         it to an array. Pop any in excess of the mamimum number of logs
         """
-        self._log.append(self.format(record))
+        self._log.append(self._as_record_dict(record))
         while len(self._log) > self._max_logs:
             self._log.pop(0)
 
@@ -107,7 +122,7 @@ class OFMHandler(logging.Handler):
         """
         Return the log history up to the maximum number of logs
         """
-        return "\n".join(self._log)
+        return list(reversed(self._log))
 
 
 OFM_HANDLER = OFMHandler()
