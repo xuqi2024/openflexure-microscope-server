@@ -41,7 +41,12 @@ Vue.mixin({
     thingAvailable(thing) {
       return this.$store.getters["wot/thingAvailable"](thing);
     },
-    async readThingProperty(thing, property, silence_errors = false) {
+    async readThingProperty(
+      thing,
+      property,
+      silence_errors = false,
+      no_cache = false
+    ) {
       let url = this.$store.getters["wot/thingPropertyUrl"](
         thing,
         property,
@@ -49,7 +54,18 @@ Vue.mixin({
         false
       );
       try {
-        let response = await axios.get(url);
+        var response;
+        if (no_cache) {
+          response = await axios.get(url, {
+            headers: {
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+              Expires: "0"
+            }
+          });
+        } else {
+          response = await axios.get(url);
+        }
         return response.data;
       } catch (error) {
         if (!silence_errors) this.modalError(error);
