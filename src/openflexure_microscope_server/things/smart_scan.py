@@ -259,9 +259,12 @@ class BackgroundDetectThing(Thing):
             raise RuntimeError(
                 "Background is not set: you need to calibrate background detection."
             )
+        # This image is in LUV space. But the brightness (L) often changes as the
+        # height of the sample changes. Hence in the line below we are only using
+        # the UV (colour) channels.
         return np.all(
-            np.abs(image - np.array(d.means)[np.newaxis, np.newaxis, :])
-            < np.array(d.standard_deviations)[np.newaxis, np.newaxis, :]
+            np.abs(image[:, :, 1:] - np.array(d.means[1:])[np.newaxis, np.newaxis, :])
+            < np.array(d.standard_deviations[1:])[np.newaxis, np.newaxis, :]
             * self.tolerance,
             axis=2,
         )
