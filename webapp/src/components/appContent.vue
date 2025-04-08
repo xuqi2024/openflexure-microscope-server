@@ -215,19 +215,19 @@ export default {
           component: navigateContent
         },
         {
-          id: "slidescan",
+          id: "background detect",
+          icon: "background_replace",
+          component: backgroundDetectContent
+        },
+        {
+          id: "slide scan",
           icon: "settings_overscan",
           component: slideScanContent
         },
         {
-          id: "scanlist",
+          id: "scan list",
           icon: "photo_library",
           component: ScanListContent
-        },
-        {
-          id: "background_detect",
-          icon: "background_replace",
-          component: backgroundDetectContent
         }
       ];
       if (!this.$store.state.galleryEnabled) {
@@ -313,7 +313,7 @@ export default {
 }
 
 #switcher-left {
-  width: 75px;
+  width: 85px;
   padding-top: 2px !important;
 }
 

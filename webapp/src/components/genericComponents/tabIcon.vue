@@ -98,7 +98,8 @@ export default {
 }
 
 .tabtitle {
-  max-width: 60px;
+  margin: auto;
+  max-width: 70px;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 85%;
