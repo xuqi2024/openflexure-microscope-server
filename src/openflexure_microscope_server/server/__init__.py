@@ -6,7 +6,7 @@ from labthings_fastapi.server import cli, ThingServer
 import uvicorn
 from .serve_static_files import add_static_files
 from .legacy_api import add_v2_endpoints
-from ..logging import configure_logging, retrieve_log
+from ..logging import configure_logging, retrieve_log, retrieve_log_from_file
 
 
 def customise_server(server: ThingServer):
@@ -18,8 +18,9 @@ def customise_server(server: ThingServer):
     except RuntimeError:
         print("Failed to add static files - you will have to do without them!")
 
-    # Add an endpoint to get the log
+    # Add an endpoint to get the logs - (directly calling the FastAPI decorator)
     server.app.get("/log/")(retrieve_log)
+    server.app.get("/logfile/")(retrieve_log_from_file)
 
 
 def serve_from_cli(argv: Optional[list[str]] = None):
@@ -30,7 +31,16 @@ def serve_from_cli(argv: Optional[list[str]] = None):
         config = cli.config_from_args(args)
         server = cli.server_from_config(config)
         customise_server(server)
-        uvicorn.run(server.app, host=args.host, port=args.port)
+        uvicorn.run(
+            server.app,
+            host=args.host,
+            port=args.port,
+            log_config={
+                "version": 1,
+                "disable_existing_loggers": False,
+            },
+        )
+
     except BaseException as e:
         if args.fallback:
             print(f"Error: {e}")
@@ -40,6 +50,14 @@ def serve_from_cli(argv: Optional[list[str]] = None):
             app.labthings_config = config
             app.labthings_server = server
             app.labthings_error = e
-            uvicorn.run(app, host=args.host, port=args.port)
+            uvicorn.run(
+                app,
+                host=args.host,
+                port=args.port,
+                log_config={
+                    "version": 1,
+                    "disable_existing_loggers": False,
+                },
+            )
         else:
             raise e

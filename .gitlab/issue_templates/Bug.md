@@ -22,8 +22,8 @@ To access your microscope log, either:
 
 * Run `ofm log` on your microscope, and copy/paste the output here
 
-* Go to `http://<your microscope IP>:5000/log`, download the log file, and attach it here using the "Attach a File" button below
-  * In most setups, `http://microscope.local:5000/log` should work
+* Go to `http://<your microscope IP>:5000/logfile`, download the log file, and attach it here using the "Attach a File" button below
+  * In most setups, `http://microscope.local:5000/logfile` should work
 
 ## Additional details
 

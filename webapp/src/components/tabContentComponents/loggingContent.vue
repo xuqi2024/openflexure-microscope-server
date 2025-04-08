@@ -30,7 +30,10 @@
             </button>
           </div>
           <div>
-            <a class="uk-button uk-button-default" :href="logFileURI" download
+            <a
+              class="uk-button uk-button-default"
+              :href="logFileURI"
+              download="openflexure_microscope.log"
               >Download Log File</a
             >
           </div>
@@ -125,8 +128,11 @@ export default {
 
       return items;
     },
-    logFileURI: function() {
+    logURI: function() {
       return `${this.$store.getters.baseUri}/log/`;
+    },
+    logFileURI: function() {
+      return `${this.$store.getters.baseUri}/logfile/`;
     },
     pagedItems: function() {
       let startIndex = (this.page - 1) * this.maxitems;
@@ -150,7 +156,7 @@ export default {
       }
     },
     async updateLogs() {
-      let response = await axios.get(this.logFileURI);
+      let response = await axios.get(this.logURI);
       let lines = response.data.split("\n");
       let logs = [];
       let regexp = /\[(.+)\] \[(.+)\] (.*)$/;
