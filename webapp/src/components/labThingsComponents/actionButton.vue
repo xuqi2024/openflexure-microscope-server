@@ -19,7 +19,7 @@
       <button
         type="button"
         :hidden="taskStarted"
-        class="uk-button uk-margin-remove uk-width-1-1"
+        class="uk-button uk-width-1-1"
         :class="[buttonPrimary ? 'uk-button-primary' : 'uk-button-default']"
         @click="bootstrapTask()"
       >

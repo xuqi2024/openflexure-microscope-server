@@ -14,6 +14,7 @@
           <div>
             <button
               class="uk-button uk-button-default uk-width-1-1"
+              style="margin-top:5px;margin-bottom: 2px"
               type="button"
               @click="deleteAllScans()"
             >
@@ -23,6 +24,7 @@
           <div>
             <button
               class="uk-button uk-button-default uk-width-1-1"
+              style="margin-top:5px;margin-bottom: 2px"
               type="button"
               @click="updateScans()"
             >
@@ -55,7 +57,7 @@
                 @response="downloadZipFile"
                 @error="modalError"
               />
-              <button class="uk-button" @click="deleteScan(item.name)">
+              <button class="uk-button uk-button-default uk-width-1-1" @click="deleteScan(item.name)">
                 Delete
               </button>
               <action-button
