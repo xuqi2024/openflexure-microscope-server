@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from scipy.stats import norm
 from datetime import datetime
 from subprocess import CompletedProcess, Popen, PIPE, SubprocessError, STDOUT
-from threading import Event, Thread
+from threading import Event
 import glob
 import json
 import piexif
@@ -32,6 +32,8 @@ from labthings_fastapi.decorators import thing_action, thing_property, fastapi_e
 from labthings_fastapi.outputs.blob import blob_type
 from .camera import CameraDependency as CamDep
 from .stage import StageDependency as StageDep
+
+from openflexure_microscope_server.utilities import ErrorCapturingThread
 from openflexure_microscope_server.things.autofocus import AutofocusThing
 from openflexure_microscope_server.things.camera_stage_mapping import CameraStageMapper
 from openflexure_microscope_server.things.auto_recentre_stage import RecentringThing
@@ -474,6 +476,7 @@ class SmartScanThing(Thing):
         """
         # Define these variables so we can use them in the finally: block
         # (after testing they are not None)
+        scan_sucessful = True
         scan_folder = None
         images_folder = None
         starting_position = None
@@ -670,6 +673,9 @@ class SmartScanThing(Thing):
                     if capture_thread:  # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
                         if capture_thread.is_alive():
                             wait_start = time.time()
+                            # If the capture thread has thrown an exception it will be raised when join is called,
+                            # this will cause the scan to end. If we want to retry captures at a later date
+                            # this is where we will need to catch the IOError or CaptureError from the thread.
                             capture_thread.join()
                             wait_time = time.time() - wait_start
                             logger.info(
@@ -679,14 +685,17 @@ class SmartScanThing(Thing):
                     name = f"image_{loc[0]}_{loc[1]}.jpg"
                     jpeg_path = os.path.join(images_folder, name)
                     time.sleep(0.2)
-                    capture_thread = Thread(
+
+                    # Use ErrorCapturingThread intead of Thread. This will raise errors in the calling
+                    # thread only when join() is called, allowing us to handle this appropriately.
+                    capture_thread = ErrorCapturingThread(
                         target=self.capture_and_save,
                         kwargs={
                             "acquired": acquired,
                             "jpeg_path": jpeg_path,
                             "cam": cam,
                             "logger": logger,
-                            "metadata_getter": metadata_getter
+                            "metadata_getter": metadata_getter,
                         },
                     )
                     capture_thread.start()
@@ -723,23 +732,39 @@ class SmartScanThing(Thing):
                 )
 
         except InvocationCancelledError:
+            scan_sucessful = False
             logger.error("Stopping scan because it was cancelled.")
         except NotEnoughFreeSpaceError as e:
+            scan_sucessful = False
             logger.error(
                 f"Stopping scan to avoid filling up the disk: {e}",
                 exc_info=e,
             )
             raise e
         except Exception as e:
+            scan_sucessful = False
             logger.error(
-                f"The scan stopped because of an error: {e}",
-                "We will attempt to stitch and archive the images acquired so far.",
+                f"The scan stopped because of an error: {e}"
+                "Attempting to stitch and archive the images acquired so far.",
                 exc_info=e,
             )
             raise e
         finally:
             if capture_thread:
-                capture_thread.join()
+                # If the capture thread had an error we capture it here
+                try:
+                    capture_thread.join()
+                except Exception as e:
+                    # If the thread has already ended due to an exception we will
+                    # ignore any excppetions, but if it appeared to be succesfull
+                    # we will log an error.
+                    if scan_sucessful:
+                        logger.error(
+                            "The appears to have been successful however the final capture raised"
+                            f"the following error: {e}."
+                            "Attempting to stitch and archive images.",
+                            exc_info=e,
+                        )
             try:
                 logger.info("Returning to starting position.")
                 if starting_position is not None:
@@ -769,7 +794,7 @@ class SmartScanThing(Thing):
         jpeg_path: str,
         cam: CamDep,
         metadata_getter: GetThingStates,
-        logger: InvocationLogger
+        logger: InvocationLogger,
     ) -> None:
         """Capture an image and save it to disk
 
@@ -795,12 +820,9 @@ class SmartScanThing(Thing):
         logger: InvocationLogger,
     ) -> tuple[np.ndarray, dict]:
         """Capture an image in memory and return it with metadata
-
         This will set the event `acquired` once the image has been acquired, so
         that the stage may be moved while it's saved.
-
         CaptureError raised if the capture fails for any reason
-
         returns tuple with numpy array of image data, and dict of metadata
         """
         try:
@@ -812,19 +834,16 @@ class SmartScanThing(Thing):
             )
         return image, metadata
 
-    
-    def save_capture(self,
+    def save_capture(
+        self,
         jpeg_path: str,
         image: np.ndarray,
         metadata: dict,
-        logger: InvocationLogger
+        logger: InvocationLogger,
     ) -> None:
         """Saving the captured image and metadata to disk
-        
         logger warning (via InvocationLogger) is raised if metadata is failed to be added
-        
         IOError is raised if the file cannot be saved
-        
         nothing is returned on success"""
         try:
             Image.fromarray(image.astype("uint8"), "RGB").save(
