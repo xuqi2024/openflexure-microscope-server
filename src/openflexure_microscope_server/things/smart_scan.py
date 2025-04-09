@@ -3,8 +3,7 @@
 import shutil
 import zipfile
 import threading
-from typing import Mapping, Optional
-import cv2
+from typing import Optional
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
 import numpy as np
@@ -12,9 +11,6 @@ import os
 import time
 from PIL import Image
 from pydantic import BaseModel
-from scipy.stats import norm
-from scipy.ndimage import zoom
-from scipy.interpolate import interp1d
 from datetime import datetime
 from subprocess import CompletedProcess, Popen, PIPE, SubprocessError, STDOUT
 from threading import Event, Thread
@@ -36,12 +32,14 @@ from .camera import CameraDependency as CamDep
 from .stage import StageDependency as StageDep
 from openflexure_microscope_server.things.autofocus import AutofocusThing
 from openflexure_microscope_server.things.camera_stage_mapping import CameraStageMapper
-from openflexure_microscope_server.things.auto_recentre_stage import RecentringThing
+from openflexure_microscope_server.things.background_detect import BackgroundDetectThing
 
 
 CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
 AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
-RecentreStage = direct_thing_client_dependency(RecentringThing, "/auto_recentre_stage/")
+BackgroundDep = direct_thing_client_dependency(
+    BackgroundDetectThing, "/background_detect/"
+)
 
 
 def closest(current, focused_path):
@@ -104,46 +102,15 @@ def limit_focus_change(prev_pos, prev_z, new_pos, new_z, limit):
     else:
         movement_ratio = np.divide(focus_change, dist, dtype="float64")
 
-    # print('Movement ratio is {0} in z per lateral step. The limit is {1}'.format(round(movement_ratio, 4), round(limit,4)))
-    # print(f'This is the distance between {prev_pos}, {prev_z} and {new_pos}, {new_z}')
-
     if movement_ratio > limit:
         return "reject"
     else:
         return "accept"
 
 
-# def distance_to_site(current, next):
-#     current = np.array(current, dtype="float64")
-#     next = np.array(next, dtype="float64")
-#     if (next[1] - current[1]) ** 2 + (next[0] - current[0]) ** 2 < 0:
-#         print(f"Negative distance between {next} and {current}")
-#     return np.sqrt(
-#         (next[1] - current[1]) ** 2 + (next[0] - current[0]) ** 2, dtype="float64"
-#     )
-
-
 def steps_from_centre(current_loc, starting_loc, dx, dy):
     step_size = np.array([dx, dy])
     return np.max(np.abs(np.divide(np.subtract(current_loc, starting_loc), step_size)))
-
-
-# def set_template(microscope, pos):
-#     microscope.move(pos)
-#     background = microscope.grab_image_array()
-#     background_LUV = cv2.cvtColor(background, cv2.COLOR_RGB2LUV)
-
-#     ch1 = (background_LUV.T[0]).flatten()
-#     ch2 = (background_LUV.T[1]).flatten()
-#     ch3 = (background_LUV.T[2]).flatten()
-
-#     points = np.array([np.asarray(ch1),np.asarray(ch2),np.asarray(ch3)]).T
-
-#     # we get the mean and standard deviation of values in each channel
-
-#     mu, std = np.apply_along_axis(norm.fit, 0, points)
-#     stats_list = np.vstack([mu, std])
-#     return stats_list
 
 
 def distance_to_site(current, next):
@@ -172,6 +139,7 @@ def generate_config(
     mean_loc = np.mean(positions, axis=0)
 
     # TODO: positions from recent scans need to be 2x bigger - change to CSM res?
+    # TODO: fully test this with whether it works in Fiji as expected
 
     camera_to_sample_matrix = scale_csm(
         camera_to_sample_matrix, csm_calibration_width, img_width
@@ -186,159 +154,6 @@ def generate_config(
                 (positions[i] - mean_loc), np.linalg.inv(camera_to_sample_matrix)
             )
             fp.write(f"{names[i]}; ; {loc[1], loc[0]} \n")
-
-
-def raw2rggb(raw):
-    """Convert packed 10 bit raw to RGGB 8 bit"""
-    raw = np.asarray(raw)  # ensure it's an array
-    rggb = np.empty((616, 820, 4), dtype=np.uint8)
-    raw_w = rggb.shape[1] // 2 * 5
-    for plane, offset in enumerate([(1, 1), (0, 1), (1, 0), (0, 0)]):
-        rggb[:, ::2, plane] = raw[offset[0] :: 2, offset[1] : raw_w + offset[1] : 5]
-        rggb[:, 1::2, plane] = raw[
-            offset[0] :: 2, offset[1] + 2 : raw_w + offset[1] + 2 : 5
-        ]
-    return rggb
-
-
-def rggb2rgb(rggb):
-    return np.stack(
-        [rggb[..., 0], rggb[..., 1] // 2 + rggb[..., 2] // 2, rggb[..., 3]], axis=2
-    )
-
-
-class ChannelDistributions(BaseModel):
-    means: list[float]
-    standard_deviations: list[float]
-    colorspace: str = "LUV"
-
-
-class BackgroundDetectThing(Thing):
-    @thing_property
-    def background_distributions(self) -> Optional[ChannelDistributions]:
-        """The statistics of the background image"""
-        bd = self.thing_settings.get("background_distributions", None)
-        if bd:
-            return ChannelDistributions(**bd)
-        else:
-            return None
-
-    @background_distributions.setter
-    def background_distributions(self, value: Optional[ChannelDistributions]) -> None:
-        try:
-            self.thing_settings["background_distributions"] = value.model_dump()
-        except AttributeError:
-            self.thing_settings["background_distributions"] = None
-
-    @thing_property
-    def tolerance(self) -> float:
-        """How many standard deviations to allow for the background"""
-        return self.thing_settings.get("tolerance", 7)
-
-    @tolerance.setter
-    def tolerance(self, value: float) -> None:
-        self.thing_settings["tolerance"] = value
-
-    @thing_property
-    def fraction(self) -> float:
-        """How much of the image needs to be not background to label as sample"""
-        return self.thing_settings.get("fraction", 25)
-
-    @fraction.setter
-    def fraction(self, value: float) -> None:
-        self.thing_settings["fraction"] = value
-
-    def background_mask(self, image: np.ndarray) -> np.ndarray:
-        """Calculate a binary image, showing whether each pixel is background
-
-        The image should be in LUV format, the ouput will be binary with the
-        same shape in the first two dimensions.
-        """
-        d = self.background_distributions
-        if not d:
-            raise RuntimeError(
-                "Background is not set: you need to calibrate background detection."
-            )
-        # This image is in LUV space. But the brightness (L) often changes as the
-        # height of the sample changes. Hence in the line below we are only using
-        # the UV (colour) channels.
-        return np.all(
-            np.abs(image[:, :, 1:] - np.array(d.means[1:])[np.newaxis, np.newaxis, :])
-            < np.array(d.standard_deviations[1:])[np.newaxis, np.newaxis, :]
-            * self.tolerance,
-            axis=2,
-        )
-
-    @thing_action
-    def background_fraction(self, cam: CamDep) -> float:
-        """Determine what fraction of the current image is background
-
-        This action will acquire a new image from the preview stream, then
-        evaluate whether it is foreground or background, by comparing it
-        too the saved statistics. This is done on a per-pixel basis, and
-        the returned value (between 0 and 100) is the fraction of the image
-        that is background.
-        """
-        current_image = cam.grab_jpeg()
-        current_image = np.array(Image.open(current_image.open()))
-
-        # we're working in the LUV colourspace as it collect colours together in a human-intuitive way
-        current_image_LUV = cv2.cvtColor(current_image, cv2.COLOR_RGB2LUV)
-        mask = self.background_mask(current_image_LUV)
-        return np.count_nonzero(mask) / np.prod(mask.shape) * 100
-
-    @thing_action
-    def image_is_sample(self, cam: CamDep) -> bool:
-        """Label the current image as either background or sample"""
-        b_fraction = self.background_fraction(cam)
-        fraction_threshold = self.fraction
-
-        return (100 - b_fraction) > fraction_threshold
-
-    @thing_action
-    def set_background(self, cam: CamDep):
-        """Grab an image, and use its statistics to set the background
-
-        This should be run when the microscope is looking at an empty region,
-        and will calculate the mean and standard deviation of the pixel values
-        in the LUV colourspace. These values will then be used to compare
-        future images to the distribution, to determine if each pixel is
-        foreground or background.
-        """
-        background = cam.grab_jpeg()
-        background = np.array(Image.open(background.open()))
-
-        # we're working in the LUV colourspace as it collect colours together in a human-intuitive way
-        background_LUV = cv2.cvtColor(background, cv2.COLOR_RGB2LUV)
-
-        ch1 = (background_LUV.T[0]).flatten()
-        ch2 = (background_LUV.T[1]).flatten()
-        ch3 = (background_LUV.T[2]).flatten()
-
-        points = np.array([np.asarray(ch1), np.asarray(ch2), np.asarray(ch3)]).T
-
-        # we get the mean and standard deviation of values in each channel
-        mu, std = np.apply_along_axis(norm.fit, 0, points)
-
-        self.background_distributions = ChannelDistributions(
-            means=mu.tolist(),
-            standard_deviations=std.tolist(),
-            colorspace="LUV",
-        )
-
-    @property
-    def thing_state(self) -> Mapping:
-        bd = self.background_distributions
-        return {
-            "background_distributions": bd.model_dump() if bd else None,
-            "tolerance": self.tolerance,
-            "fraction": self.fraction,
-        }
-
-
-BackgroundDep = direct_thing_client_dependency(
-    BackgroundDetectThing, "/background_detect/"
-)
 
 
 class NotEnoughFreeSpaceError(IOError):
@@ -460,7 +275,6 @@ class SmartScanThing(Thing):
         metadata_getter: GetThingStates,
         csm: CSMDep,
         background_detect: BackgroundDep,
-        recentre: RecentreStage,
         scan_name: str = "",
     ):
         """Move the stage to cover an area, taking images that can be tiled together.
@@ -482,8 +296,6 @@ class SmartScanThing(Thing):
         capture_thread = None
         self._scan_lock.acquire(timeout=0.1)
         try:
-            # Before anything else, check that we've got a background set
-            # It's annoying to have to wait to find out!
             max_dist = self.max_range
 
             if self.autofocus_dz == 0:
@@ -493,6 +305,8 @@ class SmartScanThing(Thing):
                     f"Your dz range is {self.autofocus_dz} steps, which is too short to attempt to focus. Running without autofocus"
                 )
 
+            # Before anything else, check that we've got a background set
+            # It's annoying to have to wait to find out!
             if self.skip_background:
                 d = background_detect.background_distributions
                 if not d:
@@ -531,7 +345,6 @@ class SmartScanThing(Thing):
             # TODO: generalise to have 2D displacements for x and y (as the
             # camera and stage may not be aligned).
             CSM = csm.image_to_stage_displacement_matrix
-            # csm_calibration_width = csm.last_calibration["image_resolution"][1]
 
             overlap = self.overlap
 
@@ -575,100 +388,6 @@ class SmartScanThing(Thing):
                 os.path.join(images_folder, "scan_inputs.json"), "w", encoding="utf-8"
             ) as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
-
-            # We will capture images and process them with this function, defined once here.
-            # Most of the variables it needs will be "baked in" so the arguments are just the ones
-            # that change each iteration.
-            # We also pre-calculate a normalisation image based on the LST and white balance
-            raw_image = cam.capture_array(stream_name="raw")
-            # TODO: assert the image is 10-bit packed, or deal with other formats!
-            rgb = rggb2rgb(raw2rggb(raw_image))
-            lst = dict(cam.lens_shading_tables)
-            lum = np.array(lst["luminance"])
-            Cr = np.array(lst["Cr"])
-            Cb = np.array(lst["Cb"])
-            gr, gb = cam.colour_gains
-            G = 1 / lum
-            R = (
-                G / Cr / gr * np.min(Cr)
-            )  # The extra /np.max(Cr) emulates the quirky handling of Cr in
-            B = G / Cb / gb * np.min(Cb)  # the picamera2 pipeline
-            white_norm_lores = np.stack([R, G, B], axis=2)
-            zoom_factors = [
-                i / n for i, n in zip(rgb[..., :3].shape, white_norm_lores.shape)
-            ]
-            white_norm = zoom(white_norm_lores, zoom_factors, order=1)[
-                : rgb.shape[0], : rgb.shape[1], :
-            ]  # Could use some work
-            colour_correction_matrix = np.array(cam.colour_correction_matrix).reshape(
-                (3, 3)
-            )
-            contrast_algorithm = cam.tuning["algorithms"][9]["rpi.contrast"]
-            gamma = np.array(contrast_algorithm["gamma_curve"]).reshape((-1, 2))
-            gamma_8bit = interp1d(gamma[:, 0] / 255, gamma[:, 1] / 255)
-
-            def process_raw_image(img):
-                normed = img / white_norm
-                corrected = np.dot(
-                    colour_correction_matrix, normed.reshape((-1, 3)).T
-                ).T.reshape(normed.shape)
-                corrected[corrected < 0] = 0
-                corrected[corrected > 255] = 255
-                return gamma_8bit(corrected)
-
-            logger.info(
-                f"Generated normalisation image with shape {white_norm.shape}, "
-                f"max {white_norm.max(axis=(0, 1))}, min {white_norm.min(axis=(0, 1))}"
-            )
-            norm_inputs = {
-                "luminance": lum,
-                "Cr": Cr,
-                "Cb": Cb,
-                "gain_red": gr,
-                "gain_blue": gb,
-            }
-
-            def capture_and_save(acquired: Event, name: str) -> None:
-                """Capture an image and save it to disk
-
-                This will set the event `acquired` once the image has been acquired, so
-                that the stage may be moved while it's saved.
-                """
-                try:
-                    capture_start = time.time()
-                    metadata = metadata_getter()
-                    raw_image = cam.capture_array(stream_name="raw")
-                    acquired.set()
-                    acquisition_time = time.time()
-                    # Save the raw image
-                    np.savez(
-                        os.path.join(raw_images_folder, name + ".npz"),
-                        raw_image=raw_image,
-                        **norm_inputs,
-                    )
-                    # Process it into 8 bit RGB
-                    processed = process_raw_image(rggb2rgb(raw2rggb(raw_image)))
-                    processed[processed > 255] = 255
-                    processed[processed < 0] = 0
-                    img = Image.fromarray(processed.astype(np.uint8), mode="RGB")
-                    img.save(
-                        os.path.join(images_folder, name), quality=95, subsampling=0
-                    )
-                    exif_dict = piexif.load(os.path.join(images_folder, name))
-                    exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
-                        metadata
-                    ).encode("utf-8")
-                    piexif.insert(
-                        piexif.dump(exif_dict), os.path.join(images_folder, name)
-                    )
-                    save_time = time.time()
-                    logger.info(
-                        f"Acquired {name} in {acquisition_time - capture_start:.1f}s then {save_time - acquisition_time:.1f}s saving to disk"
-                    )
-                except Exception as e:
-                    logger.error(
-                        f"An error occurred while saving {name}: {e}", exc_info=e
-                    )
 
             # At the start of the loop, we simultaneously capture an image and move to the next scan point.
             # We skip capturing on the first run, because we've not focused yet - and also we skip capturing if
@@ -773,29 +492,25 @@ class SmartScanThing(Thing):
                             )
                     acquired = Event()
                     name = f"image_{loc[0]}_{loc[1]}.jpg"
+                    jpeg_path = os.path.join(images_folder, name)
                     time.sleep(0.2)
                     capture_thread = Thread(
-                        target=capture_and_save,
+                        target=self.capture_and_save,
                         kwargs={
-                            #    "cam": cam,
-                            #    "logger": logger,
                             "acquired": acquired,
-                            "name": name,
-                            #    "images_folder": images_folder,
-                            #    "raw_images_folder": raw_images_folder,
+                            "jpeg_path": jpeg_path,
+                            "cam": cam,
+                            "logger": logger,
+                            "metadata_getter": metadata_getter,
                         },
                     )
                     capture_thread.start()
                     acquired.wait()  # wait until the image is acquired
-                    # time.sleep(0.5)
                     positions.append(loc[:2])
                     names.append(name)
 
                 # add the current position to the list of all positions visited
                 true_path.append(loc)
-
-                # if len(names) > 1:
-                #    generate_config(images_folder, positions, names, CSM, csm_calibration_width, img_width, logger)
 
                 temp_path = []
 
@@ -858,6 +573,87 @@ class SmartScanThing(Thing):
                     )
             except SubprocessError as e:
                 logger.error(f"Stitching failed: {e}", exc_info=e)
+
+    def capture_and_save(
+        self,
+        acquired: Event,
+        jpeg_path: str,
+        cam: CamDep,
+        metadata_getter: GetThingStates,
+        logger: InvocationLogger,
+    ) -> None:
+        """Capture an image and save it to disk
+
+        This will set the event `acquired` once the image has been acquired, so
+        that the stage may be moved while it's saved.
+        """
+        capture_start = time.time()
+        image, metadata = self.capture_image(cam, metadata_getter, logger)
+        acquired.set()
+        acquisition_time = time.time()
+        self.save_capture(jpeg_path, image, metadata, logger)
+        save_time = time.time()
+        acquisition_duration = round(acquisition_time - capture_start, 1)
+        saving_duration = round(save_time - acquisition_time, 1)
+        logger.debug(
+            f"Acquired {jpeg_path} in {acquisition_duration}s then {saving_duration}s saving to disk"
+        )
+
+    def capture_image(
+        self,
+        cam: CamDep,
+        metadata_getter: GetThingStates,
+        logger: InvocationLogger,
+    ) -> tuple[np.ndarray, dict]:
+        """Capture an image in memory and return it with metadata
+
+        This will set the event `acquired` once the image has been acquired, so
+        that the stage may be moved while it's saved.
+
+        CaptureError raised if the capture fails for any reason
+
+        returns tuple with numpy array of image data, and dict of metadata
+        """
+        try:
+            metadata = metadata_getter()
+            image = cam.capture_array()[..., :3]
+        except Exception as e:
+            raise CaptureError(
+                "An error occurred while capturing: {}".format(e), exc_info=e
+            )
+        return image, metadata
+
+    def save_capture(
+        self,
+        jpeg_path: str,
+        image: np.ndarray,
+        metadata: dict,
+        logger: InvocationLogger,
+    ) -> None:
+        """Saving the captured image and metadata to disk
+
+        logger warning (via InvocationLogger) is raised if metadata is failed to be added
+
+        IOError is raised if the file cannot be saved
+
+        nothing is returned on success"""
+        try:
+            Image.fromarray(image.astype("uint8"), "RGB").save(
+                jpeg_path, quality=95, subsampling=0
+            )
+            try:
+                exif_dict = piexif.load(jpeg_path)
+                exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
+                    metadata
+                ).encode("utf-8")
+                piexif.insert(piexif.dump(exif_dict), jpeg_path)
+            except:
+                logger.warning(f"Failed to add metadata to {jpeg_path}")
+        except Exception as e:
+            raise IOError(
+                f"An error occurred while saving {jpeg_path}: {e}",
+                exc_info=e,
+            )
 
     @thing_property
     def max_range(self) -> int:
@@ -1194,7 +990,6 @@ class SmartScanThing(Thing):
             raise FileNotFoundError(
                 f"Tried to make a zip archive of {images_folder} but it does not exist."
             )
-        # logger.info("Creating zip archive of images (may take some time)...")
 
         zip_fname = f"{os.path.join(scan_folder, 'images')}.zip"
 
@@ -1232,13 +1027,10 @@ class SmartScanThing(Thing):
                 if ".ome.tiff" in file:
                     tiff_name = os.path.split(file)[1]
                 if any(banned_name in file for banned_name in files_to_delay):
-                    # logger.info(f'we only add {file} into zip at the end of the scan')
                     pass
                 elif file in current_zip:
-                    # logger.info(f'{file} is already in zip')
                     pass
                 elif ".zip" in file or "raw" in file:
-                    # logger.info('Not adding the .zip to itself')
                     pass
                 else:
                     logger.info(f"appending {file} to zip")
@@ -1269,3 +1061,7 @@ class SmartScanThing(Thing):
         zip = [os.path.normpath(i) for i in zip.namelist()]
 
         return zip
+
+
+class CaptureError(RuntimeError):
+    """An error trying to capture from Picamera"""
