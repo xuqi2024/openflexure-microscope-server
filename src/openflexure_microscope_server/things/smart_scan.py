@@ -13,11 +13,9 @@ import time
 from PIL import Image
 from pydantic import BaseModel
 from scipy.stats import norm
-from scipy.ndimage import zoom
-from scipy.interpolate import interp1d
 from datetime import datetime
 from subprocess import CompletedProcess, Popen, PIPE, SubprocessError, STDOUT
-from threading import Event, Thread
+from threading import Event
 import glob
 import json
 import piexif
@@ -34,6 +32,8 @@ from labthings_fastapi.decorators import thing_action, thing_property, fastapi_e
 from labthings_fastapi.outputs.blob import blob_type
 from .camera import CameraDependency as CamDep
 from .stage import StageDependency as StageDep
+
+from openflexure_microscope_server.utilities import ErrorCapturingThread
 from openflexure_microscope_server.things.autofocus import AutofocusThing
 from openflexure_microscope_server.things.camera_stage_mapping import CameraStageMapper
 from openflexure_microscope_server.things.auto_recentre_stage import RecentringThing
@@ -476,6 +476,7 @@ class SmartScanThing(Thing):
         """
         # Define these variables so we can use them in the finally: block
         # (after testing they are not None)
+        scan_sucessful = True
         scan_folder = None
         images_folder = None
         starting_position = None
@@ -576,100 +577,6 @@ class SmartScanThing(Thing):
             ) as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
 
-            # We will capture images and process them with this function, defined once here.
-            # Most of the variables it needs will be "baked in" so the arguments are just the ones
-            # that change each iteration.
-            # We also pre-calculate a normalisation image based on the LST and white balance
-            raw_image = cam.capture_array(stream_name="raw")
-            # TODO: assert the image is 10-bit packed, or deal with other formats!
-            rgb = rggb2rgb(raw2rggb(raw_image))
-            lst = dict(cam.lens_shading_tables)
-            lum = np.array(lst["luminance"])
-            Cr = np.array(lst["Cr"])
-            Cb = np.array(lst["Cb"])
-            gr, gb = cam.colour_gains
-            G = 1 / lum
-            R = (
-                G / Cr / gr * np.min(Cr)
-            )  # The extra /np.max(Cr) emulates the quirky handling of Cr in
-            B = G / Cb / gb * np.min(Cb)  # the picamera2 pipeline
-            white_norm_lores = np.stack([R, G, B], axis=2)
-            zoom_factors = [
-                i / n for i, n in zip(rgb[..., :3].shape, white_norm_lores.shape)
-            ]
-            white_norm = zoom(white_norm_lores, zoom_factors, order=1)[
-                : rgb.shape[0], : rgb.shape[1], :
-            ]  # Could use some work
-            colour_correction_matrix = np.array(cam.colour_correction_matrix).reshape(
-                (3, 3)
-            )
-            contrast_algorithm = cam.tuning["algorithms"][9]["rpi.contrast"]
-            gamma = np.array(contrast_algorithm["gamma_curve"]).reshape((-1, 2))
-            gamma_8bit = interp1d(gamma[:, 0] / 255, gamma[:, 1] / 255)
-
-            def process_raw_image(img):
-                normed = img / white_norm
-                corrected = np.dot(
-                    colour_correction_matrix, normed.reshape((-1, 3)).T
-                ).T.reshape(normed.shape)
-                corrected[corrected < 0] = 0
-                corrected[corrected > 255] = 255
-                return gamma_8bit(corrected)
-
-            logger.info(
-                f"Generated normalisation image with shape {white_norm.shape}, "
-                f"max {white_norm.max(axis=(0, 1))}, min {white_norm.min(axis=(0, 1))}"
-            )
-            norm_inputs = {
-                "luminance": lum,
-                "Cr": Cr,
-                "Cb": Cb,
-                "gain_red": gr,
-                "gain_blue": gb,
-            }
-
-            def capture_and_save(acquired: Event, name: str) -> None:
-                """Capture an image and save it to disk
-
-                This will set the event `acquired` once the image has been acquired, so
-                that the stage may be moved while it's saved.
-                """
-                try:
-                    capture_start = time.time()
-                    metadata = metadata_getter()
-                    raw_image = cam.capture_array(stream_name="raw")
-                    acquired.set()
-                    acquisition_time = time.time()
-                    # Save the raw image
-                    np.savez(
-                        os.path.join(raw_images_folder, name + ".npz"),
-                        raw_image=raw_image,
-                        **norm_inputs,
-                    )
-                    # Process it into 8 bit RGB
-                    processed = process_raw_image(rggb2rgb(raw2rggb(raw_image)))
-                    processed[processed > 255] = 255
-                    processed[processed < 0] = 0
-                    img = Image.fromarray(processed.astype(np.uint8), mode="RGB")
-                    img.save(
-                        os.path.join(images_folder, name), quality=95, subsampling=0
-                    )
-                    exif_dict = piexif.load(os.path.join(images_folder, name))
-                    exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
-                        metadata
-                    ).encode("utf-8")
-                    piexif.insert(
-                        piexif.dump(exif_dict), os.path.join(images_folder, name)
-                    )
-                    save_time = time.time()
-                    logger.info(
-                        f"Acquired {name} in {acquisition_time - capture_start:.1f}s then {save_time - acquisition_time:.1f}s saving to disk"
-                    )
-                except Exception as e:
-                    logger.error(
-                        f"An error occurred while saving {name}: {e}", exc_info=e
-                    )
-
             # At the start of the loop, we simultaneously capture an image and move to the next scan point.
             # We skip capturing on the first run, because we've not focused yet - and also we skip capturing if
             # it looks like background.
@@ -766,6 +673,9 @@ class SmartScanThing(Thing):
                     if capture_thread:  # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
                         if capture_thread.is_alive():
                             wait_start = time.time()
+                            # If the capture thread has thrown an exception it will be raised when join is called,
+                            # this will cause the scan to end. If we want to retry captures at a later date
+                            # this is where we will need to catch the IOError or CaptureError from the thread.
                             capture_thread.join()
                             wait_time = time.time() - wait_start
                             logger.info(
@@ -773,16 +683,19 @@ class SmartScanThing(Thing):
                             )
                     acquired = Event()
                     name = f"image_{loc[0]}_{loc[1]}.jpg"
+                    jpeg_path = os.path.join(images_folder, name)
                     time.sleep(0.2)
-                    capture_thread = Thread(
-                        target=capture_and_save,
+
+                    # Use ErrorCapturingThread intead of Thread. This will raise errors in the calling
+                    # thread only when join() is called, allowing us to handle this appropriately.
+                    capture_thread = ErrorCapturingThread(
+                        target=self.capture_and_save,
                         kwargs={
-                            #    "cam": cam,
-                            #    "logger": logger,
                             "acquired": acquired,
-                            "name": name,
-                            #    "images_folder": images_folder,
-                            #    "raw_images_folder": raw_images_folder,
+                            "jpeg_path": jpeg_path,
+                            "cam": cam,
+                            "logger": logger,
+                            "metadata_getter": metadata_getter,
                         },
                     )
                     capture_thread.start()
@@ -819,23 +732,39 @@ class SmartScanThing(Thing):
                 )
 
         except InvocationCancelledError:
+            scan_sucessful = False
             logger.error("Stopping scan because it was cancelled.")
         except NotEnoughFreeSpaceError as e:
+            scan_sucessful = False
             logger.error(
                 f"Stopping scan to avoid filling up the disk: {e}",
                 exc_info=e,
             )
             raise e
         except Exception as e:
+            scan_sucessful = False
             logger.error(
-                f"The scan stopped because of an error: {e}",
-                "We will attempt to stitch and archive the images acquired so far.",
+                f"The scan stopped because of an error: {e}"
+                "Attempting to stitch and archive the images acquired so far.",
                 exc_info=e,
             )
             raise e
         finally:
             if capture_thread:
-                capture_thread.join()
+                # If the capture thread had an error we capture it here
+                try:
+                    capture_thread.join()
+                except Exception as e:
+                    # If the thread has already ended due to an exception we will
+                    # ignore any excppetions, but if it appeared to be succesfull
+                    # we will log an error.
+                    if scan_sucessful:
+                        logger.error(
+                            "The appears to have been successful however the final capture raised"
+                            f"the following error: {e}."
+                            "Attempting to stitch and archive images.",
+                            exc_info=e,
+                        )
             try:
                 logger.info("Returning to starting position.")
                 if starting_position is not None:
@@ -858,6 +787,81 @@ class SmartScanThing(Thing):
                     )
             except SubprocessError as e:
                 logger.error(f"Stitching failed: {e}", exc_info=e)
+
+    def capture_and_save(
+        self,
+        acquired: Event,
+        jpeg_path: str,
+        cam: CamDep,
+        metadata_getter: GetThingStates,
+        logger: InvocationLogger,
+    ) -> None:
+        """Capture an image and save it to disk
+
+        This will set the event `acquired` once the image has been acquired, so
+        that the stage may be moved while it's saved.
+        """
+        capture_start = time.time()
+        image, metadata = self.capture_image(cam, metadata_getter, logger)
+        acquired.set()
+        acquisition_time = time.time()
+        self.save_capture(jpeg_path, image, metadata, logger)
+        save_time = time.time()
+        acquisition_duration = round(acquisition_time - capture_start, 1)
+        saving_duration = round(save_time - acquisition_time, 1)
+        logger.debug(
+            f"Acquired {jpeg_path} in {acquisition_duration}s then {saving_duration}s saving to disk"
+        )
+
+    def capture_image(
+        self,
+        cam: CamDep,
+        metadata_getter: GetThingStates,
+        logger: InvocationLogger,
+    ) -> tuple[np.ndarray, dict]:
+        """Capture an image in memory and return it with metadata
+        This will set the event `acquired` once the image has been acquired, so
+        that the stage may be moved while it's saved.
+        CaptureError raised if the capture fails for any reason
+        returns tuple with numpy array of image data, and dict of metadata
+        """
+        try:
+            metadata = metadata_getter()
+            image = cam.capture_array()[..., :3]
+        except Exception as e:
+            raise CaptureError(
+                "An error occurred while capturing: {}".format(e), exc_info=e
+            )
+        return image, metadata
+
+    def save_capture(
+        self,
+        jpeg_path: str,
+        image: np.ndarray,
+        metadata: dict,
+        logger: InvocationLogger,
+    ) -> None:
+        """Saving the captured image and metadata to disk
+        logger warning (via InvocationLogger) is raised if metadata is failed to be added
+        IOError is raised if the file cannot be saved
+        nothing is returned on success"""
+        try:
+            Image.fromarray(image.astype("uint8"), "RGB").save(
+                jpeg_path, quality=95, subsampling=0
+            )
+            try:
+                exif_dict = piexif.load(jpeg_path)
+                exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
+                    metadata
+                ).encode("utf-8")
+                piexif.insert(piexif.dump(exif_dict), jpeg_path)
+            except:
+                logger.warning(f"Failed to add metadata to {jpeg_path}")
+        except Exception as e:
+            raise IOError(
+                f"An error occurred while saving {jpeg_path}: {e}",
+                exc_info=e,
+            )
 
     @thing_property
     def max_range(self) -> int:
@@ -1269,3 +1273,7 @@ class SmartScanThing(Thing):
         zip = [os.path.normpath(i) for i in zip.namelist()]
 
         return zip
+
+
+class CaptureError(RuntimeError):
+    """An error trying to capture from Picamera"""
