@@ -203,6 +203,8 @@ class SmartScanThing(Thing):
         self._ongoing_scan_name: Optional[str] = None
         self._starting_position: Optional[Mapping[str, int]] = None
         self._scan_images_taken: Optional[int] = None
+        # TODO Scan data is a dict during refactoring, should become a dataclass
+        self._scan_data: Optional[dict] = None
 
     @thing_action
     def sample_scan(
@@ -224,7 +226,6 @@ class SmartScanThing(Thing):
         background_detect Thing).
         """
 
-        started_scan = False
         got_lock = self._scan_lock.acquire(timeout=0.1)
         if not got_lock:
             raise RuntimeError("Trying to run scan while scan is already running!")
@@ -240,20 +241,21 @@ class SmartScanThing(Thing):
         self._background_detect = background_detect
         self._scan_images_taken = 0
 
+        # Don't set self._scan_data dictionary. This is done at the start of _run_scan
+
         try:
-            self._check_background_is_set()
+            self._check_background_and_csm_set()
             self._ongoing_scan_name = self._get_unique_scan_name_and_dir(scan_name)
-            overlap = self.overlap
             # record starting position so we can return there
             self._starting_position = self._stage.position
-            started_scan = True
-            self._run_scan(scan_name, overlap)
+            self._run_scan()
         except Exception as e:
-            if started_scan:
+            # If _scan_data is set then scan started
+            if self._scan_data is not None:
                 self._return_to_starting_position()
                 if not isinstance(e, NotEnoughFreeSpaceError):
                     # Don't stich if drive is full (already logged)
-                    self._perform_final_stitch(overlap)
+                    self._perform_final_stitch()
             # Error must be raised so UI gives correct output
             raise e
         finally:
@@ -268,14 +270,24 @@ class SmartScanThing(Thing):
             self._background_detect = None
             self._ongoing_scan_name = None
             self._scan_images_taken = None
+            self._scan_data = None
             self._scan_lock.release()
 
     @_scan_running
-    def _check_background_is_set(self):
-        """Before starting a scan check that we've got a background set
+    def _check_background_and_csm_set(self):
+        """Before starting a scan check that background and camera-stage-mapping are set
 
-        Raise error if it is not set but background detect is being used.
+        Raise error if:
+          - background is to be skipped but is not set
+          -  camera stage mapping is not set
+
+        Raise warning if not using background detect that scan will go on until max steps reached
         """
+        if self._csm.image_resolution is None:
+            raise RuntimeError(
+                "Camera-stage mapping is not calibrated. This is required before "
+                "scans can be carried out."
+            )
 
         if self.skip_background:
             if not self._background_detect.background_distributions:
@@ -367,9 +379,11 @@ class SmartScanThing(Thing):
             if not os.path.exists(trial_dir):
                 os.makedirs(trial_dir)
                 # If we made the directory this is the scan name
-                # Save it as the most latest scan (this persists as a
+                # Save the scan name as the latest scan (this persists as a
                 # property after the scan finishes)
                 self._latest_scan_name = trial_unique_scan_name
+                # Create images directory and
+                os.mkdir(self.images_dir_for_scan(trial_unique_scan_name))
                 # Return the scan name
                 return trial_unique_scan_name
         raise FileExistsError("Could not create a new scan folder: all names in use!")
@@ -401,90 +415,113 @@ class SmartScanThing(Thing):
         return loc + [z]
 
     @_scan_running
-    def _run_scan(self, scan_name, overlap):
+    def _take_test_image_to_calc_displacement(self, overlap):
+        """
+        Take a test image and use camera stage mapping to calculate x and y displacement
+
+        Return (dx, dy) - the x and y displacments in steps
+        """
+        test_jpg = self._cam.grab_jpeg()
+        test_image = np.array(Image.open(test_jpg.open()))
+
+        test_image_res = list(test_image.shape[:2])
+        csm_image_res = [int(i) for i in self._csm.image_resolution]
+
+        if test_image_res != csm_image_res:
+            raise RuntimeError(
+                "Cannot start scan as it is set up to capture with a resolution that "
+                "has not been mapped.\n"
+                f"Scan resolution: {test_image_res}\n"
+                f"camera-stage-mapping resolution {csm_image_res}."
+            )
+
+        # get displacement matrix. note it is for (y, x) not (x, y) coordinates
+        csm_disp_matrix = self._csm.image_to_stage_displacement_matrix
+
+        # Calculate displacements in image coordinates
+        dx_img = test_image.shape[1] * (1 - overlap)
+        dy_img = test_image.shape[0] * (1 - overlap)
+
+        # Calculate discplacents in steps as vectors using a dot product with the matrix
+        dx_vec = np.dot(np.array([0, dx_img]), csm_disp_matrix)
+        dy_vec = np.dot(np.array([dy_img, 0]), csm_disp_matrix)
+
+        # Assume no rotation or skew and take only the aligned axis of vector.
+        # Cooerce to positive integer
+        dx = int(np.abs(dx_vec[0]))
+        dy = int(np.abs(dy_vec[1]))
+
+        return dx, dy
+
+    @_scan_running
+    def _set_scan_data(self):
+        """
+        This sets the self._scan_data dictionary. This needs to become a
+        dataclass.
+        """
+        overlap = self.overlap
+        dx, dy = self._take_test_image_to_calc_displacement(overlap)
+        self._scan_logger.info(
+            f"Based on an overlap of {overlap}, we will make steps of {dx}, {dy}"
+        )
+
+        if self.autofocus_dz == 0:
+            self._scan_logger.info("Running scan without autofocus")
+        elif self.autofocus_dz <= 200:
+            self._scan_logger.warning(
+                f"Your dz range is {self.autofocus_dz} steps, which is too short to "
+                "attempt to focus. Running without autofocus"
+            )
+
+        # Fix scan parameters in case UI is updates during scan.
+        self._scan_data = {
+            "scan_name": self._ongoing_scan_name,
+            "overlap": overlap,
+            "max_dist": self.max_range,
+            "dx": dx,
+            "dy": dy,
+            "autofocus_dz": self.autofocus_dz,
+            "start_time": time.strftime("%H_%M_%S-%d_%m_%Y"),
+            "skip_background": self.skip_background,
+            "stitch_automatically": self.stitch_automatically,
+        }
+
+    @_scan_running
+    def _save_scan_inputs_jons(self):
+        # This should be a method of the scan_data dataclass
+        data = {
+            "scan_name": self._ongoing_scan_name,
+            "overlap": self._scan_data["overlap"],
+            "autofocus range": self._scan_data["autofocus_dz"],
+            "dx": self._scan_data["dx"],
+            "dy": self._scan_data["dy"],
+            "start time": self._scan_data["start_time"],
+            "skipping background": self._scan_data["skip_background"],
+        }
+
+        scan_inputs_fname = os.path.join(
+            self._ongoing_scan_images_dir, "scan_inputs.json"
+        )
+        with open(scan_inputs_fname, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+
+    @_scan_running
+    def _run_scan(self):
         # Define these variables so we can use them in the finally: block
         # (after testing they are not None)
         scan_successful = True
         capture_thread = None
 
         try:
-            os.mkdir(self._ongoing_scan_images_dir)
-
-            self._scan_logger.info(f"Saving images to {self._ongoing_scan_images_dir}")
-
-            max_dist = self.max_range
-
-            if self.autofocus_dz == 0:
-                self._scan_logger.info("Running scan without autofocus")
-            elif self.autofocus_dz <= 200:
-                self._scan_logger.warning(
-                    f"Your dz range is {self.autofocus_dz} steps, which is too short to attempt to focus. Running without autofocus"
-                )
-
-            names = []
-            positions = []
-
-            r = self._cam.grab_jpeg()
-            arr = np.array(Image.open(r.open()))
-            if self._csm.image_resolution is None:
-                raise RuntimeError(
-                    "Camera-stage mapping is not calibrated. This is required before "
-                    "scans can be carried out."
-                )
-            if list(arr.shape[:2]) != [int(i) for i in self._csm.image_resolution]:
-                self._scan_logger.error(
-                    f"Images are, by default, {arr.shape[:2]}, but the CSM was "
-                    f"calibrated at {self._csm.image_resolution}."
-                )
-
-            # Here, we calculate the x and y step size based on the desired overlap
-            # TODO: Consider using CSM calibration size instead
-            # TODO: generalise to have 2D displacements for x and y (as the
-            # camera and stage may not be aligned).
-            csm_disp_matrix = self._csm.image_to_stage_displacement_matrix
-
-            dx = int(
-                np.abs(
-                    np.dot(
-                        np.array([0, arr.shape[1] * (1 - overlap)]), csm_disp_matrix
-                    )[0]
-                )
-            )
-            dy = int(
-                np.abs(
-                    np.dot(
-                        np.array([arr.shape[0] * (1 - overlap), 0]), csm_disp_matrix
-                    )[1]
-                )
-            )
-
-            self._scan_logger.info(
-                f"Based on an overlap of {overlap}, we will make steps of {dx}, {dy}"
-            )
+            self._set_scan_data()
+            self._save_scan_inputs_jons()
 
             # construct a 2D scan path
             path = [[self._stage.position["x"], self._stage.position["y"]]]
-
-            focused_path = []  # This holds a list of all points where focus succeeded
-            true_path = []  # This holds a list of all points visited
-
-            start_time = time.strftime("%H_%M_%S-%d_%m_%Y")
-
-            data = {
-                "scan_name": scan_name,
-                "overlap": overlap,
-                "autofocus range": self.autofocus_dz,
-                "dx": dx,
-                "dy": dy,
-                "start time": start_time,
-                "skipping background": self.skip_background,
-            }
-
-            scan_inputs_fname = os.path.join(
-                self._ongoing_scan_images_dir, "scan_inputs.json"
-            )
-            with open(scan_inputs_fname, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
+            # This holds a list of all points where focus succeeded
+            focused_path = []
+            # This holds a list of all points visited
+            true_path = []
 
             if self._scan_images_taken != 0:
                 raise RuntimeError(
@@ -499,14 +536,14 @@ class SmartScanThing(Thing):
                 if self._scan_images_taken > 3:
                     if not self._preview_stitch_running():
                         self._preview_stitch_start()
-                    if self.stitch_automatically:
+                    if self._scan_data["stitch_automatically"]:
                         if not self._correlate_running():
-                            self._correlate_start(overlap=overlap)
+                            self._correlate_start(overlap=self._scan_data["overlap"])
 
                 ensure_free_disk_space(self._ongoing_scan_dir)
 
                 # Check if the image is background
-                if self.skip_background:
+                if self._scan_data["skip_background"]:
                     image_is_sample = self._background_detect.image_is_sample()
                 else:
                     image_is_sample = True
@@ -519,10 +556,22 @@ class SmartScanThing(Thing):
                 else:
                     # if not, it's sample. run an autofocus and use the updated height
                     new_pos = [
-                        [self._stage.position["x"] - dx, self._stage.position["y"]],
-                        [self._stage.position["x"] + dx, self._stage.position["y"]],
-                        [self._stage.position["x"], self._stage.position["y"] - dy],
-                        [self._stage.position["x"], self._stage.position["y"] + dy],
+                        [
+                            self._stage.position["x"] - self._scan_data["dx"],
+                            self._stage.position["y"],
+                        ],
+                        [
+                            self._stage.position["x"] + self._scan_data["dx"],
+                            self._stage.position["y"],
+                        ],
+                        [
+                            self._stage.position["x"],
+                            self._stage.position["y"] - self._scan_data["dy"],
+                        ],
+                        [
+                            self._stage.position["x"],
+                            self._stage.position["y"] + self._scan_data["dy"],
+                        ],
                     ]
                     for pos in new_pos:
                         if (
@@ -619,16 +668,16 @@ class SmartScanThing(Thing):
                     capture_thread.start()
                     acquired.wait()  # wait until the image is acquired
 
-                    positions.append(loc[:2])
-                    names.append(name)
-
                 # add the current position to the list of all positions visited
                 true_path.append(loc)
 
                 temp_path = []
 
                 for i in path:
-                    if distance_to_site(i, true_path[0][:2]) < max_dist:
+                    if (
+                        distance_to_site(i, true_path[0][:2])
+                        < self._scan_data["max_dist"]
+                    ):
                         temp_path.append(i)
                     else:
                         self._scan_logger.info(
@@ -638,7 +687,12 @@ class SmartScanThing(Thing):
                 path = sorted(
                     path,
                     key=lambda x: (
-                        steps_from_centre(x, true_path[0][:2], dx, dy),
+                        steps_from_centre(
+                            x,
+                            true_path[0][:2],
+                            self._scan_data["dx"],
+                            self._scan_data["dy"],
+                        ),
                         distance_to_site(loc[:2], x),
                     ),
                 )
@@ -686,7 +740,7 @@ class SmartScanThing(Thing):
         # This is what happens if the scan completes sucessfully or the
         # user cancels it.
         self._return_to_starting_position()
-        self._perform_final_stitch(overlap)
+        self._perform_final_stitch()
 
     @_scan_running
     def _return_to_starting_position(self):
@@ -697,7 +751,7 @@ class SmartScanThing(Thing):
             )
 
     @_scan_running
-    def _perform_final_stitch(self, overlap):
+    def _perform_final_stitch(self):
         """Perform final stitch of the data"""
 
         if self._scan_images_taken <= 3:
@@ -714,12 +768,12 @@ class SmartScanThing(Thing):
         self._preview_stitch_wait()
         self._correlate_wait()
         try:
-            if self.stitch_automatically:
+            if self._scan_data["stitch_automatically"]:
                 self._scan_logger.info("Stitching final image (may take some time)...")
                 self.stitch_scan(
                     logger=self._scan_logger,
                     scan_name=self._ongoing_scan_name,
-                    overlap=overlap,
+                    overlap=self._scan_data["overlap"],
                 )
         except SubprocessError as e:
             self._scan_logger.error(f"Stitching failed: {e}", exc_info=e)
