@@ -76,7 +76,7 @@ class OFMHandler(logging.Handler):
     def append_record(self, record):
         """
         Use the built in formatter to format the record, then save
-        it to an array. Pop any in excess of the mamimum number of logs
+        it to an array. Pop any in excess of the maximum number of logs
         """
         self._log.append(self.format(record))
         while len(self._log) > self._max_logs:
