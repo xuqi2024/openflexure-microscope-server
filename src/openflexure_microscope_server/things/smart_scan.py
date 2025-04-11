@@ -33,34 +33,13 @@ from openflexure_microscope_server.utilities import ErrorCapturingThread
 from openflexure_microscope_server.things.autofocus import AutofocusThing
 from openflexure_microscope_server.things.camera_stage_mapping import CameraStageMapper
 from openflexure_microscope_server.things.background_detect import BackgroundDetectThing
-
+from openflexure_microscope_server import scan_planners
 
 CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
 AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
 BackgroundDep = direct_thing_client_dependency(
     BackgroundDetectThing, "/background_detect/"
 )
-
-
-def closest(current: tuple[int, int], focused_path: list[tuple[int, int]]) -> int:
-    """Finds the index of the closest x-y position in a list from the current position,
-    with ties split by the later element in the list (most recently taken)
-
-    must be float64 (double precision) to deal with the huge numbers involved!"""
-
-    current_pos = np.array(current[:2], dtype="float64")
-    path_pos = np.asarray(focused_path, dtype="float64")[:, :2]
-
-    # Use linalg.norm to calculate the direct distance bweween the points
-    # Note linalg.norm always used float64
-    dists = np.linalg.norm((path_pos - current_pos), axis=1)
-
-    # Get indicies of all mimuma.
-    # Note np.where always returns a tuple of arrays, hence the trailing [0]
-    indicies = np.where(dists == np.min(dists))[0]
-
-    # Return the last index
-    return indicies[-1]
 
 
 def unpack_autofocus(scan_data):
@@ -87,7 +66,7 @@ def unpack_autofocus(scan_data):
     return jpeg_heights[turning[0] : turning[1]], jpeg_sizes_mb[turning[0] : turning[1]]
 
 
-def limit_focus_change(prev_pos, prev_z, new_pos, new_z, limit):
+def focus_change_acceptable(prev_pos, prev_z, new_pos, new_z, fractional_limit):
     # limit is the largest ratio of change in z to change in xy that's allowed
 
     prev_xy = np.asarray(prev_pos, dtype="float64")
@@ -102,23 +81,9 @@ def limit_focus_change(prev_pos, prev_z, new_pos, new_z, limit):
     else:
         movement_ratio = np.divide(focus_change, dist, dtype="float64")
 
-    if movement_ratio > limit:
-        return "reject"
-    else:
-        return "accept"
-
-
-def steps_from_centre(current_loc, starting_loc, dx, dy):
-    step_size = np.array([dx, dy])
-    return np.max(np.abs(np.divide(np.subtract(current_loc, starting_loc), step_size)))
-
-
-def distance_to_site(current_pos, next_pos):
-    next_pos = np.array(next_pos, dtype="float64")
-    current_pos = np.array(current_pos, dtype="float64")
-    return np.sqrt(
-        (next_pos[1] - current_pos[1]) ** 2 + (next_pos[0] - current_pos[0]) ** 2
-    )
+    if movement_ratio > fractional_limit:
+        return False
+    return True
 
 
 class NotEnoughFreeSpaceError(IOError):
@@ -398,29 +363,27 @@ class SmartScanThing(Thing):
 
     @_scan_running
     def _move_to_next_point(
-        self,
-        path: list[list[int]],
-        focused_path: list[list[int]],
-    ) -> list[int]:
-        """Remove the first point from the path, and move there.
+        self, next_point: tuple[int, int], z_estimate: Optional[int] = None
+    ) -> tuple[int, int, int]:
+        """Move to the next position (half an autofocus move below estimated z)
 
-        This will move to the next XY position in `path`, taking the `z` value
-        either from the current z value of the stage, or from `focused_path`.
+        Moves the stage to the next poistion. If no z_estimate is given then
+        the current stage position is used.
 
-        Returns the point we have moved to.
+        Returns the (x,y,z) with the chosen z_estimate
         """
-        loc = [path[0][0], path[0][1]]
-        path.remove(path[0])
-        if len(focused_path) > 1:
-            z_index = closest(loc, focused_path)
-            z = int(focused_path[z_index][2])
-        else:
-            z = self._stage.position["z"]
-        self._scan_logger.info(f"Moving to {loc}")
+
+        if z_estimate is None:
+            z_estimate = self._stage.position["z"]
+
+        self._scan_logger.info(f"Moving to {next_point}")
         self._stage.move_absolute(
-            x=int(loc[0]), y=int(loc[1]), z=z - self.autofocus_dz / 2
+            x=next_point[0],
+            y=next_point[1],
+            z=z_estimate - self._scan_data["autofocus_dz"] / 2,
         )
-        return loc + [z]
+
+        return (next_point[0], next_point[1], z_estimate)
 
     @_scan_running
     def _take_test_image_to_calc_displacement(self, overlap):
@@ -473,13 +436,15 @@ class SmartScanThing(Thing):
             f"Based on an overlap of {overlap}, we will make steps of {dx}, {dy}"
         )
 
-        if self.autofocus_dz == 0:
+        autofocus_dz = self.autofocus_dz
+        if autofocus_dz == 0:
             self._scan_logger.info("Running scan without autofocus")
-        elif self.autofocus_dz <= 200:
+        elif autofocus_dz <= 200:
             self._scan_logger.warning(
-                f"Your dz range is {self.autofocus_dz} steps, which is too short to "
+                f"Your autofocus range is {autofocus_dz} steps, which is too short to "
                 "attempt to focus. Running without autofocus"
             )
+            autofocus_dz = 0
 
         # Fix scan parameters in case UI is updates during scan.
         self._scan_data = {
@@ -488,7 +453,8 @@ class SmartScanThing(Thing):
             "max_dist": self.max_range,
             "dx": dx,
             "dy": dy,
-            "autofocus_dz": self.autofocus_dz,
+            "autofocus_dz": autofocus_dz,
+            "autofocus_on": bool(autofocus_dz),
             "start_time": time.strftime("%H_%M_%S-%d_%m_%Y"),
             "skip_background": self.skip_background,
             "stitch_automatically": self.stitch_automatically,
@@ -497,6 +463,7 @@ class SmartScanThing(Thing):
     @_scan_running
     def _save_scan_inputs_jons(self):
         # This should be a method of the scan_data dataclass
+
         data = {
             "scan_name": self._ongoing_scan_name,
             "overlap": self._scan_data["overlap"],
@@ -538,184 +505,11 @@ class SmartScanThing(Thing):
             self._set_scan_data()
             self._save_scan_inputs_jons()
             if self._scan_images_taken != 0:
-                raise RuntimeError(
-                    "_scan_images_taken should be zero before starting scanning"
-                )
+                msg = "_scan_images_taken should be zero before starting scanning"
+                raise RuntimeError(msg)
 
-            # construct a 2D scan path
-            path = [[self._stage.position["x"], self._stage.position["y"]]]
-            # This holds a list of all points where focus succeeded
-            focused_path = []
-            # This holds a list of all points visited
-            true_path = []
-
-            # At the start of the loop, we simultaneously capture an image and move to the next scan point.
-            # We skip capturing on the first run, because we've not focused yet - and also we skip capturing if
-            # it looks like background.
-            while len(path) > 0:
-                ensure_free_disk_space(self._ongoing_scan_dir)
-                self._manage_stitching_threads()
-                loc = self._move_to_next_point(path=path, focused_path=focused_path)
-
-                # Check if the image is background
-                if self._scan_data["skip_background"]:
-                    image_is_sample = self._background_detect.image_is_sample()
-                else:
-                    image_is_sample = True
-
-                # if more than 92% of the image is background, treat it as background and continue
-                if not image_is_sample:
-                    self._scan_logger.info(
-                        f"Skipping {self._stage.position} as it is {round(self._background_detect.background_fraction(), 0)}% background."
-                    )
-                else:
-                    # if not, it's sample. run an autofocus and use the updated height
-                    new_pos = [
-                        [
-                            self._stage.position["x"] - self._scan_data["dx"],
-                            self._stage.position["y"],
-                        ],
-                        [
-                            self._stage.position["x"] + self._scan_data["dx"],
-                            self._stage.position["y"],
-                        ],
-                        [
-                            self._stage.position["x"],
-                            self._stage.position["y"] - self._scan_data["dy"],
-                        ],
-                        [
-                            self._stage.position["x"],
-                            self._stage.position["y"] + self._scan_data["dy"],
-                        ],
-                    ]
-                    for pos in new_pos:
-                        if (
-                            pos not in [sublist[:2] for sublist in true_path]
-                            and pos not in path
-                        ):
-                            path.append(pos)
-
-                    attempts = 0
-                    if self.autofocus_dz > 200:
-                        while True:
-                            jpeg_zs, jpeg_sizes = self._autofocus.looping_autofocus(
-                                dz=self.autofocus_dz, start="base"
-                            )
-                            current_height = self._stage.position["z"]
-                            time.sleep(0.2)
-                            autofocus_success = self._autofocus.verify_focus_sharpness(
-                                sweep_sizes=jpeg_sizes, camera=CamDep, threshold=0.92
-                            )
-                            self._scan_logger.info(
-                                f"We just tested the focus! Result was {autofocus_success}"
-                            )
-
-                            if autofocus_success:
-                                # if there have been successful autofocuses in this scan, find the closest one in x-y
-                                # test if the change in z between them exceeds a ratio (indicating a failed autofocus)
-                                if len(focused_path) > 0:
-                                    nearest_focused_site = focused_path[
-                                        closest(loc, focused_path)
-                                    ]
-                                    result = limit_focus_change(
-                                        nearest_focused_site[0:2],
-                                        nearest_focused_site[-1],
-                                        loc[0:2],
-                                        current_height,
-                                        0.5,
-                                    )
-
-                                # if there haven't been any previous autofocuses, we have to assume this one worked
-                                else:
-                                    result = "accept"
-                            else:
-                                result = "reject"
-
-                            # if the autofocus worked, add the current position to the list of successful locations
-                            if result == "accept":
-                                loc = list(self._stage.position.values())
-                                focused_path.append(loc)
-                                break
-                            if attempts >= 3:
-                                self._scan_logger.warning(
-                                    "Could not autofocus after 3 attempts."
-                                )
-                                break
-                            # if the autofocus was rejected, we return to the height of the closest successful autofocus. not perfect, but better than wandering out of focus
-                            self._scan_logger.info(
-                                "The focus has shifted further than we expect: retrying."
-                            )
-                            self._stage.move_absolute(z=int(loc[2]))
-                            attempts += 1
-
-                    # Acquire the image in a thread, and continue once it's acquired (i.e. leave saving in the background)
-                    if capture_thread:  # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
-                        wait_start = time.time()
-                        thread_was_alive = capture_thread.is_alive()
-
-                        # If the capture thread has thrown an exception it will be raised when join is called,
-                        # this will cause the scan to end. If we want to retry captures at a later date
-                        # this is where we will need to catch the IOError or CaptureError from the thread.
-                        capture_thread.join()
-                        time.sleep(0.2)
-                        if thread_was_alive:
-                            wait_time = time.time() - wait_start
-                            self._scan_logger.info(
-                                f"Waited {wait_time:.1f}s for the previous capture to finish saving."
-                            )
-
-                        # increment capure counter as thread has completed
-                        self._scan_images_taken += 1
-                    acquired = Event()
-                    name = f"image_{loc[0]}_{loc[1]}.jpg"
-                    jpeg_path = os.path.join(self._ongoing_scan_images_dir, name)
-                    time.sleep(0.2)
-
-                    # Use ErrorCapturingThread intead of Thread. This will raise errors in the calling
-                    # thread only when join() is called, allowing us to handle this appropriately.
-                    capture_thread = ErrorCapturingThread(
-                        target=self._capture_and_save,
-                        kwargs={
-                            "acquired": acquired,
-                            "jpeg_path": jpeg_path,
-                        },
-                    )
-                    capture_thread.start()
-                    acquired.wait()  # wait until the image is acquired
-
-                # add the current position to the list of all positions visited
-                true_path.append(loc)
-
-                temp_path = []
-
-                for i in path:
-                    if (
-                        distance_to_site(i, true_path[0][:2])
-                        < self._scan_data["max_dist"]
-                    ):
-                        temp_path.append(i)
-                    else:
-                        self._scan_logger.info(
-                            f"Rejected moving to {i} as it is out of range"
-                        )
-                path = temp_path.copy()
-                path = sorted(
-                    path,
-                    key=lambda x: (
-                        steps_from_centre(
-                            x,
-                            true_path[0][:2],
-                            self._scan_data["dx"],
-                            self._scan_data["dy"],
-                        ),
-                        distance_to_site(loc[:2], x),
-                    ),
-                )
-                self.create_zip_of_scan(
-                    logger=self._scan_logger,
-                    scan_name=self._ongoing_scan_name,
-                    download_zip=False,
-                )
+            # This is the main loop of the scan!
+            self._main_scan_loop()
 
         except InvocationCancelledError:
             scan_successful = False
@@ -752,10 +546,188 @@ class SmartScanThing(Thing):
                             exc_info=e,
                         )
 
-        # This is what happens if the scan completes sucessfully or the
+        # This is what happens if the scan completes successfully or the
         # user cancels it.
         self._return_to_starting_position()
         self._perform_final_stitch()
+
+    @_scan_running
+    def _main_scan_loop(self):
+        planner_settings = {
+            "dx": self._scan_data["dx"],
+            "dy": self._scan_data["dy"],
+            "max_dist": self._scan_data["max_dist"],
+        }
+        route_planner = scan_planners.SmartSpiral(
+            intial_position=(self._stage.position["x"], self._stage.position["y"]),
+            planner_settings=planner_settings,
+        )
+
+        capture_thread = None
+
+        # At the start of the loop, we simultaneously capture an image and move to the next scan point.
+        # We skip capturing on the first run, because we've not focused yet - and also we skip capturing if
+        # it looks like background.
+        while not route_planner.scan_complete:
+            ensure_free_disk_space(self._ongoing_scan_dir)
+            self._manage_stitching_threads()
+
+            next_pos_xy, z_est = route_planner.get_next_location_and_z_estimate()
+            new_pos_xyz = self._move_to_next_point(next_pos_xy, z_est)
+
+            capture_image = True
+            # If skipping background, take and image to check if is background
+            if self._scan_data["skip_background"]:
+                capture_image = self._background_detect.image_is_sample()
+
+            if not capture_image:
+                route_planner.mark_location_visited(
+                    new_pos_xyz, imaged=False, focused=False
+                )
+                # Background franction is actually a percentage
+                back_perc = round(self._background_detect.background_fraction(), 0)
+                msg = f"Skipping {new_pos_xyz} as it is {back_perc}% background."
+                self._scan_logger.info(msg)
+                continue
+
+            focused = False
+            if self._scan_data["autofocus_on"]:
+                closest_xyz = route_planner.closest_focus_site(new_pos_xyz[:2])
+                focused = self._try_autofocus(new_pos_xyz, closest_xyz)
+
+            route_planner.mark_location_visited(
+                new_pos_xyz, imaged=True, focused=focused
+            )
+
+            # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
+            if capture_thread:
+                self._wait_for_capture_thread(capture_thread)
+                # increment capure counter as thread has completed
+                self._scan_images_taken += 1
+                # Add it to the incremental zip
+                self.create_zip_of_scan(
+                    logger=self._scan_logger,
+                    scan_name=self._ongoing_scan_name,
+                    download_zip=False,
+                )
+
+            name = f"image_{new_pos_xyz[0]}_{new_pos_xyz[1]}.jpg"
+            jpeg_path = os.path.join(self._ongoing_scan_images_dir, name)
+            capture_thread, acquired = self._start_capture_thread(jpeg_path)
+            # wait until the image is acquired
+            acquired.wait()
+
+    @_scan_running
+    def _try_autofocus(
+        self,
+        this_xyz: tuple[int, int, int],
+        closest_xyz: Optional[tuple[int, int, int]],
+    ) -> bool:
+        """
+        Try to perform autofocus and return boolean for if successful
+
+        Args:
+            this_xyz is the current x,y,z position.
+            closest_xyz is the (x, y, z) coordinates of the closest position, this is None
+                if no previous images have been taken or in focus
+
+        Return True on successful autofocus.
+        Return False if failed after 3 tries - the position will be the initial estimate
+        """
+        attempts = 0
+
+        while attempts < 3:
+            attempts += 1
+
+            # Base on first run otherwise we move to estimated_z
+            start = "base" if attempts == 0 else "centre"
+
+            _, jpeg_sizes = self._autofocus.looping_autofocus(
+                dz=self._scan_data["autofocus_dz"], start=start
+            )
+            current_height = self._stage.position["z"]
+            time.sleep(0.2)
+            autofocus_sharp_enough = self._autofocus.verify_focus_sharpness(
+                sweep_sizes=jpeg_sizes, camera=CamDep, threshold=0.92
+            )
+
+            # Not sharp enough, nobe to start and try again
+            if not autofocus_sharp_enough:
+                self._stage.move_absolute(z=this_xyz[2])
+                continue
+
+            # No previous positions to compare against return success
+            if closest_xyz is None:
+                return True
+
+            # Check the change in z-position is acceptable
+            # If the z change compared to the closest focused image exceeds
+            # a given fraction of the xy displacement this indicates failure
+            success = focus_change_acceptable(
+                prev_pos=closest_xyz[:2],
+                prev_z=closest_xyz[2],
+                new_pos=this_xyz[:2],
+                new_z=current_height,
+                fractional_limit=0.5,
+            )
+            # No focus change acceptable return success
+            if success:
+                return True
+
+            # Shifted to far move to start and try again
+            self._stage.move_absolute(z=this_xyz[2])
+            self._scan_logger.info(
+                "The focus has shifted further than we expect: retrying."
+            )
+
+        self._scan_logger.warning("Could not autofocus after 3 attempts.")
+        return False
+
+    @_scan_running
+    def _wait_for_capture_thread(self, capture_thread: ErrorCapturingThread) -> None:
+        """
+        Wait for the capture thread to be complete.
+        """
+        wait_start = time.time()
+        thread_was_alive = capture_thread.is_alive()
+
+        # If the capture thread has thrown an exception it will be raised
+        # when join is called, this will cause the scan to end. If we want
+        # to retry captures at a later date this is where we will need to
+        # catch the IOError or CaptureError from the thread.
+        capture_thread.join()
+        time.sleep(0.2)
+        if thread_was_alive:
+            wait_time = time.time() - wait_start
+            self._scan_logger.info(
+                f"Waited {wait_time:.1f}s for the previous capture to finish saving."
+            )
+
+    @_scan_running
+    def _start_capture_thread(
+        self, jpeg_path: str
+    ) -> tuple[ErrorCapturingThread, Event]:
+        """
+        Start the capture thread.
+
+        Args:
+           jpeg_path, the path to save the image once aquired
+
+        Return the thread and an event that will be set when the image is aquired
+        """
+        acquired = Event()
+        time.sleep(0.2)
+
+        # Acquire the image in a thread, and continue once it's acquired
+        # (i.e. leave saving in the background) Use ErrorCapturingThread
+        # intead of Thread. This will raise errors in the calling thread
+        # only when join() is called, allowing us to handle this appropriately.
+        capture_thread = ErrorCapturingThread(
+            target=self._capture_and_save,
+            kwargs={"acquired": acquired, "jpeg_path": jpeg_path},
+        )
+        capture_thread.start()
+        return capture_thread, acquired
 
     @_scan_running
     def _return_to_starting_position(self):

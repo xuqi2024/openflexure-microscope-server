@@ -1,0 +1,298 @@
+"""
+This module contains functionality for planning a scan route
+
+A scan route can be planned by a ScanPlanner class currently there
+is only one type the SmartSpiral. More can be added using by
+subclassing the ScanPlanner
+"""
+
+from typing import TypeAlias, Optional
+import logging
+
+import numpy as np
+
+LOGGER = logging.getLogger(__name__)
+
+XYPos: TypeAlias = tuple[int, int]
+XYZPos: TypeAlias = tuple[int, int, int]
+XYPosList: TypeAlias = list[XYPos]
+XYZPosList: TypeAlias = list[XYZPos]
+
+
+class ScanPlanner:
+    """
+    A base class for a scan planner.
+
+    This should never be used directly for a scan, it should be subclassed.
+    Each subclass should implmenet the methods with NotImplementedError
+    set.
+    """
+
+    def __init__(self, intial_position: XYPos, planner_settings: Optional[dict] = None):
+        self._initial_position = tuple(intial_position)
+
+        self._parse(planner_settings)
+
+        # The remaining (x,y) locations to scan
+        # (This was `path` before refactoring from the long `sample_scan` code)
+        self._remaining_locations: XYPosList = self._intial_location_list()
+
+        # This holds a list of all (x,y,z) locations where images were taken
+        # this may not be equivalent to the x,y poistions ins self._path_history
+        # if background detect is used
+        # (This was not used in the `sample_scan` code)
+        self._imaged_locations: XYZPosList = []
+
+        # This holds a list of all (x,y,z) locations where autofocus was successful
+        # (This was `focused_path` before refactoring from the long `sample_scan` code)
+        self._focused_locations: XYZPosList = []
+
+        # This holds a list of all  x,y locations visited in order since the start
+        # (This was `true_path` before refactoring from the long `sample_scan` code
+        # previously it had  z set, but if we don't take an image, not z is needed and
+        # it slows other checks)
+        self._path_history: XYPosList = []
+
+    @property
+    def scan_complete(self) -> bool:
+        """
+        Return True if there are no locations left to scan.
+        """
+        return not (self._remaining_locations)
+
+    def _parse(self, planner_settings: Optional[dict] = None) -> None:
+        """
+        Parse any settings sent to this planner and store them if needed.
+        """
+        raise NotImplementedError("Did you call the ScanPlanner base class?")
+
+    def _intial_location_list(self) -> XYPosList:
+        """
+        Called on initalisation. Sets the initial list of locations for this scan planner
+
+        For a simple grid scan/snake scan this would be all locations to move to
+        """
+        raise NotImplementedError("Did you call the ScanPlanner base class?")
+
+    def position_visited(self, position: XYPos) -> bool:
+        """
+        Return True if input xy position has been visited before
+        """
+        # Ensure tuple for correct matching!
+        return tuple(position) in self._path_history
+
+    def position_planned(self, position: XYPos) -> bool:
+        """
+        Return True if input xy position is planned
+        """
+        # Ensure tuple for correct matching!
+        return tuple(position) in self._remaining_locations
+
+    def get_next_location_and_z_estimate(self) -> tuple[XYPos, Optional[int]]:
+        """
+        Return the next location to scan, and the estimated z-position
+        for this location.
+
+        Note z-position may be None! This indicates that the current z, position
+        should be used.
+        """
+        if self.scan_complete:
+            raise RuntimeError("Can't get next position, scan is complete")
+
+        next_location = self._remaining_locations[0]
+
+        # If focussed locations exist return closest location, favouring most recent
+        if self._focused_locations:
+            z = self.closest_focus_site(next_location)[2]
+        else:
+            z = None
+        return next_location, z
+
+    def closest_focus_site(self, xy_pos: XYPos) -> XYZPos:
+        """
+        Return the xyz position of the closest site where focus was achieved
+        to the input xy_position, with the most recently taken image returned in
+        the case of a tie
+
+        Returns None if there if no focussed locations are present
+        """
+        if not self._focused_locations:
+            return None
+
+        # must be float64 (double precision) to deal with the huge numbers involved!
+        current_pos = np.array(xy_pos, dtype="float64")
+        path_pos = np.asarray(self._focused_locations, dtype="float64")[:, :2]
+
+        # Use linalg.norm to calculate the direct distance bweween the points
+        # Note linalg.norm always used float64
+        dists = np.linalg.norm((path_pos - current_pos), axis=1)
+
+        # Get indicies of all mimuma.
+        # Note np.where always returns a tuple of arrays, hence the trailing [0]
+        indicies = np.where(dists == np.min(dists))[0]
+
+        # The last index is most recent
+        return self._focused_locations[indicies[-1]]
+
+    def mark_location_visited(
+        self, xyz_pos: XYPos, imaged: bool, focused: bool
+    ) -> None:
+        """
+        Mark the location as visited
+
+        Args:
+            xyz_pos: the x_y poistion
+            imaged: true if an image was taken, false if not (due to background detect)
+            focused: true if autofocus completed successfully
+        """
+        # ensure is tuple!
+        xyz_pos = tuple(xyz_pos)
+        xy_pos = xyz_pos[:2]
+
+        # Remove the expected position from the remaining locations list
+        # and check it's correct
+        expected_pos = tuple(self._remaining_locations.pop(0))
+        if xy_pos != expected_pos:
+            raise RuntimeError("Wrong scan location visited!")
+
+        # Append xy position for path_history
+        self._path_history.append(xy_pos)
+        # And full x,y,z for imaged and foucsed if appropriate
+        if imaged:
+            self._imaged_locations.append(xyz_pos)
+        if focused:
+            self._focused_locations.append(xyz_pos)
+
+
+class SmartSpiral(ScanPlanner):
+    """
+    This is a smart spiral scan that spirals out from the centre.
+
+    Each time and image is taken the four neighbouring images are added
+    to the list of poisitions to image (unless they are already listed or
+    tried). However if a location is not imaged due no sample being detected
+    then neibouring positions are not imaged.
+
+    The next image taken is the closes to the centre (considering the largest
+    of vertical or horizontal distance), ties are broken by the distance from
+    the current position.
+    """
+
+    _max_dist: int = 0
+    _dx: int = 0
+    _dy: int = 0
+
+    def _parse(self, planner_settings: Optional[dict] = None) -> None:
+        """
+        Parse SmartSpiral Settings. This should be a dictionary
+
+        "dx" - the movement size in x
+        "dy" - the movement size in y
+        "max_dist" - The maximum distance to a location can be from the centre.
+        """
+
+        expected_keys = ["max_dist", "dx", "dy"]
+        invalid_msg = "SmartSpiral requires a planner_settings dictionary with keys: "
+        if not planner_settings:
+            raise ValueError(invalid_msg + ",".join(expected_keys))
+        if not all(keys in planner_settings for keys in expected_keys):
+            raise ValueError(invalid_msg + ",".join(expected_keys))
+
+        self._dx = int(planner_settings["dx"])
+        self._dy = int(planner_settings["dy"])
+        self._max_dist = int(planner_settings["max_dist"])
+
+    def _intial_location_list(self) -> XYPosList:
+        """
+        Called on initalisation. Sets the initial list of locations for this scan planner
+
+        For smart spiral this is just the first point
+        """
+        return [self._initial_position]
+
+    def mark_location_visited(
+        self, xyz_pos: XYPos, imaged: bool = True, focused: bool = True
+    ) -> None:
+        """
+        Mark the location as visited. Adjust extra poisitons accordingly
+
+        Args:
+            xyz_pos: the x_y poistion
+            imaged: true if an image was taken, false if not (due to background detect)
+            focused: true if autofocus completed successfully
+        """
+        # First call the base class to update the positions
+        super().mark_location_visited(xyz_pos, imaged, focused)
+
+        xy_pos = tuple(xyz_pos[:2])
+        if imaged:
+            self._add_surrounding_positions(xy_pos)
+        self._re_sort_remaining_locations(xy_pos)
+
+    def _add_surrounding_positions(self, xy_pos: XYPos) -> None:
+        """
+        This adds the surrounding (4 point connectivity) poistions
+        to the remaining locations if they are not too far away or
+        or already planned or already visited
+        """
+        new_positions = [
+            (xy_pos[0] - self._dx, xy_pos[1]),
+            (xy_pos[0] + self._dx, xy_pos[1]),
+            (xy_pos[0], xy_pos[1] - self._dy),
+            (xy_pos[0], xy_pos[1] + self._dy),
+        ]
+
+        for new_pos in new_positions:
+            # Skip position if already planned or fixited
+            if self.position_planned(new_pos) or self.position_visited(new_pos):
+                continue
+
+            dist = distance_between(new_pos, self._initial_position)
+            if dist > self._max_dist:
+                LOGGER.debug("Rejected moving to %s as it is out of range", new_pos)
+                continue
+            self._remaining_locations.append(new_pos)
+
+    def _re_sort_remaining_locations(self, current_pos: XYPos) -> None:
+        """
+        Sort the remaining positions besed on the current location
+        """
+
+        # Defined rather than use a lambda for readability
+        def sort_key(pos):
+            return self.moves_from_centre(pos), distance_between(current_pos, pos)
+
+        self._remaining_locations.sort(key=sort_key)
+
+    def moves_from_centre(
+        self,
+        xy_pos: XYPos,
+    ) -> float:
+        """
+        Return the number of moves from the centre in the x or y direction
+        whichever is largest
+
+        Args:
+        xy_pos: the position
+
+        Note this has been renamed from `steps_from_centre` as that implied
+        stepper motor steps not number of moves in a scan
+        """
+        move_size = np.array([self._dx, self._dy])
+        starting_pos = np.array(self._initial_position, dtype="float64")
+        current_pos = np.array(xy_pos, dtype="float64")
+
+        displacement_in_moves = (current_pos - starting_pos) / move_size
+
+        return np.max(np.abs(displacement_in_moves))
+
+
+def distance_between(current_pos: XYPos, next_pos: XYPos) -> float:
+    """
+    Calculate the distance between the two xy positions
+
+    This was previously called `distance_to_site`
+    """
+    next_pos = np.array(next_pos, dtype="float64")
+    current_pos = np.array(current_pos, dtype="float64")
+    return np.linalg.norm(next_pos - current_pos)
