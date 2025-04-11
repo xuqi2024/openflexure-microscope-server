@@ -58,14 +58,24 @@ meta-build-image:
     - tags
     - web
 
-# Python formatting and static analysis with ruff
+# Python static analysis with ruff
 ruff-lint:
   stage: analysis
   extends: .python
   script:
     - ruff check
 
-# Python formatting and static analysis with ruff
+# Increased checking of the code with ruff this is allowed to fail
+# while we improve the code quality. Rules from this are
+# slowly moved into the main check
+ruff-lint-increased:
+  stage: analysis
+  extends: .python
+  allow_failure: true
+  script:
+    - ruff --config ruff-increased-checking.toml check
+
+# Python formatting with ruff
 ruff-format:
   stage: analysis
   extends: .python
@@ -94,11 +104,8 @@ pytest:
   stage: testing
   extends: .python
   script:
-    - >
-      pytest --cov --cov-report term
-      --cov-report xml:coverage.xml
-      --junitxml=report.xml
-#      --gitlab-code-quality-report=pytest-warnings.json # can restore when it installs ok
+    - pytest
+#    --gitlab-code-quality-report=pytest-warnings.json # can restore when it installs ok
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
     when: always

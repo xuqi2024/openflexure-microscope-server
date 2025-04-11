@@ -1,0 +1,37 @@
+# This can be passed into ruff with nano ruff-increased-checking.toml
+#
+# Once the codebase is cleaner this can be added to pyproject.toml
+# under the [tool.ruff.lint] heading 
+#
+# Select more than the bare minimum checking in ruff
+# This is only a subset of possible rules
+# See: https://docs.astral.sh/ruff/rules
+# 
+# It will take a long time to get this all passing. We should
+# slowly move rules into the pyproject.toml as we improve the
+# codebase
+
+select = [
+    "E", # pycodestyle errors
+    "W", #pycodestyle warnings
+    "F", # PyFlakes
+    "PL", # Pylint (a subset of, catches far less than pylint does)
+    "B", # Flake8 bugbear
+    "A", # Flake8 builtins checker
+    "C", # Flake8 comprehensions
+    "FIX", #TODO/FIXME's in code. These should be added during develoment for ongoing tasks.
+           # If they are not fixed before merge they should be converted to GitLab issues
+    "LOG", # Flake8 logging issues (pedantic logger formatting issues can be added with "G")
+    "T20", # Warns for print statments, production code should log
+    "PT", # pytest linting
+    "RET", # Consistent clear return statments
+    "RSE", # Raise parentheses
+    "SIM", # Simplifications detected
+    "ARG", # unused arguments
+    "C90", # McCabe complexity!
+    "NPY", # Numpy linting
+    "N", # PEP8 naming
+    "DOC", # Enforce argument, return, and raise to be mentioned in docstrings there is
+           # also "D" but this even warns about docstring punctuation. Perhaps a step too
+           # far?
+]

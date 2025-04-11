@@ -296,7 +296,9 @@ class CameraStageMapper(Thing):
     def assert_calibrated(self):
         """Raise an exception if the image_to_stage_displacement matrix is not set"""
         if self.image_to_stage_displacement_matrix is None:
-            raise CSMUncalibratedError()
+            # Disable check of no message in raised exception as the message is explicitly
+            # added by CSMUncalibratedError
+            raise CSMUncalibratedError()  # noqa: RSE102
 
     @thing_property
     def last_calibration(self) -> Optional[Dict]:

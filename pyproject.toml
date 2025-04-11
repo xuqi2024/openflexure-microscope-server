@@ -73,8 +73,48 @@ target-version = "py311"
 [tool.pytest.ini_options]
 addopts = [
     "--import-mode=importlib",
+    "--cov=openflexure_microscope_server",
+    "--cov-report=term",
+    "--cov-report=xml:coverage.xml",
+    "--junitxml=report.xml",
 ]
+
+norecursedirs = [".git", "build", "node_modules"]
 
 [tool.ruff.format]
 # Use native line endings for all files
 line-ending = "native"
+
+[tool.ruff.lint]
+
+# Slowly add linting rules from ruff-increased-checking.toml commented
+# out rules can be checked by running
+# ruff --config ruff-increased-checking.toml check
+select = [
+    "E", # pycodestyle errors
+    "W", #pycodestyle warnings
+    "F", # PyFlakes
+#    "PL", # Pylint (a subset of, catches far less than pylint does)
+#    "B", # Flake8 bugbear
+    "A", # Flake8 builtins checker
+#    "C", # Flake8 comprehensions
+#    "FIX", #TODO/FIXME's in code. These should be added during develoment for ongoing tasks.
+           # If they are not fixed before merge they should be converted to GitLab issues
+#    "LOG", # Flake8 logging issues (pedantic logger formatting issues can be added with "G")
+#    "T20", # Warns for print statments, production code should log
+#    "PT", # pytest linting
+#    "RET", # Consistent clear return statments
+    "RSE", # Raise parentheses
+#    "SIM", # Simplifications detected
+#    "ARG", # unused arguments
+#    "C90", # McCabe complexity!
+    "NPY", # Numpy linting
+    "N", # PEP8 naming
+#    "DOC", # Enforce argument, return, and raise to be mentioned in docstrings there is
+           # also "D" but this even warns about docstring punctuation. Perhaps a step too
+           # far?
+]
+
+ignore = [
+    "E501" # Ignore long lines for now
+]

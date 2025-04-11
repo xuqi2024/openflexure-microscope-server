@@ -1,5 +1,3 @@
-# ruff: noqa: E722
-
 from typing import Mapping, Optional
 import cv2
 import numpy as np
@@ -88,8 +86,8 @@ class BackgroundDetectThing(Thing):
         current_image = np.array(Image.open(current_image.open()))
 
         # we're working in the LUV colourspace as it collect colours together in a human-intuitive way
-        current_image_LUV = cv2.cvtColor(current_image, cv2.COLOR_RGB2LUV)
-        mask = self.background_mask(current_image_LUV)
+        current_image_luv = cv2.cvtColor(current_image, cv2.COLOR_RGB2LUV)
+        mask = self.background_mask(current_image_luv)
         return np.count_nonzero(mask) / np.prod(mask.shape) * 100
 
     @thing_action
@@ -114,11 +112,11 @@ class BackgroundDetectThing(Thing):
         background = np.array(Image.open(background.open()))
 
         # we're working in the LUV colourspace as it collect colours together in a human-intuitive way
-        background_LUV = cv2.cvtColor(background, cv2.COLOR_RGB2LUV)
+        background_luv = cv2.cvtColor(background, cv2.COLOR_RGB2LUV)
 
-        ch1 = (background_LUV.T[0]).flatten()
-        ch2 = (background_LUV.T[1]).flatten()
-        ch3 = (background_LUV.T[2]).flatten()
+        ch1 = (background_luv.T[0]).flatten()
+        ch2 = (background_luv.T[1]).flatten()
+        ch3 = (background_luv.T[2]).flatten()
 
         points = np.array([np.asarray(ch1), np.asarray(ch2), np.asarray(ch3)]).T
 

@@ -73,7 +73,7 @@ def unpack_autofocus(scan_data):
     """
     jpeg_times = scan_data["jpeg_times"]
     jpeg_sizes = scan_data["jpeg_sizes"]
-    jpeg_sizes_MB = [x / 10**3 for x in jpeg_sizes]
+    jpeg_sizes_mb = [x / 10**3 for x in jpeg_sizes]
     stage_times = scan_data["stage_times"]
     stage_positions = scan_data["stage_positions"]
     stage_height = [pos[2] for pos in stage_positions]
@@ -86,7 +86,7 @@ def unpack_autofocus(scan_data):
 
     turning = np.where(turningpoints(jpeg_heights))[0] + 1
 
-    return jpeg_heights[turning[0] : turning[1]], jpeg_sizes_MB[turning[0] : turning[1]]
+    return jpeg_heights[turning[0] : turning[1]], jpeg_sizes_mb[turning[0] : turning[1]]
 
 
 def limit_focus_change(prev_pos, prev_z, new_pos, new_z, limit):
@@ -115,10 +115,12 @@ def steps_from_centre(current_loc, starting_loc, dx, dy):
     return np.max(np.abs(np.divide(np.subtract(current_loc, starting_loc), step_size)))
 
 
-def distance_to_site(current, next):
-    next = np.array(next, dtype="float64")
-    current = np.array(current, dtype="float64")
-    return np.sqrt((next[1] - current[1]) ** 2 + (next[0] - current[0]) ** 2)
+def distance_to_site(current_pos, next_pos):
+    next_pos = np.array(next_pos, dtype="float64")
+    current_pos = np.array(current_pos, dtype="float64")
+    return np.sqrt(
+        (next_pos[1] - current_pos[1]) ** 2 + (next_pos[0] - current_pos[0]) ** 2
+    )
 
 
 class NotEnoughFreeSpaceError(IOError):
@@ -439,13 +441,21 @@ class SmartScanThing(Thing):
             # TODO: Consider using CSM calibration size instead
             # TODO: generalise to have 2D displacements for x and y (as the
             # camera and stage may not be aligned).
-            CSM = self._csm.image_to_stage_displacement_matrix
+            csm_disp_matrix = self._csm.image_to_stage_displacement_matrix
 
             dx = int(
-                np.abs(np.dot(np.array([0, arr.shape[1] * (1 - overlap)]), CSM)[0])
+                np.abs(
+                    np.dot(
+                        np.array([0, arr.shape[1] * (1 - overlap)]), csm_disp_matrix
+                    )[0]
+                )
             )
             dy = int(
-                np.abs(np.dot(np.array([arr.shape[0] * (1 - overlap), 0]), CSM)[1])
+                np.abs(
+                    np.dot(
+                        np.array([arr.shape[0] * (1 - overlap), 0]), csm_disp_matrix
+                    )[1]
+                )
             )
 
             self._scan_logger.info(
@@ -1144,7 +1154,7 @@ class SmartScanThing(Thing):
         # as some of them should only be added at the end (as we can't overwrite)
         # them once they change
         if not os.path.isfile(zip_fname):
-            with zipfile.ZipFile(zip_fname, mode="w") as zip:
+            with zipfile.ZipFile(zip_fname, mode="w") as scan_zip:
                 pass
 
         # get a list of files in the existing zip
@@ -1167,7 +1177,7 @@ class SmartScanThing(Thing):
         ]
         tiff_name = ""
 
-        with zipfile.ZipFile(zip_fname, mode="a") as zip:
+        with zipfile.ZipFile(zip_fname, mode="a") as scan_zip:
             for file in files:
                 if "stitched.jp" in file:
                     stitch_name = os.path.split(file)[1]
@@ -1181,32 +1191,30 @@ class SmartScanThing(Thing):
                     pass
                 else:
                     logger.info(f"appending {file} to zip")
-                    zip.write(os.path.join(scan_folder, file), arcname=file)
+                    scan_zip.write(os.path.join(scan_folder, file), arcname=file)
 
         # Promote key files to the top level of the zip only at the end of the scan (when downloading)
         # and finally zip some of the final files
         # TODO: if you download multiple times, you get duplicate files - is this a problem?
         if download_zip:
-            with zipfile.ZipFile(zip_fname, mode="a") as zip:
+            with zipfile.ZipFile(zip_fname, mode="a") as scan_zip:
                 for fname in ["stitched_from_stage.jpg", stitch_name, tiff_name]:
                     fpath = os.path.join(images_folder, fname)
                     if os.path.exists(fpath):
                         logger.info(f"copying {fpath} to upper level")
-                        zip.write(fpath, arcname=fname)
+                        scan_zip.write(fpath, arcname=fname)
                 for file in files:
                     if any(banned_name in file for banned_name in files_to_delay):
                         logger.info(f"we are finally adding {file} into zip")
-                        zip.write(os.path.join(scan_folder, file), arcname=file)
+                        scan_zip.write(os.path.join(scan_folder, file), arcname=file)
             logger.info("about to download zip")
             return ZipBlob.from_file(zip_fname)
 
     @thing_action
     def get_files_in_zip(self, zip_path):
         """List the relative paths of all files and folders in the zip folder specified"""
-        zip = zipfile.ZipFile(zip_path)
-        zip = [os.path.normpath(i) for i in zip.namelist()]
-
-        return zip
+        scan_zip = zipfile.ZipFile(zip_path)
+        return [os.path.normpath(i) for i in scan_zip.namelist()]
 
 
 class CaptureError(RuntimeError):

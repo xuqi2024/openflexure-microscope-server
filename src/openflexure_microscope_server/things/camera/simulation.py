@@ -71,18 +71,18 @@ class SimulatedCamera(BaseCamera):
             sprite[rr < i] = 255
             self.sprites.append(sprite)
 
-    def generate_blobs(self, N: int = 1000):
+    def generate_blobs(self, n_blobs: int = 1000):
         """Generate coordinates of blobs
 
         Blobs are characterised by X, Y, sprite
         We also generate a KD tree to rapidly find blobs in an image
         """
-        self.blobs = np.zeros((N, 3))
+        self.blobs = np.zeros((n_blobs, 3))
         rng = np.random.default_rng()
         w = np.max(self.glyph_shape)
-        self.blobs[:, 0] = rng.uniform(w / 2, self.canvas_shape[0] - w / 2, N)
-        self.blobs[:, 1] = rng.uniform(w / 2, self.canvas_shape[1] - w / 2, N)
-        self.blobs[:, 2] = rng.choice(len(self.sprites), N)
+        self.blobs[:, 0] = rng.uniform(w / 2, self.canvas_shape[0] - w / 2, n_blobs)
+        self.blobs[:, 1] = rng.uniform(w / 2, self.canvas_shape[1] - w / 2, n_blobs)
+        self.blobs[:, 2] = rng.choice(len(self.sprites), n_blobs)
 
     def generate_canvas(self):
         """Generate a blank canvas"""
