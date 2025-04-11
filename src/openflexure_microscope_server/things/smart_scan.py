@@ -1,5 +1,3 @@
-# ruff: noqa: E722
-
 import shutil
 import zipfile
 import threading
@@ -44,25 +42,25 @@ BackgroundDep = direct_thing_client_dependency(
 )
 
 
-def closest(current, focused_path):
+def closest(current: tuple[int, int], focused_path: list[tuple[int, int]]) -> int:
     """Finds the index of the closest x-y position in a list from the current position,
     with ties split by the later element in the list (most recently taken)
 
-    must be float64 to deal with the huge numbers involved!"""
+    must be float64 (double precision) to deal with the huge numbers involved!"""
 
     current_pos = np.array(current[:2], dtype="float64")
-    path_pos = np.asarray(focused_path, dtype="float64").T[:2].T
+    path_pos = np.asarray(focused_path, dtype="float64")[:, :2]
 
-    dist_2 = np.sqrt(
-        np.sum((path_pos - current_pos) ** 2, axis=1, dtype="float64"), dtype="float64"
-    )
-    min_dist = np.argmin(dist_2)
-    mask = np.where(dist_2 == dist_2[min_dist], 1, 0)
-    try:
-        closest = np.max(np.nonzero(mask))
-    except:
-        closest = 0
-    return closest
+    # Use linalg.norm to calculate the direct distance bweween the points
+    # Note linalg.norm always used float64
+    dists = np.linalg.norm((path_pos - current_pos), axis=1)
+
+    # Get indicies of all mimuma.
+    # Note np.where always returns a tuple of arrays, hence the trailing [0]
+    indicies = np.where(dists == np.min(dists))[0]
+
+    # Return the last index
+    return indicies[-1]
 
 
 def unpack_autofocus(scan_data):
@@ -857,7 +855,9 @@ class SmartScanThing(Thing):
                     metadata
                 ).encode("utf-8")
                 piexif.insert(piexif.dump(exif_dict), jpeg_path)
-            except:
+            except:  # noqa: E722
+                # We need to capture any exeption as there are many reasons metadata
+                # might not be added. We wern rather than log the error.
                 self._scan_logger.warning(f"Failed to add metadata to {jpeg_path}")
         except Exception as e:
             raise IOError(f"An error occurred while saving {jpeg_path}") from e
@@ -1134,30 +1134,45 @@ class SmartScanThing(Thing):
         logger: InvocationLogger,
         cmd: list[str],
     ) -> CompletedProcess:
-        """Run a  subprocess and log any output"""
+        """
+        Run a  subprocess and log any output
+
+        Raises:
+            ChildProcessError if exit code is not zero
+        """
         logger.info(f"Running command in subprocess: `{' '.join(cmd)}`")
 
-        p = Popen(cmd, stdout=PIPE, stderr=STDOUT, bufsize=1, universal_newlines=True)
-        os.set_blocking(p.stdout.fileno(), False)
+        def log_buffer(buffer):
+            """A short internal function to read everything in the buffer to
+            a multiline string and log"""
+            lines = []
+            while line := buffer.readline():
+                lines.append(line)
+            if lines:
+                logger.info("".join(lines))
+
+        # Run the command piping stdout into the process for reading and
+        # forwarding the stdrerr to stdout
+        process = Popen(
+            cmd, stdout=PIPE, stderr=STDOUT, bufsize=1, universal_newlines=True
+        )
+        # Stop opening pipe blocking writing to it
+        os.set_blocking(process.stdout.fileno(), False)
         logger.info(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
-        while p.poll() is None:
-            try:
-                output = p.stdout.readline()
-                if output != "" and output is not None:
-                    logger.info(output)
-            except:
-                pass
 
-        for line in p.stdout:
-            try:
-                output = p.stdout.readline()
-                if output != "" and output is not None:
-                    logger.info(output)
-            except:
-                pass
+        # Poll returns None while running, will return the error code when finnished
+        while process.poll() is None:
+            log_buffer(process.stdout)
+            # Once buffer is clear sleep for 0.2s before trying again.
+            time.sleep(0.2)
 
-        logger.info("Stitching complete")
-        return p
+        # Print everything in the buffer when program finishes
+        log_buffer(process.stdout)
+
+        if process.poll() == 0:
+            logger.info("Stitching complete")
+        else:
+            raise ChildProcessError(f"Subprocess {cmd[0]} exited with an error.")
 
     @thing_action
     def stitch_scan(
@@ -1171,7 +1186,9 @@ class SmartScanThing(Thing):
         Note that as this is a thing_action it needs the logger passed as
         a variable if called from another thing action
         """
+        json_fname = "scan_inputs.json"
         images_folder = self.images_dir_for_scan(scan_name=scan_name)
+        json_fpath = os.path.join(images_folder, json_fname)
 
         if self.stitch_tiff:
             tiff_arg = "--stitch_tiff"
@@ -1180,11 +1197,24 @@ class SmartScanThing(Thing):
 
         if overlap == 0.0:
             try:
-                with open(os.path.join(images_folder, "scan_inputs.json")) as data_file:
+                with open(json_fpath, "r", encoding="utf-8") as data_file:
                     data_loaded = json.load(data_file)
                     logger.info(data_loaded)
                 overlap = data_loaded["overlap"]
-            except:
+            except (json.decoder.JSONDecodeError, FileNotFoundError, TypeError):
+                # As there is no schema or pydantic model this should handle
+                # The file not being there, it not being json in the file,
+                # or the imported data not being indexable
+                logger.warning(
+                    f"Couldn't read scan data, is {json_fname} missing or corrupt? "
+                    "Attempting stitch with overlap value of 0.1"
+                )
+                overlap = 0.1
+            except KeyError:
+                logger.warning(
+                    "Value for overlap not found in scan data. "
+                    "Attempting stitch with overlap value of 0.1"
+                )
                 overlap = 0.1
         self.run_subprocess(
             logger,
