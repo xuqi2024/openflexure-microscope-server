@@ -128,11 +128,21 @@ class NotEnoughFreeSpaceError(IOError):
 
 
 def ensure_free_disk_space(path: str, min_space: int = 500000000) -> None:
-    """Raise an exception if we are running out of disk space"""
+    """
+    Raise an exception if we are running out of disk space
+
+    Args:
+       path =  path to a location on the disk you want to check
+       min_space [int] = the minimum space required in bytes
+           default = 500,000,000 (500MiB)
+
+    Raises:
+        NotEnoughFreeSpaceError is the
+    """
     du = shutil.disk_usage(path)
     if du.free < min_space:
         raise NotEnoughFreeSpaceError(
-            "There is not enough free disk space to continue."
+            "There is not enough free disk space to continue. "
             f"(Required: {min_space}, {du})."
         )
 
@@ -442,7 +452,7 @@ class SmartScanThing(Thing):
         dx_img = test_image.shape[1] * (1 - overlap)
         dy_img = test_image.shape[0] * (1 - overlap)
 
-        # Calculate discplacents in steps as vectors using a dot product with the matrix
+        # Calculate displacements in steps as vectors using a dot product with the matrix
         dx_vec = np.dot(np.array([0, dx_img]), csm_disp_matrix)
         dy_vec = np.dot(np.array([dy_img, 0]), csm_disp_matrix)
 
@@ -506,15 +516,33 @@ class SmartScanThing(Thing):
             json.dump(data, f, ensure_ascii=False, indent=4)
 
     @_scan_running
+    def _manage_stitching_threads(self):
+        """
+        Manage the stitching threads starting them if the are needed
+        and not running.
+        """
+        if self._scan_images_taken > 3:
+            if not self._preview_stitch_running():
+                self._preview_stitch_start()
+            if self._scan_data["stitch_automatically"]:
+                if not self._correlate_running():
+                    self._correlate_start(overlap=self._scan_data["overlap"])
+
+    @_scan_running
     def _run_scan(self):
-        # Define these variables so we can use them in the finally: block
-        # (after testing they are not None)
+        # Uset to check if finally was reached via exeption (except
+        # cancel by user.
         scan_successful = True
+
         capture_thread = None
 
         try:
             self._set_scan_data()
             self._save_scan_inputs_jons()
+            if self._scan_images_taken != 0:
+                raise RuntimeError(
+                    "_scan_images_taken should be zero before starting scanning"
+                )
 
             # construct a 2D scan path
             path = [[self._stage.position["x"], self._stage.position["y"]]]
@@ -523,24 +551,13 @@ class SmartScanThing(Thing):
             # This holds a list of all points visited
             true_path = []
 
-            if self._scan_images_taken != 0:
-                raise RuntimeError(
-                    "_scan_images_taken should be zero before starting scanning"
-                )
             # At the start of the loop, we simultaneously capture an image and move to the next scan point.
             # We skip capturing on the first run, because we've not focused yet - and also we skip capturing if
             # it looks like background.
             while len(path) > 0:
-                loc = self._move_to_next_point(path=path, focused_path=focused_path)
-
-                if self._scan_images_taken > 3:
-                    if not self._preview_stitch_running():
-                        self._preview_stitch_start()
-                    if self._scan_data["stitch_automatically"]:
-                        if not self._correlate_running():
-                            self._correlate_start(overlap=self._scan_data["overlap"])
-
                 ensure_free_disk_space(self._ongoing_scan_dir)
+                self._manage_stitching_threads()
+                loc = self._move_to_next_point(path=path, focused_path=focused_path)
 
                 # Check if the image is background
                 if self._scan_data["skip_background"]:
@@ -726,13 +743,13 @@ class SmartScanThing(Thing):
                 try:
                     capture_thread.join()
                 except Exception as e:
-                    # If the thread has already ended due to an exception we will
+                    # If the scan has already ended due to an exception we will
                     # ignore any exceptions, but if it appeared to be successful
-                    # we will log an error.
+                    # we will log the error.
                     if scan_successful:
                         self._scan_logger.error(
-                            "The scan appears to have started successfully, however the final capture raised"
-                            f"the following error: {e}."
+                            "The scan appears to have started successfully, however "
+                            f"the final capture raised the following error: {e}."
                             "Attempting to stitch and archive images.",
                             exc_info=e,
                         )
