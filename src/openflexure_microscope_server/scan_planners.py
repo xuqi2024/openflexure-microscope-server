@@ -19,6 +19,32 @@ XYPosList: TypeAlias = list[XYPos]
 XYZPosList: TypeAlias = list[XYZPos]
 
 
+def enforce_xy_tuple(value: XYPos) -> XYPos:
+    """
+    Used for enfocring that an input is a tuple and is the correct length
+    """
+    if not isinstance(value, (list, tuple)):
+        raise ValueError("2 value tuple expected")
+    if not len(value) == 2:
+        raise ValueError("2 value tuple expected")
+    if isinstance(value, list):
+        return tuple(value)
+    return value
+
+
+def enforce_xyz_tuple(value: XYZPos) -> XYZPos:
+    """
+    Used for enfocring that an input is a tuple and is the correct length
+    """
+    if not isinstance(value, (list, tuple)):
+        raise ValueError("3 value tuple expected")
+    if not len(value) == 3:
+        raise ValueError("3 value tuple expected")
+    if isinstance(value, list):
+        return tuple(value)
+    return value
+
+
 class ScanPlanner:
     """
     A base class for a scan planner.
@@ -29,7 +55,7 @@ class ScanPlanner:
     """
 
     def __init__(self, intial_position: XYPos, planner_settings: Optional[dict] = None):
-        self._initial_position = tuple(intial_position)
+        self._initial_position = enforce_xy_tuple(intial_position)
 
         self._parse(planner_settings)
 
@@ -102,13 +128,15 @@ class ScanPlanner:
         next_location = self._remaining_locations[0]
 
         # If focussed locations exist return closest location, favouring most recent
-        if self._focused_locations:
-            z = self.closest_focus_site(next_location)[2]
-        else:
+        closest_pos = self.closest_focus_site(next_location)
+        if closest_pos is None:
             z = None
+        else:
+            z = closest_pos[2]
+
         return next_location, z
 
-    def closest_focus_site(self, xy_pos: XYPos) -> XYZPos:
+    def closest_focus_site(self, xy_pos: XYPos) -> Optional[XYZPos]:
         """
         Return the xyz position of the closest site where focus was achieved
         to the input xy_position, with the most recently taken image returned in
@@ -135,7 +163,7 @@ class ScanPlanner:
         return self._focused_locations[indicies[-1]]
 
     def mark_location_visited(
-        self, xyz_pos: XYPos, imaged: bool, focused: bool
+        self, xyz_pos: XYZPos, imaged: bool, focused: bool
     ) -> None:
         """
         Mark the location as visited
@@ -146,7 +174,7 @@ class ScanPlanner:
             focused: true if autofocus completed successfully
         """
         # ensure is tuple!
-        xyz_pos = tuple(xyz_pos)
+        xyz_pos = enforce_xyz_tuple(xyz_pos)
         xy_pos = xyz_pos[:2]
 
         # Remove the expected position from the remaining locations list
@@ -196,7 +224,7 @@ class SmartSpiral(ScanPlanner):
         if not planner_settings:
             raise ValueError(invalid_msg + ",".join(expected_keys))
         if not all(keys in planner_settings for keys in expected_keys):
-            raise ValueError(invalid_msg + ",".join(expected_keys))
+            raise KeyError(invalid_msg + ",".join(expected_keys))
 
         self._dx = int(planner_settings["dx"])
         self._dy = int(planner_settings["dy"])
@@ -211,7 +239,7 @@ class SmartSpiral(ScanPlanner):
         return [self._initial_position]
 
     def mark_location_visited(
-        self, xyz_pos: XYPos, imaged: bool = True, focused: bool = True
+        self, xyz_pos: XYZPos, imaged: bool = True, focused: bool = True
     ) -> None:
         """
         Mark the location as visited. Adjust extra poisitons accordingly
@@ -224,7 +252,7 @@ class SmartSpiral(ScanPlanner):
         # First call the base class to update the positions
         super().mark_location_visited(xyz_pos, imaged, focused)
 
-        xy_pos = tuple(xyz_pos[:2])
+        xy_pos = enforce_xy_tuple(xyz_pos[:2])
         if imaged:
             self._add_surrounding_positions(xy_pos)
         self._re_sort_remaining_locations(xy_pos)
@@ -287,7 +315,9 @@ class SmartSpiral(ScanPlanner):
         return np.max(np.abs(displacement_in_moves))
 
 
-def distance_between(current_pos: XYPos, next_pos: XYPos) -> float:
+def distance_between(
+    current_pos: XYPos | np.ndarray, next_pos: XYPos | np.ndarray
+) -> float:
     """
     Calculate the distance between the two xy positions
 
@@ -295,4 +325,4 @@ def distance_between(current_pos: XYPos, next_pos: XYPos) -> float:
     """
     next_pos = np.array(next_pos, dtype="float64")
     current_pos = np.array(current_pos, dtype="float64")
-    return np.linalg.norm(next_pos - current_pos)
+    return float(np.linalg.norm(next_pos - current_pos))
