@@ -10,8 +10,6 @@ import time
 from PIL import Image
 from pydantic import BaseModel
 from datetime import datetime
-from subprocess import CompletedProcess, Popen, PIPE, SubprocessError, STDOUT
-from threading import Event
 import glob
 import json
 import piexif
@@ -28,6 +26,8 @@ from labthings_fastapi.decorators import thing_action, thing_property, fastapi_e
 from labthings_fastapi.outputs.blob import blob_type
 from .camera import CameraDependency as CamDep
 from .stage import StageDependency as StageDep
+
+import openflexure_stitching
 
 from openflexure_microscope_server.utilities import ErrorCapturingThread
 from openflexure_microscope_server.things.autofocus import AutofocusThing
@@ -149,11 +149,6 @@ def _scan_running(method):
 
 class SmartScanThing(Thing):
     def __init__(self, path_to_openflexure_stitch: str):
-        self._stitching_script = path_to_openflexure_stitch
-        self._preview_stitch_popen = None
-        self._preview_stitch_popen_lock = threading.Lock()
-        self._correlate_popen = None
-        self._correlate_popen_lock = threading.Lock()
         self._scan_lock = threading.Lock()
 
         # Variables set by the scan
@@ -175,6 +170,9 @@ class SmartScanThing(Thing):
         self._background_detect: Optional[BackgroundDep] = None
         self._ongoing_scan_name: Optional[str] = None
         self._starting_position: Optional[Mapping[str, int]] = None
+        self._preview_stitch_thread: Optional[ErrorCapturingThread] = None
+        self._correlate_thread: Optional[ErrorCapturingThread] = None
+        self._capture_thread: Optional[ErrorCapturingThread] = None
         self._scan_images_taken: Optional[int] = None
         # TODO Scan data is a dict during refactoring, should become a dataclass
         self._scan_data: Optional[dict] = None
@@ -212,6 +210,11 @@ class SmartScanThing(Thing):
         self._metadata_getter = metadata_getter
         self._csm = csm
         self._background_detect = background_detect
+
+        self._capture_thread = None
+        self._preview_stitch_thread = None
+        self._correlate_thread = None
+
         self._scan_images_taken = 0
 
         # Don't set self._scan_data dictionary. This is done at the start of _run_scan
@@ -241,8 +244,13 @@ class SmartScanThing(Thing):
             self._metadata_getter = None
             self._csm = None
             self._background_detect = None
-            self._ongoing_scan_name = None
+
+            self._capture_thread = None
+            self._preview_stitch_thread = None
+            self._correlate_thread = None
+
             self._scan_images_taken = None
+            self._ongoing_scan_name = None
             self._scan_data = None
             self._scan_lock.release()
 
@@ -487,19 +495,46 @@ class SmartScanThing(Thing):
         and not running.
         """
         if self._scan_images_taken > 3:
-            if not self._preview_stitch_running():
-                self._preview_stitch_start()
-            if self._scan_data["stitch_automatically"]:
-                if not self._correlate_running():
-                    self._correlate_start(overlap=self._scan_data["overlap"])
+            preview_running = False
+            if self._preview_stitch_thread:
+                preview_running = self._preview_stitch_thread.is_alive()
+                self._scan_logger.info(f"{preview_running=}")
+                if not preview_running:
+                    self._scan_logger.info("prev joining")
+                    self._preview_stitch_thread.join()
+                    self._scan_logger.info("prev joined")
+
+            correlate_running = False
+            if self._correlate_thread:
+                correlate_running = self._correlate_thread.is_alive()
+                self._scan_logger.info(f"{correlate_running=}")
+                if not correlate_running:
+                    self._scan_logger.info("cor joining")
+                    self._correlate_thread.join()
+                    self._scan_logger.info("cor joined")
+            if not preview_running:
+                self._scan_logger.info("prev starting")
+                self._preview_stitch_thread = ErrorCapturingThread(
+                    target=_preview_stitch,
+                    args=[self._ongoing_scan_images_dir]
+                )
+                self._preview_stitch_thread.start()
+                self._scan_logger.info("prev started")
+            if not correlate_running:
+                self._scan_logger.info("cor starting")
+                self._correlate_thread = ErrorCapturingThread(
+                    target=_correlate_images,
+                    args=[self._ongoing_scan_images_dir],
+                    kwargs={"overlap": self._scan_data["overlap"]}
+                )
+                self._correlate_thread.start()
+                self._scan_logger.info("cor started")
 
     @_scan_running
     def _run_scan(self):
         # Uset to check if finally was reached via exeption (except
         # cancel by user.
         scan_successful = True
-
-        capture_thread = None
 
         try:
             self._set_scan_data()
@@ -530,10 +565,10 @@ class SmartScanThing(Thing):
             )
             raise e
         finally:
-            if capture_thread:
+            if self._capture_thread:
                 # If the capture thread had an error we capture it here
                 try:
-                    capture_thread.join()
+                    self._capture_thread.join()
                 except Exception as e:
                     # If the scan has already ended due to an exception we will
                     # ignore any exceptions, but if it appeared to be successful
@@ -545,6 +580,12 @@ class SmartScanThing(Thing):
                             "Attempting to stitch and archive images.",
                             exc_info=e,
                         )
+
+            if self._preview_stitch_thread:
+                # Kill preview thread
+                self._preview_stitch_thread.join(0.1)
+            if self._correlate_thread:
+                self._correlate_thread.join()
 
         # This is what happens if the scan completes successfully or the
         # user cancels it.
@@ -562,8 +603,6 @@ class SmartScanThing(Thing):
             intial_position=(self._stage.position["x"], self._stage.position["y"]),
             planner_settings=planner_settings,
         )
-
-        capture_thread = None
 
         # At the start of the loop, we simultaneously capture an image and move to the next scan point.
         # We skip capturing on the first run, because we've not focused yet - and also we skip capturing if
@@ -600,8 +639,8 @@ class SmartScanThing(Thing):
             )
 
             # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
-            if capture_thread:
-                self._wait_for_capture_thread(capture_thread)
+            if self._capture_thread:
+                self._wait_for_capture_thread()
                 # increment capure counter as thread has completed
                 self._scan_images_taken += 1
                 # Add it to the incremental zip
@@ -613,7 +652,7 @@ class SmartScanThing(Thing):
 
             name = f"image_{new_pos_xyz[0]}_{new_pos_xyz[1]}.jpg"
             jpeg_path = os.path.join(self._ongoing_scan_images_dir, name)
-            capture_thread, acquired = self._start_capture_thread(jpeg_path)
+            self._capture_thread, acquired = self._start_capture_thread(jpeg_path)
             # wait until the image is acquired
             acquired.wait()
 
@@ -635,25 +674,24 @@ class SmartScanThing(Thing):
         Return False if failed after 3 tries - the position will be the initial estimate
         """
         attempts = 0
+        max_attempts = 3
+        dz = self._scan_data["autofocus_dz"]
 
-        while attempts < 3:
+        while attempts < max_attempts:
             attempts += 1
 
-            # Base on first run otherwise we move to estimated_z
-            start = "base" if attempts == 0 else "centre"
+            _, jpeg_sizes = self._autofocus.looping_autofocus(dz=dz, start="base")
 
-            _, jpeg_sizes = self._autofocus.looping_autofocus(
-                dz=self._scan_data["autofocus_dz"], start=start
-            )
             current_height = self._stage.position["z"]
             time.sleep(0.2)
             autofocus_sharp_enough = self._autofocus.verify_focus_sharpness(
                 sweep_sizes=jpeg_sizes, camera=CamDep, threshold=0.92
             )
 
-            # Not sharp enough, nobe to start and try again
+            # Not sharp enough, go to start and try again
             if not autofocus_sharp_enough:
-                self._stage.move_absolute(z=this_xyz[2])
+                z = this_xyz[2] - dz / 2 if attempts < max_attempts else this_xyz[2]
+                self._stage.move_absolute(z=z)
                 continue
 
             # No previous positions to compare against return success
@@ -675,7 +713,8 @@ class SmartScanThing(Thing):
                 return True
 
             # Shifted to far move to start and try again
-            self._stage.move_absolute(z=this_xyz[2])
+            z = this_xyz[2] - dz / 2 if attempts < max_attempts else this_xyz[2]
+            self._stage.move_absolute(z=z)
             self._scan_logger.info(
                 "The focus has shifted further than we expect: retrying."
             )
@@ -684,18 +723,18 @@ class SmartScanThing(Thing):
         return False
 
     @_scan_running
-    def _wait_for_capture_thread(self, capture_thread: ErrorCapturingThread) -> None:
+    def _wait_for_capture_thread(self) -> None:
         """
         Wait for the capture thread to be complete.
         """
         wait_start = time.time()
-        thread_was_alive = capture_thread.is_alive()
+        thread_was_alive = self._capture_thread.is_alive()
 
         # If the capture thread has thrown an exception it will be raised
         # when join is called, this will cause the scan to end. If we want
         # to retry captures at a later date this is where we will need to
         # catch the IOError or CaptureError from the thread.
-        capture_thread.join()
+        self._capture_thread.join()
         time.sleep(0.2)
         if thread_was_alive:
             wait_time = time.time() - wait_start
@@ -706,7 +745,7 @@ class SmartScanThing(Thing):
     @_scan_running
     def _start_capture_thread(
         self, jpeg_path: str
-    ) -> tuple[ErrorCapturingThread, Event]:
+    ) -> tuple[ErrorCapturingThread, threading.Event]:
         """
         Start the capture thread.
 
@@ -715,7 +754,7 @@ class SmartScanThing(Thing):
 
         Return the thread and an event that will be set when the image is aquired
         """
-        acquired = Event()
+        acquired = threading.Event()
         time.sleep(0.2)
 
         # Acquire the image in a thread, and continue once it's acquired
@@ -750,25 +789,19 @@ class SmartScanThing(Thing):
             scan_name=self._ongoing_scan_name,
             download_zip=False,
         )
-        self._scan_logger.info("Waiting for background processes to finish...")
 
-        self._preview_stitch_wait()
-        self._correlate_wait()
-        try:
-            if self._scan_data["stitch_automatically"]:
-                self._scan_logger.info("Stitching final image (may take some time)...")
-                self.stitch_scan(
-                    logger=self._scan_logger,
-                    scan_name=self._ongoing_scan_name,
-                    overlap=self._scan_data["overlap"],
-                )
-        except SubprocessError as e:
-            self._scan_logger.error(f"Stitching failed: {e}", exc_info=e)
+        if self._scan_data["stitch_automatically"]:
+            self._scan_logger.info("Stitching final image (may take some time)...")
+            self.stitch_scan(
+                logger=self._scan_logger,
+                scan_name=self._ongoing_scan_name,
+                overlap=self._scan_data["overlap"],
+            )
 
     @_scan_running
     def _capture_and_save(
         self,
-        acquired: Event,
+        acquired: threading.Event,
         jpeg_path: str,
     ) -> None:
         """Capture an image and save it to disk
@@ -1029,122 +1062,6 @@ class SmartScanThing(Thing):
         except FileNotFoundError:
             raise HTTPException(404, "File not found")
 
-    @_scan_running
-    def _preview_stitch_start(self) -> None:
-        """Start stitching a preview of the scan in a background subprocess
-
-
-        This uses popen and returns immediately
-
-        - self._preview_stitch_popen holds the popen for polling
-        - self._preview_stitch_popen_lock is a lock aquired while interacting
-              with Popen
-        """
-        if self._preview_stitch_running():
-            raise RuntimeError("Only one subprocess is allowed at a time")
-        with self._preview_stitch_popen_lock:
-            self._preview_stitch_popen = Popen(
-                [
-                    self._stitching_script,
-                    "--stitching_mode",
-                    "only_stage_stitch",
-                    self._ongoing_scan_images_dir,
-                ]
-            )
-
-    @_scan_running
-    def _preview_stitch_running(self) -> bool:
-        """Whether there is a preview stitch running in a subprocess"""
-        with self._preview_stitch_popen_lock:
-            if self._preview_stitch_popen is None:
-                return False
-            if self._preview_stitch_popen.poll() is None:
-                return True
-            return False
-
-    @_scan_running
-    def _preview_stitch_wait(self):
-        if self._preview_stitch_running():
-            with self._preview_stitch_popen_lock:
-                self._preview_stitch_popen.wait()
-
-    @_scan_running
-    def _correlate_start(self, overlap: float = 0.1) -> None:
-        """Start stitching a preview of the scan in a subprocess"""
-        if self._correlate_running():
-            raise RuntimeError("Only one subprocess is allowed at a time")
-        with self._correlate_popen_lock:
-            self._correlate_popen = Popen(
-                [
-                    self._stitching_script,
-                    "--stitching_mode",
-                    "only_correlate",
-                    "--minimum_overlap",
-                    f"{round(overlap * 0.9, 2)}",
-                    self._ongoing_scan_images_dir,
-                ]
-            )
-
-    @_scan_running
-    def _correlate_running(self) -> bool:
-        """Whether there is a preview stitch running in a subprocess"""
-        with self._correlate_popen_lock:
-            if self._correlate_popen is None:
-                return False
-            if self._correlate_popen.poll() is None:
-                return True
-            return False
-
-    @_scan_running
-    def _correlate_wait(self):
-        if self._correlate_running():
-            with self._correlate_popen_lock:
-                self._correlate_popen.wait()
-
-    def run_subprocess(
-        self,
-        logger: InvocationLogger,
-        cmd: list[str],
-    ) -> CompletedProcess:
-        """
-        Run a  subprocess and log any output
-
-        Raises:
-            ChildProcessError if exit code is not zero
-        """
-        logger.info(f"Running command in subprocess: `{' '.join(cmd)}`")
-
-        def log_buffer(buffer):
-            """A short internal function to read everything in the buffer to
-            a multiline string and log"""
-            lines = []
-            while line := buffer.readline():
-                lines.append(line)
-            if lines:
-                logger.info("".join(lines))
-
-        # Run the command piping stdout into the process for reading and
-        # forwarding the stdrerr to stdout
-        process = Popen(
-            cmd, stdout=PIPE, stderr=STDOUT, bufsize=1, universal_newlines=True
-        )
-        # Stop opening pipe blocking writing to it
-        os.set_blocking(process.stdout.fileno(), False)
-        logger.info(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
-
-        # Poll returns None while running, will return the error code when finnished
-        while process.poll() is None:
-            log_buffer(process.stdout)
-            # Once buffer is clear sleep for 0.2s before trying again.
-            time.sleep(0.2)
-
-        # Print everything in the buffer when program finishes
-        log_buffer(process.stdout)
-
-        if process.poll() == 0:
-            logger.info("Stitching complete")
-        else:
-            raise ChildProcessError(f"Subprocess {cmd[0]} exited with an error.")
 
     @thing_action
     def stitch_scan(
@@ -1161,11 +1078,6 @@ class SmartScanThing(Thing):
         json_fname = "scan_inputs.json"
         images_folder = self.images_dir_for_scan(scan_name=scan_name)
         json_fpath = os.path.join(images_folder, json_fname)
-
-        if self.stitch_tiff:
-            tiff_arg = "--stitch_tiff"
-        else:
-            tiff_arg = "--no-stitch_tiff"
 
         if overlap == 0.0:
             try:
@@ -1188,17 +1100,24 @@ class SmartScanThing(Thing):
                     "Attempting stitch with overlap value of 0.1"
                 )
                 overlap = 0.1
-        self.run_subprocess(
-            logger,
-            [
-                self._stitching_script,
-                "--stitching_mode",
-                "all",
-                f"{tiff_arg}",
-                "--minimum_overlap",
-                f"{round(overlap * 0.9, 2)}",
-                images_folder,
-            ],
+
+        correlation_settings = openflexure_stitching.CorrelationSettings(
+            minimum_overlap=round(overlap * 0.9, 2)
+        )
+        tiling_settings = openflexure_stitching.TilingSettings(
+            csm_matrix=[[0, 0], [0, 0]],
+            csm_calibration_width=-1,
+            max_stage_discrepancy=-1,
+            min_peak_quality=-1,
+        )
+
+        openflexure_stitching.load_tile_and_stitch(
+            images_folder,
+            correlation_settings=correlation_settings,
+            tiling_settings=tiling_settings,
+            stitching_mode="all",
+            stitch_tiff=True,
+            dzi=True,
         )
 
     @thing_action
@@ -1292,3 +1211,52 @@ class SmartScanThing(Thing):
 
 class CaptureError(RuntimeError):
     """An error trying to capture from Picamera"""
+
+
+def _preview_stitch(images_folder) -> None:
+    """Start stitching a preview of the scan in a background subprocess
+
+
+    This uses popen and returns immediately
+
+    - self._preview_stitch_popen holds the popen for polling
+    - self._preview_stitch_popen_lock is a lock aquired while interacting
+            with Popen
+    """
+    correlation_settings = openflexure_stitching.CorrelationSettings()
+    tiling_settings = openflexure_stitching.TilingSettings(
+        csm_matrix=[[0, 0], [0, 0]],
+        csm_calibration_width=-1,
+        max_stage_discrepancy=-1,
+        min_peak_quality=-1,
+    )
+
+    openflexure_stitching.load_tile_and_stitch(
+        images_folder,
+        correlation_settings=correlation_settings,
+        tiling_settings=tiling_settings,
+        stitching_mode="only_stage_stitch",
+        stitch_tiff=True,
+        dzi=True,
+    )
+
+def _correlate_images(images_folder, overlap: float = 0.1) -> None:
+    """Start stitching a preview of the scan in a subprocess"""
+    correlation_settings = openflexure_stitching.CorrelationSettings(
+        minimum_overlap=round(overlap * 0.9, 2)
+    )
+    tiling_settings = openflexure_stitching.TilingSettings(
+        csm_matrix=[[0, 0], [0, 0]],
+        csm_calibration_width=-1,
+        max_stage_discrepancy=-1,
+        min_peak_quality=-1,
+    )
+
+    openflexure_stitching.load_tile_and_stitch(
+        images_folder,
+        correlation_settings=correlation_settings,
+        tiling_settings=tiling_settings,
+        stitching_mode="only_correlate",
+        stitch_tiff=True,
+        dzi=True,
+    )
