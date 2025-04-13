@@ -123,19 +123,19 @@ def test_smart_spiral_first_few_pos():
     assert not planner.scan_complete
 
     # Lists should have updated to add the position to histories
-    assert xyz_pos1 in planner._imaged_locations
-    assert xyz_pos1 in planner._focused_locations
-    assert xy_pos1 in planner._path_history
+    assert xyz_pos1 in planner.imaged_locations
+    assert xyz_pos1 in planner.focused_locations
+    assert xy_pos1 in planner.path_history
 
     # remove from planned
-    assert xy_pos1 not in planner._remaining_locations
+    assert xy_pos1 not in planner.remaining_locations
 
     # Add 4 new points to planned
-    assert (100, 0) in planner._remaining_locations
-    assert (100, 100) in planner._remaining_locations
-    assert (150, 50) in planner._remaining_locations
-    assert (50, 50) in planner._remaining_locations
-    assert len(planner._remaining_locations) == 4
+    assert (100, 0) in planner.remaining_locations
+    assert (100, 100) in planner.remaining_locations
+    assert (150, 50) in planner.remaining_locations
+    assert (50, 50) in planner.remaining_locations
+    assert len(planner.remaining_locations) == 4
 
     # Now the next location is updated
     xy_pos2, z_pos2 = planner.get_next_location_and_z_estimate()
@@ -149,19 +149,19 @@ def test_smart_spiral_first_few_pos():
     planner.mark_location_visited(xyz_pos2, imaged=True, focused=False)
 
     # Check this position remove from planned
-    assert xy_pos2 not in planner._remaining_locations
+    assert xy_pos2 not in planner.remaining_locations
     # Check original position not re-added
-    assert xy_pos1 not in planner._remaining_locations
+    assert xy_pos1 not in planner.remaining_locations
 
     # 3 old points still planned
-    assert (100, 0) in planner._remaining_locations
-    assert (100, 100) in planner._remaining_locations
-    assert (150, 50) in planner._remaining_locations
+    assert (100, 0) in planner.remaining_locations
+    assert (100, 100) in planner.remaining_locations
+    assert (150, 50) in planner.remaining_locations
     # Add 3 new points to planned
-    assert (0, 50) in planner._remaining_locations
-    assert (50, 100) in planner._remaining_locations
-    assert (50, 0) in planner._remaining_locations
-    assert len(planner._remaining_locations) == 6
+    assert (0, 50) in planner.remaining_locations
+    assert (50, 100) in planner.remaining_locations
+    assert (50, 0) in planner.remaining_locations
+    assert len(planner.remaining_locations) == 6
 
     # Now the next location is updated
     xy_pos3, z_pos3 = planner.get_next_location_and_z_estimate()
@@ -200,7 +200,7 @@ def test_scan_stops_on_max_dist():
 
     # Estimate of radius = 10 scans, pir^2 = 314 images. In reality it works out as
     # 317
-    assert len(planner._path_history) == 317
+    assert len(planner.path_history) == 317
 
 
 def test_mark_wrong_location():
@@ -217,7 +217,7 @@ def test_mark_wrong_location():
         intial_position=intial_position, planner_settings=planner_settings
     )
 
-    xy_pos, z_pos = planner.get_next_location_and_z_estimate()
+    xy_pos, _ = planner.get_next_location_and_z_estimate()
     # Trying to mark the wrong location as visited raises error
     wrong_xyz_pos = (xy_pos[0] + 1, xy_pos[1], 0)
     with pytest.raises(RuntimeError):

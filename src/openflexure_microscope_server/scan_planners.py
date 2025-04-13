@@ -8,6 +8,7 @@ subclassing the ScanPlanner
 
 from typing import TypeAlias, Optional
 import logging
+from copy import copy
 
 import numpy as np
 
@@ -101,6 +102,34 @@ class ScanPlanner:
         """
         return not self._remaining_locations
 
+    @property
+    def remaining_locations(self) -> XYPosList:
+        """
+        Property to access a copy of the remaining_locations
+        """
+        return copy(self._remaining_locations)
+
+    @property
+    def imaged_locations(self) -> XYZPosList:
+        """
+        Property to access a copy of the imaged_locations
+        """
+        return copy(self._imaged_locations)
+
+    @property
+    def focused_locations(self) -> XYZPosList:
+        """
+        Property to access a copy of the focused_locations
+        """
+        return copy(self._focused_locations)
+
+    @property
+    def path_history(self) -> XYPosList:
+        """
+        Property to access a copy of the path_history
+        """
+        return copy(self._path_history)
+
     def _parse(self, planner_settings: Optional[dict] = None) -> None:
         """
         Parse any settings sent to this planner and store them if needed.
@@ -167,7 +196,7 @@ class ScanPlanner:
 
         # must be float64 (double precision) to deal with the huge numbers involved!
         current_pos = np.array(xy_pos, dtype="float64")
-        path_pos = np.asarray(self._focused_locations, dtype="float64")[:, :2]
+        path_pos = np.array(self._focused_locations, dtype="float64")[:, :2]
 
         # Use linalg.norm to calculate the direct distance bweween the points
         # Note linalg.norm always used float64
