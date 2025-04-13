@@ -50,13 +50,28 @@ class ScanPlanner:
     A base class for a scan planner.
 
     This should never be used directly for a scan, it should be subclassed.
-    Each subclass should implmenet the methods with NotImplementedError
-    set.
+
+    Each subclass should implement at least the methods with NotImplementedError
+    set:
+    * _parse() - to parse the planner_settings dictionary, saving values to class
+        variables
+    * _intial_location_list() - Sets the list of locations for the scan to follow
+
+    For a simple scan pattern this should be sufficent. For more complex ones that
+    dynanically adjust the path it is suggested to override `mark_location_visited()`
+    calling `super().mark_location_visited()` at the start of the method so that all
+    locations are adjusted.
+
+    When subclassing be sure to use enforce_xy_tuple and enforce_xyz_tuple on any user
+    data before
     """
 
     def __init__(self, intial_position: XYPos, planner_settings: Optional[dict] = None):
-        self._initial_position = enforce_xy_tuple(intial_position)
+        """
+        Set up lists for the path planning, and scan history.
+        """
 
+        self._initial_position = enforce_xy_tuple(intial_position)
         self._parse(planner_settings)
 
         # The remaining (x,y) locations to scan
@@ -84,7 +99,7 @@ class ScanPlanner:
         """
         Return True if there are no locations left to scan.
         """
-        return not (self._remaining_locations)
+        return not self._remaining_locations
 
     def _parse(self, planner_settings: Optional[dict] = None) -> None:
         """
@@ -96,7 +111,10 @@ class ScanPlanner:
         """
         Called on initalisation. Sets the initial list of locations for this scan planner
 
-        For a simple grid scan/snake scan this would be all locations to move to
+        For a simple grid scan/snake scan this would be all locations to move to.
+
+        Note for implementation that this _must_ contain (x,y) tuples, not [x, y]
+        lists or matching errors could occur.
         """
         raise NotImplementedError("Did you call the ScanPlanner base class?")
 
