@@ -1,6 +1,8 @@
 import pytest
-from openflexure_microscope_server import scan_planners
 from copy import copy
+
+from openflexure_microscope_server import scan_planners
+from .utilities import scan_test_helpers
 
 
 def test_enforce_xy_tuple():
@@ -186,7 +188,7 @@ def test_smart_spiral_first_few_pos():
     assert planner.closest_focus_site(xy_pos4) == xyz_pos3
 
 
-def test_scan_stops_on_max_dist():
+def test_smart_spiral_stops_on_max_dist():
     intial_position = (0, 0)
     planner_settings = {"dx": 100, "dy": 100, "max_dist": 1000}
     # Create a planner
@@ -248,3 +250,10 @@ def test_closest_focus_wth_large_numbers():
     # Make the first point 1 step closer
     planner._focused_locations = [(1234566, 0, 0), (-1234567, 0, 0)]
     assert planner.closest_focus_site((0, 0)) == (1234566, 0, 0)
+
+
+def test_example_smart_spiral():
+    _, planner = scan_test_helpers.example_smart_spiral()
+    expected_planner = scan_test_helpers.get_expected_result_for_example_smart_spiral()
+    assert planner.path_history == expected_planner.path_history
+    assert planner.imaged_locations == expected_planner.imaged_locations

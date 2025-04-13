@@ -84,3 +84,7 @@ openflexure_microscope/cobertura.xml
 
 # web app build
 /src/openflexure_microscope_server/static/
+
+# Files created by test utilities
+/tests/utilities/*.pstats
+/tests/utilities/*.png
