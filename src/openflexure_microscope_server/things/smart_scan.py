@@ -1,5 +1,3 @@
-# ruff: noqa: E722
-
 import shutil
 import zipfile
 import threading
@@ -12,8 +10,6 @@ import time
 from PIL import Image
 from pydantic import BaseModel
 from datetime import datetime
-from subprocess import CompletedProcess, Popen, PIPE, SubprocessError, STDOUT
-from threading import Event
 import glob
 import json
 import piexif
@@ -31,38 +27,19 @@ from labthings_fastapi.outputs.blob import blob_type
 from .camera import CameraDependency as CamDep
 from .stage import StageDependency as StageDep
 
+import openflexure_stitching
+
 from openflexure_microscope_server.utilities import ErrorCapturingThread
 from openflexure_microscope_server.things.autofocus import AutofocusThing
 from openflexure_microscope_server.things.camera_stage_mapping import CameraStageMapper
 from openflexure_microscope_server.things.background_detect import BackgroundDetectThing
-
+from openflexure_microscope_server import scan_planners
 
 CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
 AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
 BackgroundDep = direct_thing_client_dependency(
     BackgroundDetectThing, "/background_detect/"
 )
-
-
-def closest(current, focused_path):
-    """Finds the index of the closest x-y position in a list from the current position,
-    with ties split by the later element in the list (most recently taken)
-
-    must be float64 to deal with the huge numbers involved!"""
-
-    current_pos = np.array(current[:2], dtype="float64")
-    path_pos = np.asarray(focused_path, dtype="float64").T[:2].T
-
-    dist_2 = np.sqrt(
-        np.sum((path_pos - current_pos) ** 2, axis=1, dtype="float64"), dtype="float64"
-    )
-    min_dist = np.argmin(dist_2)
-    mask = np.where(dist_2 == dist_2[min_dist], 1, 0)
-    try:
-        closest = np.max(np.nonzero(mask))
-    except:
-        closest = 0
-    return closest
 
 
 def unpack_autofocus(scan_data):
@@ -89,7 +66,7 @@ def unpack_autofocus(scan_data):
     return jpeg_heights[turning[0] : turning[1]], jpeg_sizes_mb[turning[0] : turning[1]]
 
 
-def limit_focus_change(prev_pos, prev_z, new_pos, new_z, limit):
+def focus_change_acceptable(prev_pos, prev_z, new_pos, new_z, fractional_limit):
     # limit is the largest ratio of change in z to change in xy that's allowed
 
     prev_xy = np.asarray(prev_pos, dtype="float64")
@@ -104,23 +81,9 @@ def limit_focus_change(prev_pos, prev_z, new_pos, new_z, limit):
     else:
         movement_ratio = np.divide(focus_change, dist, dtype="float64")
 
-    if movement_ratio > limit:
-        return "reject"
-    else:
-        return "accept"
-
-
-def steps_from_centre(current_loc, starting_loc, dx, dy):
-    step_size = np.array([dx, dy])
-    return np.max(np.abs(np.divide(np.subtract(current_loc, starting_loc), step_size)))
-
-
-def distance_to_site(current_pos, next_pos):
-    next_pos = np.array(next_pos, dtype="float64")
-    current_pos = np.array(current_pos, dtype="float64")
-    return np.sqrt(
-        (next_pos[1] - current_pos[1]) ** 2 + (next_pos[0] - current_pos[0]) ** 2
-    )
+    if movement_ratio > fractional_limit:
+        return False
+    return True
 
 
 class NotEnoughFreeSpaceError(IOError):
@@ -128,11 +91,21 @@ class NotEnoughFreeSpaceError(IOError):
 
 
 def ensure_free_disk_space(path: str, min_space: int = 500000000) -> None:
-    """Raise an exception if we are running out of disk space"""
+    """
+    Raise an exception if we are running out of disk space
+
+    Args:
+       path =  path to a location on the disk you want to check
+       min_space [int] = the minimum space required in bytes
+           default = 500,000,000 (500MiB)
+
+    Raises:
+        NotEnoughFreeSpaceError is the
+    """
     du = shutil.disk_usage(path)
     if du.free < min_space:
         raise NotEnoughFreeSpaceError(
-            "There is not enough free disk space to continue."
+            "There is not enough free disk space to continue. "
             f"(Required: {min_space}, {du})."
         )
 
@@ -176,11 +149,6 @@ def _scan_running(method):
 
 class SmartScanThing(Thing):
     def __init__(self, path_to_openflexure_stitch: str):
-        self._stitching_script = path_to_openflexure_stitch
-        self._preview_stitch_popen = None
-        self._preview_stitch_popen_lock = threading.Lock()
-        self._correlate_popen = None
-        self._correlate_popen_lock = threading.Lock()
         self._scan_lock = threading.Lock()
 
         # Variables set by the scan
@@ -202,7 +170,12 @@ class SmartScanThing(Thing):
         self._background_detect: Optional[BackgroundDep] = None
         self._ongoing_scan_name: Optional[str] = None
         self._starting_position: Optional[Mapping[str, int]] = None
+        self._preview_stitch_thread: Optional[ErrorCapturingThread] = None
+        self._correlate_thread: Optional[ErrorCapturingThread] = None
+        self._capture_thread: Optional[ErrorCapturingThread] = None
         self._scan_images_taken: Optional[int] = None
+        # TODO Scan data is a dict during refactoring, should become a dataclass
+        self._scan_data: Optional[dict] = None
 
     @thing_action
     def sample_scan(
@@ -224,7 +197,6 @@ class SmartScanThing(Thing):
         background_detect Thing).
         """
 
-        started_scan = False
         got_lock = self._scan_lock.acquire(timeout=0.1)
         if not got_lock:
             raise RuntimeError("Trying to run scan while scan is already running!")
@@ -238,22 +210,28 @@ class SmartScanThing(Thing):
         self._metadata_getter = metadata_getter
         self._csm = csm
         self._background_detect = background_detect
+
+        self._capture_thread = None
+        self._preview_stitch_thread = None
+        self._correlate_thread = None
+
         self._scan_images_taken = 0
 
+        # Don't set self._scan_data dictionary. This is done at the start of _run_scan
+
         try:
-            self._check_background_is_set()
+            self._check_background_and_csm_set()
             self._ongoing_scan_name = self._get_unique_scan_name_and_dir(scan_name)
-            overlap = self.overlap
             # record starting position so we can return there
             self._starting_position = self._stage.position
-            started_scan = True
-            self._run_scan(scan_name, overlap)
+            self._run_scan()
         except Exception as e:
-            if started_scan:
+            # If _scan_data is set then scan started
+            if self._scan_data is not None:
                 self._return_to_starting_position()
                 if not isinstance(e, NotEnoughFreeSpaceError):
                     # Don't stich if drive is full (already logged)
-                    self._perform_final_stitch(overlap)
+                    self._perform_final_stitch()
             # Error must be raised so UI gives correct output
             raise e
         finally:
@@ -266,16 +244,31 @@ class SmartScanThing(Thing):
             self._metadata_getter = None
             self._csm = None
             self._background_detect = None
-            self._ongoing_scan_name = None
+
+            self._capture_thread = None
+            self._preview_stitch_thread = None
+            self._correlate_thread = None
+
             self._scan_images_taken = None
+            self._ongoing_scan_name = None
+            self._scan_data = None
             self._scan_lock.release()
 
     @_scan_running
-    def _check_background_is_set(self):
-        """Before starting a scan check that we've got a background set
+    def _check_background_and_csm_set(self):
+        """Before starting a scan check that background and camera-stage-mapping are set
 
-        Raise error if it is not set but background detect is being used.
+        Raise error if:
+          - background is to be skipped but is not set
+          -  camera stage mapping is not set
+
+        Raise warning if not using background detect that scan will go on until max steps reached
         """
+        if self._csm.image_resolution is None:
+            raise RuntimeError(
+                "Camera-stage mapping is not calibrated. This is required before "
+                "scans can be carried out."
+            )
 
         if self.skip_background:
             if not self._background_detect.background_distributions:
@@ -367,286 +360,191 @@ class SmartScanThing(Thing):
             if not os.path.exists(trial_dir):
                 os.makedirs(trial_dir)
                 # If we made the directory this is the scan name
-                # Save it as the most latest scan (this persists as a
+                # Save the scan name as the latest scan (this persists as a
                 # property after the scan finishes)
                 self._latest_scan_name = trial_unique_scan_name
+                # Create images directory and
+                os.mkdir(self.images_dir_for_scan(trial_unique_scan_name))
                 # Return the scan name
                 return trial_unique_scan_name
         raise FileExistsError("Could not create a new scan folder: all names in use!")
 
     @_scan_running
     def _move_to_next_point(
-        self,
-        path: list[list[int]],
-        focused_path: list[list[int]],
-    ) -> list[int]:
-        """Remove the first point from the path, and move there.
+        self, next_point: tuple[int, int], z_estimate: Optional[int] = None
+    ) -> tuple[int, int, int]:
+        """Move to the next position (half an autofocus move below estimated z)
 
-        This will move to the next XY position in `path`, taking the `z` value
-        either from the current z value of the stage, or from `focused_path`.
+        Moves the stage to the next poistion. If no z_estimate is given then
+        the current stage position is used.
 
-        Returns the point we have moved to.
+        Returns the (x,y,z) with the chosen z_estimate
         """
-        loc = [path[0][0], path[0][1]]
-        path.remove(path[0])
-        if len(focused_path) > 1:
-            z_index = closest(loc, focused_path)
-            z = int(focused_path[z_index][2])
-        else:
-            z = self._stage.position["z"]
-        self._scan_logger.info(f"Moving to {loc}")
+
+        if z_estimate is None:
+            z_estimate = self._stage.position["z"]
+
+        self._scan_logger.info(f"Moving to {next_point}")
         self._stage.move_absolute(
-            x=int(loc[0]), y=int(loc[1]), z=z - self.autofocus_dz / 2
+            x=next_point[0],
+            y=next_point[1],
+            z=z_estimate - self._scan_data["autofocus_dz"] / 2,
         )
-        return loc + [z]
+
+        return (next_point[0], next_point[1], z_estimate)
 
     @_scan_running
-    def _run_scan(self, scan_name, overlap):
-        # Define these variables so we can use them in the finally: block
-        # (after testing they are not None)
+    def _take_test_image_to_calc_displacement(self, overlap):
+        """
+        Take a test image and use camera stage mapping to calculate x and y displacement
+
+        Return (dx, dy) - the x and y displacments in steps
+        """
+        test_jpg = self._cam.grab_jpeg()
+        test_image = np.array(Image.open(test_jpg.open()))
+
+        test_image_res = list(test_image.shape[:2])
+        csm_image_res = [int(i) for i in self._csm.image_resolution]
+
+        if test_image_res != csm_image_res:
+            raise RuntimeError(
+                "Cannot start scan as it is set up to capture with a resolution that "
+                "has not been mapped.\n"
+                f"Scan resolution: {test_image_res}\n"
+                f"camera-stage-mapping resolution {csm_image_res}."
+            )
+
+        # get displacement matrix. note it is for (y, x) not (x, y) coordinates
+        csm_disp_matrix = self._csm.image_to_stage_displacement_matrix
+
+        # Calculate displacements in image coordinates
+        dx_img = test_image.shape[1] * (1 - overlap)
+        dy_img = test_image.shape[0] * (1 - overlap)
+
+        # Calculate displacements in steps as vectors using a dot product with the matrix
+        dx_vec = np.dot(np.array([0, dx_img]), csm_disp_matrix)
+        dy_vec = np.dot(np.array([dy_img, 0]), csm_disp_matrix)
+
+        # Assume no rotation or skew and take only the aligned axis of vector.
+        # Cooerce to positive integer
+        dx = int(np.abs(dx_vec[0]))
+        dy = int(np.abs(dy_vec[1]))
+
+        return dx, dy
+
+    @_scan_running
+    def _set_scan_data(self):
+        """
+        This sets the self._scan_data dictionary. This needs to become a
+        dataclass.
+        """
+        overlap = self.overlap
+        dx, dy = self._take_test_image_to_calc_displacement(overlap)
+        self._scan_logger.info(
+            f"Based on an overlap of {overlap}, we will make steps of {dx}, {dy}"
+        )
+
+        autofocus_dz = self.autofocus_dz
+        if autofocus_dz == 0:
+            self._scan_logger.info("Running scan without autofocus")
+        elif autofocus_dz <= 200:
+            self._scan_logger.warning(
+                f"Your autofocus range is {autofocus_dz} steps, which is too short to "
+                "attempt to focus. Running without autofocus"
+            )
+            autofocus_dz = 0
+
+        # Fix scan parameters in case UI is updates during scan.
+        self._scan_data = {
+            "scan_name": self._ongoing_scan_name,
+            "overlap": overlap,
+            "max_dist": self.max_range,
+            "dx": dx,
+            "dy": dy,
+            "autofocus_dz": autofocus_dz,
+            "autofocus_on": bool(autofocus_dz),
+            "start_time": time.strftime("%H_%M_%S-%d_%m_%Y"),
+            "skip_background": self.skip_background,
+            "stitch_automatically": self.stitch_automatically,
+        }
+
+    @_scan_running
+    def _save_scan_inputs_jons(self):
+        # This should be a method of the scan_data dataclass
+
+        data = {
+            "scan_name": self._ongoing_scan_name,
+            "overlap": self._scan_data["overlap"],
+            "autofocus range": self._scan_data["autofocus_dz"],
+            "dx": self._scan_data["dx"],
+            "dy": self._scan_data["dy"],
+            "start time": self._scan_data["start_time"],
+            "skipping background": self._scan_data["skip_background"],
+        }
+
+        scan_inputs_fname = os.path.join(
+            self._ongoing_scan_images_dir, "scan_inputs.json"
+        )
+        with open(scan_inputs_fname, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+
+    @_scan_running
+    def _manage_stitching_threads(self):
+        """
+        Manage the stitching threads starting them if the are needed
+        and not running.
+        """
+        if self._scan_images_taken > 3:
+            preview_running = False
+            if self._preview_stitch_thread:
+                preview_running = self._preview_stitch_thread.is_alive()
+                self._scan_logger.info(f"{preview_running=}")
+                if not preview_running:
+                    self._scan_logger.info("prev joining")
+                    self._preview_stitch_thread.join()
+                    self._scan_logger.info("prev joined")
+
+            correlate_running = False
+            if self._correlate_thread:
+                correlate_running = self._correlate_thread.is_alive()
+                self._scan_logger.info(f"{correlate_running=}")
+                if not correlate_running:
+                    self._scan_logger.info("cor joining")
+                    self._correlate_thread.join()
+                    self._scan_logger.info("cor joined")
+            if not preview_running:
+                self._scan_logger.info("prev starting")
+                self._preview_stitch_thread = ErrorCapturingThread(
+                    target=_preview_stitch,
+                    args=[self._ongoing_scan_images_dir]
+                )
+                self._preview_stitch_thread.start()
+                self._scan_logger.info("prev started")
+            if not correlate_running:
+                self._scan_logger.info("cor starting")
+                self._correlate_thread = ErrorCapturingThread(
+                    target=_correlate_images,
+                    args=[self._ongoing_scan_images_dir],
+                    kwargs={"overlap": self._scan_data["overlap"]}
+                )
+                self._correlate_thread.start()
+                self._scan_logger.info("cor started")
+
+    @_scan_running
+    def _run_scan(self):
+        # Uset to check if finally was reached via exeption (except
+        # cancel by user.
         scan_successful = True
-        capture_thread = None
 
         try:
-            os.mkdir(self._ongoing_scan_images_dir)
-
-            self._scan_logger.info(f"Saving images to {self._ongoing_scan_images_dir}")
-
-            max_dist = self.max_range
-
-            if self.autofocus_dz == 0:
-                self._scan_logger.info("Running scan without autofocus")
-            elif self.autofocus_dz <= 200:
-                self._scan_logger.warning(
-                    f"Your dz range is {self.autofocus_dz} steps, which is too short to attempt to focus. Running without autofocus"
-                )
-
-            names = []
-            positions = []
-
-            r = self._cam.grab_jpeg()
-            arr = np.array(Image.open(r.open()))
-            if self._csm.image_resolution is None:
-                raise RuntimeError(
-                    "Camera-stage mapping is not calibrated. This is required before "
-                    "scans can be carried out."
-                )
-            if list(arr.shape[:2]) != [int(i) for i in self._csm.image_resolution]:
-                self._scan_logger.error(
-                    f"Images are, by default, {arr.shape[:2]}, but the CSM was "
-                    f"calibrated at {self._csm.image_resolution}."
-                )
-
-            # Here, we calculate the x and y step size based on the desired overlap
-            # TODO: Consider using CSM calibration size instead
-            # TODO: generalise to have 2D displacements for x and y (as the
-            # camera and stage may not be aligned).
-            csm_disp_matrix = self._csm.image_to_stage_displacement_matrix
-
-            dx = int(
-                np.abs(
-                    np.dot(
-                        np.array([0, arr.shape[1] * (1 - overlap)]), csm_disp_matrix
-                    )[0]
-                )
-            )
-            dy = int(
-                np.abs(
-                    np.dot(
-                        np.array([arr.shape[0] * (1 - overlap), 0]), csm_disp_matrix
-                    )[1]
-                )
-            )
-
-            self._scan_logger.info(
-                f"Based on an overlap of {overlap}, we will make steps of {dx}, {dy}"
-            )
-
-            # construct a 2D scan path
-            path = [[self._stage.position["x"], self._stage.position["y"]]]
-
-            focused_path = []  # This holds a list of all points where focus succeeded
-            true_path = []  # This holds a list of all points visited
-
-            start_time = time.strftime("%H_%M_%S-%d_%m_%Y")
-
-            data = {
-                "scan_name": scan_name,
-                "overlap": overlap,
-                "autofocus range": self.autofocus_dz,
-                "dx": dx,
-                "dy": dy,
-                "start time": start_time,
-                "skipping background": self.skip_background,
-            }
-
-            scan_inputs_fname = os.path.join(
-                self._ongoing_scan_images_dir, "scan_inputs.json"
-            )
-            with open(scan_inputs_fname, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
-
+            self._set_scan_data()
+            self._save_scan_inputs_jons()
             if self._scan_images_taken != 0:
-                raise RuntimeError(
-                    "_scan_images_taken should be zero before starting scanning"
-                )
-            # At the start of the loop, we simultaneously capture an image and move to the next scan point.
-            # We skip capturing on the first run, because we've not focused yet - and also we skip capturing if
-            # it looks like background.
-            while len(path) > 0:
-                loc = self._move_to_next_point(path=path, focused_path=focused_path)
+                msg = "_scan_images_taken should be zero before starting scanning"
+                raise RuntimeError(msg)
 
-                if self._scan_images_taken > 3:
-                    if not self._preview_stitch_running():
-                        self._preview_stitch_start()
-                    if self.stitch_automatically:
-                        if not self._correlate_running():
-                            self._correlate_start(overlap=overlap)
-
-                ensure_free_disk_space(self._ongoing_scan_dir)
-
-                # Check if the image is background
-                if self.skip_background:
-                    image_is_sample = self._background_detect.image_is_sample()
-                else:
-                    image_is_sample = True
-
-                # if more than 92% of the image is background, treat it as background and continue
-                if not image_is_sample:
-                    self._scan_logger.info(
-                        f"Skipping {self._stage.position} as it is {round(self._background_detect.background_fraction(), 0)}% background."
-                    )
-                else:
-                    # if not, it's sample. run an autofocus and use the updated height
-                    new_pos = [
-                        [self._stage.position["x"] - dx, self._stage.position["y"]],
-                        [self._stage.position["x"] + dx, self._stage.position["y"]],
-                        [self._stage.position["x"], self._stage.position["y"] - dy],
-                        [self._stage.position["x"], self._stage.position["y"] + dy],
-                    ]
-                    for pos in new_pos:
-                        if (
-                            pos not in [sublist[:2] for sublist in true_path]
-                            and pos not in path
-                        ):
-                            path.append(pos)
-
-                    attempts = 0
-                    if self.autofocus_dz > 200:
-                        while True:
-                            jpeg_zs, jpeg_sizes = self._autofocus.looping_autofocus(
-                                dz=self.autofocus_dz, start="base"
-                            )
-                            current_height = self._stage.position["z"]
-                            time.sleep(0.2)
-                            autofocus_success = self._autofocus.verify_focus_sharpness(
-                                sweep_sizes=jpeg_sizes, camera=CamDep, threshold=0.92
-                            )
-                            self._scan_logger.info(
-                                f"We just tested the focus! Result was {autofocus_success}"
-                            )
-
-                            if autofocus_success:
-                                # if there have been successful autofocuses in this scan, find the closest one in x-y
-                                # test if the change in z between them exceeds a ratio (indicating a failed autofocus)
-                                if len(focused_path) > 0:
-                                    nearest_focused_site = focused_path[
-                                        closest(loc, focused_path)
-                                    ]
-                                    result = limit_focus_change(
-                                        nearest_focused_site[0:2],
-                                        nearest_focused_site[-1],
-                                        loc[0:2],
-                                        current_height,
-                                        0.5,
-                                    )
-
-                                # if there haven't been any previous autofocuses, we have to assume this one worked
-                                else:
-                                    result = "accept"
-                            else:
-                                result = "reject"
-
-                            # if the autofocus worked, add the current position to the list of successful locations
-                            if result == "accept":
-                                loc = list(self._stage.position.values())
-                                focused_path.append(loc)
-                                break
-                            if attempts >= 3:
-                                self._scan_logger.warning(
-                                    "Could not autofocus after 3 attempts."
-                                )
-                                break
-                            # if the autofocus was rejected, we return to the height of the closest successful autofocus. not perfect, but better than wandering out of focus
-                            self._scan_logger.info(
-                                "The focus has shifted further than we expect: retrying."
-                            )
-                            self._stage.move_absolute(z=int(loc[2]))
-                            attempts += 1
-
-                    # Acquire the image in a thread, and continue once it's acquired (i.e. leave saving in the background)
-                    if capture_thread:  # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
-                        wait_start = time.time()
-                        thread_was_alive = capture_thread.is_alive()
-
-                        # If the capture thread has thrown an exception it will be raised when join is called,
-                        # this will cause the scan to end. If we want to retry captures at a later date
-                        # this is where we will need to catch the IOError or CaptureError from the thread.
-                        capture_thread.join()
-                        time.sleep(0.2)
-                        if thread_was_alive:
-                            wait_time = time.time() - wait_start
-                            self._scan_logger.info(
-                                f"Waited {wait_time:.1f}s for the previous capture to finish saving."
-                            )
-
-                        # increment capure counter as thread has completed
-                        self._scan_images_taken += 1
-                    acquired = Event()
-                    name = f"image_{loc[0]}_{loc[1]}.jpg"
-                    jpeg_path = os.path.join(self._ongoing_scan_images_dir, name)
-                    time.sleep(0.2)
-
-                    # Use ErrorCapturingThread intead of Thread. This will raise errors in the calling
-                    # thread only when join() is called, allowing us to handle this appropriately.
-                    capture_thread = ErrorCapturingThread(
-                        target=self._capture_and_save,
-                        kwargs={
-                            "acquired": acquired,
-                            "jpeg_path": jpeg_path,
-                        },
-                    )
-                    capture_thread.start()
-                    acquired.wait()  # wait until the image is acquired
-
-                    positions.append(loc[:2])
-                    names.append(name)
-
-                # add the current position to the list of all positions visited
-                true_path.append(loc)
-
-                temp_path = []
-
-                for i in path:
-                    if distance_to_site(i, true_path[0][:2]) < max_dist:
-                        temp_path.append(i)
-                    else:
-                        self._scan_logger.info(
-                            f"Rejected moving to {i} as it is out of range"
-                        )
-                path = temp_path.copy()
-                path = sorted(
-                    path,
-                    key=lambda x: (
-                        steps_from_centre(x, true_path[0][:2], dx, dy),
-                        distance_to_site(loc[:2], x),
-                    ),
-                )
-                self.create_zip_of_scan(
-                    logger=self._scan_logger,
-                    scan_name=self._ongoing_scan_name,
-                    download_zip=False,
-                )
+            # This is the main loop of the scan!
+            self._main_scan_loop()
 
         except InvocationCancelledError:
             scan_successful = False
@@ -667,26 +565,208 @@ class SmartScanThing(Thing):
             )
             raise e
         finally:
-            if capture_thread:
+            if self._capture_thread:
                 # If the capture thread had an error we capture it here
                 try:
-                    capture_thread.join()
+                    self._capture_thread.join()
                 except Exception as e:
-                    # If the thread has already ended due to an exception we will
+                    # If the scan has already ended due to an exception we will
                     # ignore any exceptions, but if it appeared to be successful
-                    # we will log an error.
+                    # we will log the error.
                     if scan_successful:
                         self._scan_logger.error(
-                            "The scan appears to have started successfully, however the final capture raised"
-                            f"the following error: {e}."
+                            "The scan appears to have started successfully, however "
+                            f"the final capture raised the following error: {e}."
                             "Attempting to stitch and archive images.",
                             exc_info=e,
                         )
 
-        # This is what happens if the scan completes sucessfully or the
+            if self._preview_stitch_thread:
+                # Kill preview thread
+                self._preview_stitch_thread.join(0.1)
+            if self._correlate_thread:
+                self._correlate_thread.join()
+
+        # This is what happens if the scan completes successfully or the
         # user cancels it.
         self._return_to_starting_position()
-        self._perform_final_stitch(overlap)
+        self._perform_final_stitch()
+
+    @_scan_running
+    def _main_scan_loop(self):
+        planner_settings = {
+            "dx": self._scan_data["dx"],
+            "dy": self._scan_data["dy"],
+            "max_dist": self._scan_data["max_dist"],
+        }
+        route_planner = scan_planners.SmartSpiral(
+            intial_position=(self._stage.position["x"], self._stage.position["y"]),
+            planner_settings=planner_settings,
+        )
+
+        # At the start of the loop, we simultaneously capture an image and move to the next scan point.
+        # We skip capturing on the first run, because we've not focused yet - and also we skip capturing if
+        # it looks like background.
+        while not route_planner.scan_complete:
+            ensure_free_disk_space(self._ongoing_scan_dir)
+            self._manage_stitching_threads()
+
+            next_pos_xy, z_est = route_planner.get_next_location_and_z_estimate()
+            new_pos_xyz = self._move_to_next_point(next_pos_xy, z_est)
+
+            capture_image = True
+            # If skipping background, take and image to check if is background
+            if self._scan_data["skip_background"]:
+                capture_image = self._background_detect.image_is_sample()
+
+            if not capture_image:
+                route_planner.mark_location_visited(
+                    new_pos_xyz, imaged=False, focused=False
+                )
+                # Background franction is actually a percentage
+                back_perc = round(self._background_detect.background_fraction(), 0)
+                msg = f"Skipping {new_pos_xyz} as it is {back_perc}% background."
+                self._scan_logger.info(msg)
+                continue
+
+            focused = False
+            if self._scan_data["autofocus_on"]:
+                closest_xyz = route_planner.closest_focus_site(new_pos_xyz[:2])
+                focused = self._try_autofocus(new_pos_xyz, closest_xyz)
+
+            route_planner.mark_location_visited(
+                new_pos_xyz, imaged=True, focused=focused
+            )
+
+            # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
+            if self._capture_thread:
+                self._wait_for_capture_thread()
+                # increment capure counter as thread has completed
+                self._scan_images_taken += 1
+                # Add it to the incremental zip
+                self.create_zip_of_scan(
+                    logger=self._scan_logger,
+                    scan_name=self._ongoing_scan_name,
+                    download_zip=False,
+                )
+
+            name = f"image_{new_pos_xyz[0]}_{new_pos_xyz[1]}.jpg"
+            jpeg_path = os.path.join(self._ongoing_scan_images_dir, name)
+            self._capture_thread, acquired = self._start_capture_thread(jpeg_path)
+            # wait until the image is acquired
+            acquired.wait()
+
+    @_scan_running
+    def _try_autofocus(
+        self,
+        this_xyz: tuple[int, int, int],
+        closest_xyz: Optional[tuple[int, int, int]],
+    ) -> bool:
+        """
+        Try to perform autofocus and return boolean for if successful
+
+        Args:
+            this_xyz is the current x,y,z position.
+            closest_xyz is the (x, y, z) coordinates of the closest position, this is None
+                if no previous images have been taken or in focus
+
+        Return True on successful autofocus.
+        Return False if failed after 3 tries - the position will be the initial estimate
+        """
+        attempts = 0
+        max_attempts = 3
+        dz = self._scan_data["autofocus_dz"]
+
+        while attempts < max_attempts:
+            attempts += 1
+
+            _, jpeg_sizes = self._autofocus.looping_autofocus(dz=dz, start="base")
+
+            current_height = self._stage.position["z"]
+            time.sleep(0.2)
+            autofocus_sharp_enough = self._autofocus.verify_focus_sharpness(
+                sweep_sizes=jpeg_sizes, camera=CamDep, threshold=0.92
+            )
+
+            # Not sharp enough, go to start and try again
+            if not autofocus_sharp_enough:
+                z = this_xyz[2] - dz / 2 if attempts < max_attempts else this_xyz[2]
+                self._stage.move_absolute(z=z)
+                continue
+
+            # No previous positions to compare against return success
+            if closest_xyz is None:
+                return True
+
+            # Check the change in z-position is acceptable
+            # If the z change compared to the closest focused image exceeds
+            # a given fraction of the xy displacement this indicates failure
+            success = focus_change_acceptable(
+                prev_pos=closest_xyz[:2],
+                prev_z=closest_xyz[2],
+                new_pos=this_xyz[:2],
+                new_z=current_height,
+                fractional_limit=0.5,
+            )
+            # No focus change acceptable return success
+            if success:
+                return True
+
+            # Shifted to far move to start and try again
+            z = this_xyz[2] - dz / 2 if attempts < max_attempts else this_xyz[2]
+            self._stage.move_absolute(z=z)
+            self._scan_logger.info(
+                "The focus has shifted further than we expect: retrying."
+            )
+
+        self._scan_logger.warning("Could not autofocus after 3 attempts.")
+        return False
+
+    @_scan_running
+    def _wait_for_capture_thread(self) -> None:
+        """
+        Wait for the capture thread to be complete.
+        """
+        wait_start = time.time()
+        thread_was_alive = self._capture_thread.is_alive()
+
+        # If the capture thread has thrown an exception it will be raised
+        # when join is called, this will cause the scan to end. If we want
+        # to retry captures at a later date this is where we will need to
+        # catch the IOError or CaptureError from the thread.
+        self._capture_thread.join()
+        time.sleep(0.2)
+        if thread_was_alive:
+            wait_time = time.time() - wait_start
+            self._scan_logger.info(
+                f"Waited {wait_time:.1f}s for the previous capture to finish saving."
+            )
+
+    @_scan_running
+    def _start_capture_thread(
+        self, jpeg_path: str
+    ) -> tuple[ErrorCapturingThread, threading.Event]:
+        """
+        Start the capture thread.
+
+        Args:
+           jpeg_path, the path to save the image once aquired
+
+        Return the thread and an event that will be set when the image is aquired
+        """
+        acquired = threading.Event()
+        time.sleep(0.2)
+
+        # Acquire the image in a thread, and continue once it's acquired
+        # (i.e. leave saving in the background) Use ErrorCapturingThread
+        # intead of Thread. This will raise errors in the calling thread
+        # only when join() is called, allowing us to handle this appropriately.
+        capture_thread = ErrorCapturingThread(
+            target=self._capture_and_save,
+            kwargs={"acquired": acquired, "jpeg_path": jpeg_path},
+        )
+        capture_thread.start()
+        return capture_thread, acquired
 
     @_scan_running
     def _return_to_starting_position(self):
@@ -697,7 +777,7 @@ class SmartScanThing(Thing):
             )
 
     @_scan_running
-    def _perform_final_stitch(self, overlap):
+    def _perform_final_stitch(self):
         """Perform final stitch of the data"""
 
         if self._scan_images_taken <= 3:
@@ -709,25 +789,19 @@ class SmartScanThing(Thing):
             scan_name=self._ongoing_scan_name,
             download_zip=False,
         )
-        self._scan_logger.info("Waiting for background processes to finish...")
 
-        self._preview_stitch_wait()
-        self._correlate_wait()
-        try:
-            if self.stitch_automatically:
-                self._scan_logger.info("Stitching final image (may take some time)...")
-                self.stitch_scan(
-                    logger=self._scan_logger,
-                    scan_name=self._ongoing_scan_name,
-                    overlap=overlap,
-                )
-        except SubprocessError as e:
-            self._scan_logger.error(f"Stitching failed: {e}", exc_info=e)
+        if self._scan_data["stitch_automatically"]:
+            self._scan_logger.info("Stitching final image (may take some time)...")
+            self.stitch_scan(
+                logger=self._scan_logger,
+                scan_name=self._ongoing_scan_name,
+                overlap=self._scan_data["overlap"],
+            )
 
     @_scan_running
     def _capture_and_save(
         self,
-        acquired: Event,
+        acquired: threading.Event,
         jpeg_path: str,
     ) -> None:
         """Capture an image and save it to disk
@@ -786,7 +860,9 @@ class SmartScanThing(Thing):
                     metadata
                 ).encode("utf-8")
                 piexif.insert(piexif.dump(exif_dict), jpeg_path)
-            except:
+            except:  # noqa: E722
+                # We need to capture any exeption as there are many reasons metadata
+                # might not be added. We wern rather than log the error.
                 self._scan_logger.warning(f"Failed to add metadata to {jpeg_path}")
         except Exception as e:
             raise IOError(f"An error occurred while saving {jpeg_path}") from e
@@ -986,107 +1062,6 @@ class SmartScanThing(Thing):
         except FileNotFoundError:
             raise HTTPException(404, "File not found")
 
-    @_scan_running
-    def _preview_stitch_start(self) -> None:
-        """Start stitching a preview of the scan in a background subprocess
-
-
-        This uses popen and returns immediately
-
-        - self._preview_stitch_popen holds the popen for polling
-        - self._preview_stitch_popen_lock is a lock aquired while interacting
-              with Popen
-        """
-        if self._preview_stitch_running():
-            raise RuntimeError("Only one subprocess is allowed at a time")
-        with self._preview_stitch_popen_lock:
-            self._preview_stitch_popen = Popen(
-                [
-                    self._stitching_script,
-                    "--stitching_mode",
-                    "only_stage_stitch",
-                    self._ongoing_scan_images_dir,
-                ]
-            )
-
-    @_scan_running
-    def _preview_stitch_running(self) -> bool:
-        """Whether there is a preview stitch running in a subprocess"""
-        with self._preview_stitch_popen_lock:
-            if self._preview_stitch_popen is None:
-                return False
-            if self._preview_stitch_popen.poll() is None:
-                return True
-            return False
-
-    @_scan_running
-    def _preview_stitch_wait(self):
-        if self._preview_stitch_running():
-            with self._preview_stitch_popen_lock:
-                self._preview_stitch_popen.wait()
-
-    @_scan_running
-    def _correlate_start(self, overlap: float = 0.1) -> None:
-        """Start stitching a preview of the scan in a subprocess"""
-        if self._correlate_running():
-            raise RuntimeError("Only one subprocess is allowed at a time")
-        with self._correlate_popen_lock:
-            self._correlate_popen = Popen(
-                [
-                    self._stitching_script,
-                    "--stitching_mode",
-                    "only_correlate",
-                    "--minimum_overlap",
-                    f"{round(overlap * 0.9, 2)}",
-                    self._ongoing_scan_images_dir,
-                ]
-            )
-
-    @_scan_running
-    def _correlate_running(self) -> bool:
-        """Whether there is a preview stitch running in a subprocess"""
-        with self._correlate_popen_lock:
-            if self._correlate_popen is None:
-                return False
-            if self._correlate_popen.poll() is None:
-                return True
-            return False
-
-    @_scan_running
-    def _correlate_wait(self):
-        if self._correlate_running():
-            with self._correlate_popen_lock:
-                self._correlate_popen.wait()
-
-    def run_subprocess(
-        self,
-        logger: InvocationLogger,
-        cmd: list[str],
-    ) -> CompletedProcess:
-        """Run a  subprocess and log any output"""
-        logger.info(f"Running command in subprocess: `{' '.join(cmd)}`")
-
-        p = Popen(cmd, stdout=PIPE, stderr=STDOUT, bufsize=1, universal_newlines=True)
-        os.set_blocking(p.stdout.fileno(), False)
-        logger.info(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
-        while p.poll() is None:
-            try:
-                output = p.stdout.readline()
-                if output != "" and output is not None:
-                    logger.info(output)
-            except:
-                pass
-
-        for line in p.stdout:
-            try:
-                output = p.stdout.readline()
-                if output != "" and output is not None:
-                    logger.info(output)
-            except:
-                pass
-
-        logger.info("Stitching complete")
-        return p
 
     @thing_action
     def stitch_scan(
@@ -1100,32 +1075,49 @@ class SmartScanThing(Thing):
         Note that as this is a thing_action it needs the logger passed as
         a variable if called from another thing action
         """
+        json_fname = "scan_inputs.json"
         images_folder = self.images_dir_for_scan(scan_name=scan_name)
-
-        if self.stitch_tiff:
-            tiff_arg = "--stitch_tiff"
-        else:
-            tiff_arg = "--no-stitch_tiff"
+        json_fpath = os.path.join(images_folder, json_fname)
 
         if overlap == 0.0:
             try:
-                with open(os.path.join(images_folder, "scan_inputs.json")) as data_file:
+                with open(json_fpath, "r", encoding="utf-8") as data_file:
                     data_loaded = json.load(data_file)
                     logger.info(data_loaded)
                 overlap = data_loaded["overlap"]
-            except:
+            except (json.decoder.JSONDecodeError, FileNotFoundError, TypeError):
+                # As there is no schema or pydantic model this should handle
+                # The file not being there, it not being json in the file,
+                # or the imported data not being indexable
+                logger.warning(
+                    f"Couldn't read scan data, is {json_fname} missing or corrupt? "
+                    "Attempting stitch with overlap value of 0.1"
+                )
                 overlap = 0.1
-        self.run_subprocess(
-            logger,
-            [
-                self._stitching_script,
-                "--stitching_mode",
-                "all",
-                f"{tiff_arg}",
-                "--minimum_overlap",
-                f"{round(overlap * 0.9, 2)}",
-                images_folder,
-            ],
+            except KeyError:
+                logger.warning(
+                    "Value for overlap not found in scan data. "
+                    "Attempting stitch with overlap value of 0.1"
+                )
+                overlap = 0.1
+
+        correlation_settings = openflexure_stitching.CorrelationSettings(
+            minimum_overlap=round(overlap * 0.9, 2)
+        )
+        tiling_settings = openflexure_stitching.TilingSettings(
+            csm_matrix=[[0, 0], [0, 0]],
+            csm_calibration_width=-1,
+            max_stage_discrepancy=-1,
+            min_peak_quality=-1,
+        )
+
+        openflexure_stitching.load_tile_and_stitch(
+            images_folder,
+            correlation_settings=correlation_settings,
+            tiling_settings=tiling_settings,
+            stitching_mode="all",
+            stitch_tiff=True,
+            dzi=True,
         )
 
     @thing_action
@@ -1219,3 +1211,52 @@ class SmartScanThing(Thing):
 
 class CaptureError(RuntimeError):
     """An error trying to capture from Picamera"""
+
+
+def _preview_stitch(images_folder) -> None:
+    """Start stitching a preview of the scan in a background subprocess
+
+
+    This uses popen and returns immediately
+
+    - self._preview_stitch_popen holds the popen for polling
+    - self._preview_stitch_popen_lock is a lock aquired while interacting
+            with Popen
+    """
+    correlation_settings = openflexure_stitching.CorrelationSettings()
+    tiling_settings = openflexure_stitching.TilingSettings(
+        csm_matrix=[[0, 0], [0, 0]],
+        csm_calibration_width=-1,
+        max_stage_discrepancy=-1,
+        min_peak_quality=-1,
+    )
+
+    openflexure_stitching.load_tile_and_stitch(
+        images_folder,
+        correlation_settings=correlation_settings,
+        tiling_settings=tiling_settings,
+        stitching_mode="only_stage_stitch",
+        stitch_tiff=True,
+        dzi=True,
+    )
+
+def _correlate_images(images_folder, overlap: float = 0.1) -> None:
+    """Start stitching a preview of the scan in a subprocess"""
+    correlation_settings = openflexure_stitching.CorrelationSettings(
+        minimum_overlap=round(overlap * 0.9, 2)
+    )
+    tiling_settings = openflexure_stitching.TilingSettings(
+        csm_matrix=[[0, 0], [0, 0]],
+        csm_calibration_width=-1,
+        max_stage_discrepancy=-1,
+        min_peak_quality=-1,
+    )
+
+    openflexure_stitching.load_tile_and_stitch(
+        images_folder,
+        correlation_settings=correlation_settings,
+        tiling_settings=tiling_settings,
+        stitching_mode="only_correlate",
+        stitch_tiff=True,
+        dzi=True,
+    )

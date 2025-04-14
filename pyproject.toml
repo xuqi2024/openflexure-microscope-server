@@ -35,6 +35,7 @@ dev = [
   "mypy-gitlab-code-quality",
 #  "pytest-gitlab-code-quality", # pytest version constraint clashes with labthings
   "pytest",
+  "matplotlib~=3.10"
 ]
 pi = [
   "labthings-picamera2 == 0.0.2-dev0",
@@ -80,6 +81,8 @@ addopts = [
 ]
 
 norecursedirs = [".git", "build", "node_modules"]
+
+pythonpath = ["."]
 
 [tool.ruff.format]
 # Use native line endings for all files
