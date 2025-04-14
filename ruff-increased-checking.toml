@@ -35,3 +35,8 @@ select = [
            # also "D" but this even warns about docstring punctuation. Perhaps a step too
            # far?
 ]
+
+# Line length is set to 88 for ruff. This is what the formatter aims for
+# some lines are not formatted to 88 if the formatter can't easily break
+# them. Allow up to 99 before throwing a long line error
+line-length = 99
