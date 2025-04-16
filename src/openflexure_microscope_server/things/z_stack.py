@@ -1,10 +1,6 @@
 import os
-from typing import Mapping, Optional
-import cv2
 import numpy as np
 from PIL import Image
-from pydantic import BaseModel
-from scipy.stats import norm
 import time
 import piexif
 import json
@@ -15,9 +11,7 @@ from labthings_fastapi.decorators import thing_action, thing_property
 from .camera import CameraDependency as CamDep
 from .stage import StageDependency as StageDep
 from labthings_fastapi.dependencies.invocation import (
-    CancelHook,
     InvocationLogger,
-    InvocationCancelledError,
 )
 
 
@@ -87,7 +81,7 @@ class ZStackThing(Thing):
         capture_start = time.time()
         image, metadata = self._capture_image(cam, metadata_getter,)
         acquisition_time = time.time()
-        self._save_capture(jpeg_path, image, metadata)
+        self._save_capture(jpeg_path, image, metadata, logger)
         save_time = time.time()
         acquisition_duration = round(acquisition_time - capture_start, 1)
         saving_duration = round(save_time - acquisition_time, 1)
@@ -114,6 +108,7 @@ class ZStackThing(Thing):
         jpeg_path: str,
         image: np.ndarray,
         metadata: dict,
+        logger: InvocationLogger,
     ) -> None:
         """Saving the captured image and metadata to disk
         logger warning (via InvocationLogger) is raised if metadata is failed to be added
