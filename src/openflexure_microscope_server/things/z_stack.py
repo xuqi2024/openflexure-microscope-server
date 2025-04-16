@@ -71,8 +71,11 @@ class ZStackThing(Thing):
                 logger=logger,
                 metadata_getter=metadata_getter,
             )
-            stage.move_relative(z=stack_dz)
-            time.sleep(0.3)
+
+            # If the stack isn't complete yet, move
+            if capture_count + 1 < images_to_capture:
+                stage.move_relative(z=stack_dz)
+                time.sleep(0.3)
 
         self.copy_central_image(images_dir, stack_dir, logger)
 
