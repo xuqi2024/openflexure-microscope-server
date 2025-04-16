@@ -41,6 +41,7 @@ BackgroundDep = direct_thing_client_dependency(
 )
 ZStackDep = direct_thing_client_dependency(ZStackThing, "/z_stack/")
 
+
 def unpack_autofocus(scan_data):
     """Extract z, sharpness data from a move_and_measure call
 
@@ -582,7 +583,16 @@ class SmartScanThing(Thing):
                 current_pos_xyz, imaged=True, focused=focused
             )
 
-            self._z_stack.smart_stack(images_dir = self._ongoing_scan_images_dir)
+            site_folder = os.path.join(
+                self._ongoing_scan_images_dir,
+                "stacks",
+                f"{new_pos_xyz[0]}_{new_pos_xyz[1]}",
+            )
+            os.makedirs(site_folder, exist_ok=True)
+            self._z_stack.smart_stack(
+                images_dir=self._ongoing_scan_images_dir,
+                stack_dir=site_folder,
+            )
 
             # increment capure counter as thread has completed
             self._scan_images_taken += 1
