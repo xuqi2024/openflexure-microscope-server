@@ -4,6 +4,8 @@ from PIL import Image
 import time
 import piexif
 import json
+import shutil
+import glob
 
 from labthings_fastapi.dependencies.metadata import GetThingStates
 from labthings_fastapi.thing import Thing
@@ -18,12 +20,13 @@ from labthings_fastapi.dependencies.invocation import (
 class CaptureError(RuntimeError):
     """An error trying to capture from Picamera"""
 
+
 class ZStackThing(Thing):
     @thing_property
     def images_to_capture(self) -> int:
         """The number of images to capture and save in a stack
         Defaults to 1 unless you need to see either side of focus"""
-        return self.thing_settings.get("stack_height", 9)
+        return self.thing_settings.get("images_to_capture", 1)
 
     @images_to_capture.setter
     def images_to_capture(self, value: int) -> None:
@@ -46,9 +49,10 @@ class ZStackThing(Thing):
         self,
         cam: CamDep,
         stage: StageDep,
-        images_dir: str,
         logger: InvocationLogger,
         metadata_getter: GetThingStates,
+        images_dir: str,
+        stack_dir: str,
     ) -> None:
         stack_dz = self.stack_dz
         images_to_capture = self.images_to_capture
@@ -58,13 +62,19 @@ class ZStackThing(Thing):
 
         for capture_count in range(images_to_capture):
             jpeg_path = os.path.join(
-                images_dir,
+                stack_dir,
                 f"{capture_count}.jpeg",
             )
             self._capture_and_save(
-                jpeg_path, cam, logger, metadata_getter,
+                jpeg_path=jpeg_path,
+                cam=cam,
+                logger=logger,
+                metadata_getter=metadata_getter,
             )
             stage.move_relative(z=stack_dz)
+            time.sleep(0.3)
+
+        self.copy_central_image(images_dir, stack_dir, logger)
 
     def _capture_and_save(
         self,
@@ -79,7 +89,10 @@ class ZStackThing(Thing):
         that the stage may be moved while it's saved.
         """
         capture_start = time.time()
-        image, metadata = self._capture_image(cam, metadata_getter,)
+        image, metadata = self._capture_image(
+            cam,
+            metadata_getter,
+        )
         acquisition_time = time.time()
         self._save_capture(jpeg_path, image, metadata, logger)
         save_time = time.time()
@@ -91,8 +104,6 @@ class ZStackThing(Thing):
 
     def _capture_image(self, cam, metadata_getter) -> tuple[np.ndarray, dict]:
         """Capture an image in memory and return it with metadata
-        This will set the event `acquired` once the image has been acquired, so
-        that the stage may be moved while it's saved.
         CaptureError raised if the capture fails for any reason
         returns tuple with numpy array of image data, and dict of metadata
         """
@@ -130,3 +141,20 @@ class ZStackThing(Thing):
                 logger.warning(f"Failed to add metadata to {jpeg_path}")
         except Exception as e:
             raise IOError(f"An error occurred while saving {jpeg_path}") from e
+
+    def copy_central_image(
+        self,
+        images_dir: str,
+        stack_dir: str,
+        logger: InvocationLogger,
+    ):
+        """Gets a list of images in a folder (stack_dir), sorts them, and copies the central image
+        to images dir."""
+        image_list = glob.glob(os.path.join(stack_dir, "*"))
+        image_list.sort()
+        central_index = (len(image_list) - 1) // 2
+        central_image = image_list[central_index]
+        logger.warning(central_image)
+        xy_location = os.path.basename(stack_dir)
+
+        shutil.copy(central_image, os.path.join(images_dir, f"{xy_location}.jpeg"))
