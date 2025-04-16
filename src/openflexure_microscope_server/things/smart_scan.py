@@ -33,6 +33,7 @@ from openflexure_microscope_server.utilities import ErrorCapturingThread
 from openflexure_microscope_server.things.autofocus import AutofocusThing
 from openflexure_microscope_server.things.camera_stage_mapping import CameraStageMapper
 from openflexure_microscope_server.things.background_detect import BackgroundDetectThing
+from openflexure_microscope_server.things.z_stack import ZStackThing
 from openflexure_microscope_server import scan_planners
 
 CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
@@ -40,7 +41,7 @@ AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
 BackgroundDep = direct_thing_client_dependency(
     BackgroundDetectThing, "/background_detect/"
 )
-
+ZStackDep = direct_thing_client_dependency(ZStackThing, "/z_stack/")
 
 def unpack_autofocus(scan_data):
     """Extract z, sharpness data from a move_and_measure call
@@ -153,6 +154,7 @@ class SmartScanThing(Thing):
         self._background_detect: Optional[BackgroundDep] = None
         self._ongoing_scan_name: Optional[str] = None
         self._starting_position: Optional[Mapping[str, int]] = None
+        self._z_stack: Optional[ZStackDep] = None
         self._capture_thread: Optional[ErrorCapturingThread] = None
         self._scan_images_taken: Optional[int] = None
         # TODO Scan data is a dict during refactoring, should become a dataclass
@@ -169,6 +171,7 @@ class SmartScanThing(Thing):
         metadata_getter: GetThingStates,
         csm: CSMDep,
         background_detect: BackgroundDep,
+        z_stack: ZStackDep,
         scan_name: str = "",
     ):
         """Move the stage to cover an area, taking images that can be tiled together.
@@ -192,6 +195,7 @@ class SmartScanThing(Thing):
         self._csm = csm
         self._background_detect = background_detect
         self._capture_thread = None
+        self._z_stack = z_stack
         self._scan_images_taken = 0
 
         # Don't set self._scan_data dictionary. This is done at the start of _run_scan
@@ -226,6 +230,7 @@ class SmartScanThing(Thing):
             self._ongoing_scan_name = None
             self._scan_images_taken = None
             self._scan_data = None
+            self._z_stack = None
             self._scan_lock.release()
 
     @_scan_running
@@ -580,22 +585,24 @@ class SmartScanThing(Thing):
             )
 
             # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
-            if self._capture_thread:
-                self._wait_for_capture_thread()
-                # increment capure counter as thread has completed
-                self._scan_images_taken += 1
-                # Add it to the incremental zip
-                self.create_zip_of_scan(
-                    logger=self._scan_logger,
-                    scan_name=self._ongoing_scan_name,
-                    download_zip=False,
-                )
+            # if self._capture_thread:
+            #     self._wait_for_capture_thread()
+            # increment capure counter as thread has completed
+            self._scan_images_taken += 1
+            # Add it to the incremental zip
+            self.create_zip_of_scan(
+                logger=self._scan_logger,
+                scan_name=self._ongoing_scan_name,
+                download_zip=False,
+            )
 
             name = f"image_{new_pos_xyz[0]}_{new_pos_xyz[1]}.jpg"
-            jpeg_path = os.path.join(self._ongoing_scan_images_dir, name)
-            self._capture_thread, acquired = self._start_capture_thread(jpeg_path)
+            # jpeg_path = os.path.join(self._ongoing_scan_images_dir, name)
+            self._z_stack.smart_stack(images_dir = self._ongoing_scan_images_dir)
+            # self._capture_thread = self._start_capture_thread(jpeg_path)
+
             # wait until the image is acquired
-            acquired.wait()
+            # acquired.wait()
 
     @_scan_running
     def _try_autofocus(
@@ -653,31 +660,31 @@ class SmartScanThing(Thing):
                 f"Waited {wait_time:.1f}s for the previous capture to finish saving."
             )
 
-    @_scan_running
-    def _start_capture_thread(
-        self, jpeg_path: str
-    ) -> tuple[ErrorCapturingThread, Event]:
-        """
-        Start the capture thread.
+    # @_scan_running
+    # def _start_capture_thread(
+    #     self, jpeg_path: str
+    # ) -> tuple[ErrorCapturingThread, Event]:
+    #     """
+    #     Start the capture thread.
 
-        Args:
-           jpeg_path, the path to save the image once aquired
+    #     Args:
+    #        jpeg_path, the path to save the image once aquired
 
-        Return the thread and an event that will be set when the image is aquired
-        """
-        acquired = Event()
-        time.sleep(0.2)
+    #     Return the thread and an event that will be set when the image is aquired
+    #     """
+    #     time.sleep(0.2)
 
-        # Acquire the image in a thread, and continue once it's acquired
-        # (i.e. leave saving in the background) Use ErrorCapturingThread
-        # intead of Thread. This will raise errors in the calling thread
-        # only when join() is called, allowing us to handle this appropriately.
-        capture_thread = ErrorCapturingThread(
-            target=self._capture_and_save,
-            kwargs={"acquired": acquired, "jpeg_path": jpeg_path},
-        )
-        capture_thread.start()
-        return capture_thread, acquired
+    #     # Acquire the image in a thread, and continue once it's acquired
+    #     # (i.e. leave saving in the background) Use ErrorCapturingThread
+    #     # intead of Thread. This will raise errors in the calling thread
+    #     # only when join() is called, allowing us to handle this appropriately.
+    #     capture_thread = ErrorCapturingThread(
+    #         # target=self._capture_and_save,
+    #         target=self._z_stack.smart_stack(),
+    #         kwargs={"images_dir": self._ongoing_scan_images_dir},
+    #     )
+    #     capture_thread.start()
+    #     return capture_thread
 
     @_scan_running
     def _return_to_starting_position(self):
@@ -1209,7 +1216,3 @@ class SmartScanThing(Thing):
         """List the relative paths of all files and folders in the zip folder specified"""
         scan_zip = zipfile.ZipFile(zip_path)
         return [os.path.normpath(i) for i in scan_zip.namelist()]
-
-
-class CaptureError(RuntimeError):
-    """An error trying to capture from Picamera"""
