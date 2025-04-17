@@ -225,6 +225,7 @@ class SmartScanThing(Thing):
         try:
             self._check_background_and_csm_set()
             self._ongoing_scan_name = self._get_unique_scan_name_and_dir(scan_name)
+            self._autofocus.looping_autofocus(dz=self.autofocus_dz, start="centre")
             # record starting position so we can return there
             self._starting_position = self._stage.position
             self._run_scan()
