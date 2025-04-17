@@ -15,70 +15,15 @@ from .stage import StageDependency as StageDep
 from labthings_fastapi.dependencies.invocation import (
     InvocationLogger,
 )
+from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
 
 
 class CaptureError(RuntimeError):
     """An error trying to capture from Picamera"""
 
 
-class ZStackThing(Thing):
-    @thing_property
-    def images_to_capture(self) -> int:
-        """The number of images to capture and save in a stack
-        Defaults to 1 unless you need to see either side of focus"""
-        return self.thing_settings.get("images_to_capture", 1)
-
-    @images_to_capture.setter
-    def images_to_capture(self, value: int) -> None:
-        self.thing_settings["images_to_capture"] = value
-
-    @thing_property
-    def stack_dz(self) -> int:
-        """Space in steps between images in a z-stack
-        Suggested is 50 for 60-100x
-        100 for 40x
-        200 for 20x"""
-        return self.thing_settings.get("stack_dz", 50)
-
-    @stack_dz.setter
-    def stack_dz(self, value: int) -> None:
-        self.thing_settings["stack_dz"] = value
-
+class CapturingThing(Thing):
     @thing_action
-    def smart_stack(
-        self,
-        cam: CamDep,
-        stage: StageDep,
-        logger: InvocationLogger,
-        metadata_getter: GetThingStates,
-        images_dir: str,
-        stack_dir: str,
-    ) -> None:
-        stack_dz = self.stack_dz
-        images_to_capture = self.images_to_capture
-
-        stack_z_range = stack_dz * (images_to_capture - 1)
-        stage.move_relative(z=-stack_z_range / 2)
-
-        for capture_count in range(images_to_capture):
-            jpeg_path = os.path.join(
-                stack_dir,
-                f"{capture_count}.jpeg",
-            )
-            self._capture_and_save(
-                jpeg_path=jpeg_path,
-                cam=cam,
-                logger=logger,
-                metadata_getter=metadata_getter,
-            )
-
-            # If the stack isn't complete yet, move
-            if capture_count + 1 < images_to_capture:
-                stage.move_relative(z=stack_dz)
-                time.sleep(0.3)
-
-        self.copy_central_image(images_dir, stack_dir, logger)
-
     def _capture_and_save(
         self,
         jpeg_path: str,
@@ -145,11 +90,73 @@ class ZStackThing(Thing):
         except Exception as e:
             raise IOError(f"An error occurred while saving {jpeg_path}") from e
 
+
+CapturingDep = direct_thing_client_dependency(CapturingThing, "/capturing/")
+
+
+class ZStackThing(Thing):
+    @thing_property
+    def images_to_capture(self) -> int:
+        """The number of images to capture and save in a stack
+        Defaults to 1 unless you need to see either side of focus"""
+        return self.thing_settings.get("images_to_capture", 1)
+
+    @images_to_capture.setter
+    def images_to_capture(self, value: int) -> None:
+        self.thing_settings["images_to_capture"] = value
+
+    @thing_property
+    def stack_dz(self) -> int:
+        """Space in steps between images in a z-stack
+        Suggested is 50 for 60-100x
+        100 for 40x
+        200 for 20x"""
+        return self.thing_settings.get("stack_dz", 50)
+
+    @stack_dz.setter
+    def stack_dz(self, value: int) -> None:
+        self.thing_settings["stack_dz"] = value
+
+    @thing_action
+    def run_z_stack(
+        self,
+        cam: CamDep,
+        stage: StageDep,
+        logger: InvocationLogger,
+        metadata_getter: GetThingStates,
+        capture: CapturingDep,
+        images_dir: str,
+        stack_dir: str,
+    ) -> None:
+        stack_dz = self.stack_dz
+        images_to_capture = self.images_to_capture
+
+        stack_z_range = stack_dz * (images_to_capture - 1)
+        stage.move_relative(z=-stack_z_range / 2)
+
+        for capture_count in range(images_to_capture):
+            jpeg_path = os.path.join(
+                stack_dir,
+                f"{capture_count}.jpeg",
+            )
+            capture._capture_and_save(
+                jpeg_path=jpeg_path,
+                cam=cam,
+                logger=logger,
+                metadata_getter=metadata_getter,
+            )
+
+            # If the stack isn't complete yet, move
+            if capture_count + 1 < images_to_capture:
+                stage.move_relative(z=stack_dz)
+                time.sleep(0.3)
+
+        self.copy_central_image(images_dir, stack_dir, logger)
+
     def copy_central_image(
         self,
         images_dir: str,
         stack_dir: str,
-        logger: InvocationLogger,
     ):
         """Gets a list of images in a folder (stack_dir), sorts them, and copies the central image
         to images dir."""
@@ -157,7 +164,6 @@ class ZStackThing(Thing):
         image_list.sort()
         central_index = (len(image_list) - 1) // 2
         central_image = image_list[central_index]
-        logger.warning(central_image)
         xy_location = os.path.basename(stack_dir)
 
         shutil.copy(central_image, os.path.join(images_dir, f"{xy_location}.jpeg"))

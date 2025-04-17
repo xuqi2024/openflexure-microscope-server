@@ -589,7 +589,7 @@ class SmartScanThing(Thing):
                 f"{new_pos_xyz[0]}_{new_pos_xyz[1]}",
             )
             os.makedirs(site_folder, exist_ok=True)
-            self._z_stack.smart_stack(
+            self._z_stack.run_z_stack(
                 images_dir=self._ongoing_scan_images_dir,
                 stack_dir=site_folder,
             )
