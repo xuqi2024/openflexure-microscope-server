@@ -253,7 +253,20 @@ def test_closest_focus_wth_large_numbers():
 
 
 def test_example_smart_spiral():
-    _, planner = scan_test_helpers.example_smart_spiral()
-    expected_planner = scan_test_helpers.get_expected_result_for_example_smart_spiral()
-    assert planner.path_history == expected_planner.path_history
-    assert planner.imaged_locations == expected_planner.imaged_locations
+    """Test the smart spiral scan algorithm on the sample types listed
+    below and defined in scan_test_helpers.load_sample_points
+
+    Will fail if the locations or path between locations visited has changed
+    for any of the samples listed"""
+    example_samples = [
+        "regular",
+        "lobed",
+        "core",
+    ]
+    for sample_name in example_samples:
+        _, planner = scan_test_helpers.example_smart_spiral(sample_name)
+        expected_planner = (
+            scan_test_helpers.get_expected_result_for_example_smart_spiral(sample_name)
+        )
+        assert planner.path_history == expected_planner.path_history
+        assert planner.imaged_locations == expected_planner.imaged_locations

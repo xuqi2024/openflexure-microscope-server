@@ -111,22 +111,18 @@ def interp_closed_path(xy_points: list[tuple[int, int]], n_points: int) -> MatPa
     return MatPath(path_points, closed=True)
 
 
-def example_smart_spiral() -> tuple[FakeSample, scan_planners.ScanPlanner]:
+def example_smart_spiral(
+    sample_name: str = "lobed",
+) -> tuple[FakeSample, scan_planners.ScanPlanner]:
     """
     Run an example scan and return the sample scanned and the planner object
     after scan is complete
     """
-    xy_sample_points = [
-        (-5000, -5000),
-        (-2000, 10000),
-        (1000, 2000),
-        (6000, 7000),
-        (9000, 2000),
-    ]
+    xy_sample_points = load_sample_points(sample_name)
     sample = FakeSample(xy_sample_points)
     img_size = (1000, 1000)
     intial_position = (0, 0)
-    planner_settings = {"dx": 700, "dy": 700, "max_dist": 100000}
+    planner_settings = {"dx": 1200, "dy": 800, "max_dist": 100000}
     planner = scan_planners.SmartSpiral(
         intial_position=intial_position, planner_settings=planner_settings
     )
@@ -166,7 +162,7 @@ def profile_and_save_plot_for_example_smart_spiral():
     run_stats.print_stats("scan_planners.py")
 
 
-def update_example_smart_spiral_pickle():
+def update_example_smart_spiral_pickle(sample_name: str):
     """
     Pickle the ScanPlanner for the example_smart_spiral(),
     this is done so the history can be compared by testing to check
@@ -174,22 +170,63 @@ def update_example_smart_spiral_pickle():
 
     If the algorithm is purposefully changed then this will need to be
     run to update the pickle for the test to pass.
+
+    Takes sample, the sample type we have generated, so we can make a
+    pickle for each sample type
     """
-    pkl_fname = os.path.join(THIS_DIR, "example_smart_spiral.pkl")
+    pkl_fname = os.path.join(THIS_DIR, f"example_smart_spiral_{sample_name}.pkl")
+    _, planner = example_smart_spiral(sample_name)
     with open(pkl_fname, "wb") as pkl_file_obj:
-        _, planner = example_smart_spiral()
         pickle.dump(planner, pkl_file_obj, pickle.HIGHEST_PROTOCOL)
 
 
-def get_expected_result_for_example_smart_spiral():
+def get_expected_result_for_example_smart_spiral(
+    sample_name: str,
+) -> scan_planners.ScanPlanner:
     """
     Return the expected ScanPlanner object for the example_smart_spiral(),
     this is pickled, so that it can be committed.
     """
-    pkl_fname = os.path.join(THIS_DIR, "example_smart_spiral.pkl")
+    pkl_fname = os.path.join(THIS_DIR, f"example_smart_spiral_{sample_name}.pkl")
     with open(pkl_fname, "rb") as pkl_file_obj:
         planner = pickle.load(pkl_file_obj)
     return planner
+
+
+def load_sample_points(sample_name: str):
+    """Return the points to generate the FakeSample corresponding to the given input name
+
+    Options are "lobed", "regular", and "core".
+    """
+    sample_options = {
+        "lobed": [
+            (-5000, -5000),
+            (-2000, 16000),
+            (1000, 2000),
+            (6000, 7000),
+            (9000, 2000),
+        ],
+        "regular": [
+            (-5000, -5000),
+            (-5000, 5000),
+            (5000, 5000),
+            (5000, -5000),
+        ],
+        "core": [
+            (-12000, 2000),
+            (-12000, 1000),
+            (0, -2000),
+            (10000, -2000),
+            (10000, -1000),
+            (1000, 0),
+        ],
+    }
+    if sample_name not in sample_options:
+        all_samples = ", ".join(sample_options.keys())
+        raise ValueError(
+            f"{sample_name} is not a valid sample name. Valid names : {all_samples}"
+        )
+    return sample_options[sample_name]
 
 
 if __name__ == "__main__":
