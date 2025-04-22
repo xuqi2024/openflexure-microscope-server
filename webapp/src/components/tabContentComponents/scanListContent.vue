@@ -159,7 +159,9 @@ export default {
       }
     },
     async updateScans() {
-      let scans = await this.readThingProperty("smart_scan", "scans");
+      let scans = await this.readThingProperty("smart_scan", "scans", {
+        no_cache: true
+      });
       if (!scans | (scans.length == 0)) {
         this.scans = scans;
       }
