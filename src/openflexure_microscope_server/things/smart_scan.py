@@ -66,30 +66,6 @@ def unpack_autofocus(scan_data):
     return jpeg_heights[turning[0] : turning[1]], jpeg_sizes_mb[turning[0] : turning[1]]
 
 
-def focus_change_acceptable(prev_pos, prev_z, new_pos, new_z, fractional_limit):
-    """Return true if the change in z-position is small enough.
-
-    A large change in z-position in an indication of focus failure.
-    fractional_limit is the largest ratio of change in z to change in xy that's allowed
-    """
-
-    prev_xy = np.asarray(prev_pos, dtype="float64")
-    new_xy = np.asarray(new_pos, dtype="float64")
-
-    dist = np.sqrt(np.sum(((new_xy - prev_xy) / 10**4) ** 2, dtype="float64"))
-
-    focus_change = abs(new_z - prev_z) / 10**4
-    if dist == 0:
-        print(f"Not moved between {prev_pos} and {new_pos}")
-        movement_ratio = 0
-    else:
-        movement_ratio = np.divide(focus_change, dist, dtype="float64")
-
-    if movement_ratio > fractional_limit:
-        return False
-    return True
-
-
 class NotEnoughFreeSpaceError(IOError):
     pass
 
@@ -388,7 +364,7 @@ class SmartScanThing(Thing):
         self._stage.move_absolute(
             x=next_point[0],
             y=next_point[1],
-            z=z_estimate - self._scan_data["autofocus_dz"] / 2,
+            z=z_estimate,
         )
 
         return (next_point[0], next_point[1], z_estimate)
@@ -578,6 +554,11 @@ class SmartScanThing(Thing):
 
             next_pos_xy, z_est = route_planner.get_next_location_and_z_estimate()
             new_pos_xyz = self._move_to_next_point(next_pos_xy, z_est)
+            current_pos_xyz = (
+                new_pos_xyz[0],
+                new_pos_xyz[1],
+                self._stage.position["z"],
+            )
 
             capture_image = True
             # If skipping background, take an image to check if it is background
@@ -596,11 +577,11 @@ class SmartScanThing(Thing):
 
             focused = False
             if self._scan_data["autofocus_on"]:
-                closest_xyz = route_planner.closest_focus_site(new_pos_xyz[:2])
-                focused = self._try_autofocus(new_pos_xyz, closest_xyz)
+                focused, focused_z = self._try_autofocus(new_pos_xyz)
+                current_pos_xyz = (new_pos_xyz[0], new_pos_xyz[1], focused_z)
 
             route_planner.mark_location_visited(
-                new_pos_xyz, imaged=True, focused=focused
+                current_pos_xyz, imaged=True, focused=focused
             )
 
             # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
@@ -625,18 +606,15 @@ class SmartScanThing(Thing):
     def _try_autofocus(
         self,
         this_xyz: tuple[int, int, int],
-        closest_xyz: Optional[tuple[int, int, int]],
     ) -> bool:
         """
         Try to perform autofocus and return boolean for if successful
 
         Args:
             this_xyz is the current x,y,z position.
-            closest_xyz is the (x, y, z) coordinates of the closest position, this is None
-                if no previous images have been taken or in focus
 
-        Return True on successful autofocus.
-        Return False if failed after 3 tries - the position will be the initial estimate
+        Return True, focused_height on successful autofocus.
+        Return False, initial_height if failed after 3 tries - the position will be the initial estimate
         """
         attempts = 0
         max_attempts = 3
@@ -645,46 +623,20 @@ class SmartScanThing(Thing):
         while attempts < max_attempts:
             attempts += 1
 
-            _, jpeg_sizes = self._autofocus.looping_autofocus(dz=dz, start="base")
-            current_height = self._stage.position["z"]
+            _, jpeg_sizes = self._autofocus.looping_autofocus(dz=dz, start="centre")
             time.sleep(0.2)
             autofocus_sharp_enough = self._autofocus.verify_focus_sharpness(
                 sweep_sizes=jpeg_sizes, camera=CamDep, threshold=0.92
             )
 
-            # Not sharp enough, go to start and try again
-            if not autofocus_sharp_enough:
-                z = this_xyz[2] - dz / 2 if attempts < max_attempts else this_xyz[2]
-                self._stage.move_absolute(z=z)
-                continue
-
-            # No previous positions to compare against return success
-            if closest_xyz is None:
-                return True
-
-            # Check the change in z-position is acceptable
-            # If the z change compared to the closest focused image exceeds
-            # a given fraction of the xy displacement this indicates failure
-            success = focus_change_acceptable(
-                prev_pos=closest_xyz[:2],
-                prev_z=closest_xyz[2],
-                new_pos=this_xyz[:2],
-                new_z=current_height,
-                fractional_limit=0.5,
-            )
-            # No focus change acceptable return success
-            if success:
-                return True
-
-            # Shifted to far move to start and try again
-            z = this_xyz[2] - dz / 2 if attempts < max_attempts else this_xyz[2]
-            self._stage.move_absolute(z=z)
-            self._scan_logger.info(
-                "The focus has shifted further than we expect: retrying."
-            )
+            # If sharp enough, break and return success, otherwise go to start and try again
+            if autofocus_sharp_enough:
+                return True, self._stage.position["z"]
+            else:
+                self._stage.move_absolute(z=this_xyz[2])
 
         self._scan_logger.warning("Could not autofocus after 3 attempts.")
-        return False
+        return False, self._stage.position["z"]
 
     @_scan_running
     def _wait_for_capture_thread(self) -> None:
