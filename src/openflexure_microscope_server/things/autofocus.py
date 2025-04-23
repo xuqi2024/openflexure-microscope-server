@@ -14,6 +14,9 @@ from typing import Annotated, Mapping, Optional, Sequence
 import os
 import shutil
 import glob
+import os
+import shutil
+import glob
 
 from fastapi import Depends
 import numpy as np
@@ -31,6 +34,9 @@ from .camera import RawCameraDependency as Camera
 from .camera import CameraDependency as WrappedCamera
 from .stage import StageDependency as Stage
 from .capture import CaptureThing
+import numpy as np
+from pydantic import BaseModel
+
 
 CaptureDep = direct_thing_client_dependency(CaptureThing, "/capture/")
 
