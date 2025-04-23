@@ -11,21 +11,29 @@ from contextlib import contextmanager
 import logging
 import time
 from typing import Annotated, Mapping, Optional, Sequence
+import os
+import shutil
+import glob
 
 from fastapi import Depends
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.blocking_portal import BlockingPortal
-from labthings_fastapi.decorators import thing_action
+from labthings_fastapi.decorators import thing_action, thing_property
+from labthings_fastapi.dependencies.metadata import GetThingStates
 from labthings_fastapi.types.numpy import NDArray
+from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
+from labthings_fastapi.dependencies.invocation import InvocationLogger
+
 from .camera import RawCameraDependency as Camera
 from .camera import CameraDependency as WrappedCamera
 from .stage import StageDependency as Stage
+from .capture import CaptureThing
 import numpy as np
 from pydantic import BaseModel
 
 
-### Autofocus utilities
+CaptureDep = direct_thing_client_dependency(CaptureThing, "/capture/")
 
 
 class JPEGSharpnessMonitor:
@@ -251,3 +259,78 @@ class AutofocusThing(Thing):
         cutoff = threshold * (peak - base)
 
         return current_sharpness >= base + cutoff
+
+    @thing_property
+    def images_to_capture(self) -> int:
+        """The number of images to capture and save in a stack
+        Defaults to 1 unless you need to see either side of focus"""
+        return self.thing_settings.get("images_to_capture", 1)
+
+    @images_to_capture.setter
+    def images_to_capture(self, value: int) -> None:
+        self.thing_settings["images_to_capture"] = value
+
+    @thing_property
+    def stack_dz(self) -> int:
+        """Space in steps between images in a z-stack
+        Suggested is 50 for 60-100x
+        100 for 40x
+        200 for 20x"""
+        return self.thing_settings.get("stack_dz", 50)
+
+    @stack_dz.setter
+    def stack_dz(self, value: int) -> None:
+        self.thing_settings["stack_dz"] = value
+
+    @thing_action
+    def run_z_stack(
+        self,
+        cam: WrappedCamera,
+        stage: Stage,
+        logger: InvocationLogger,
+        metadata_getter: GetThingStates,
+        capture: CaptureDep,
+        images_dir: str,
+        stack_dir: str,
+    ) -> None:
+        """Run a z stack, saving all images to stack_dir and copying the
+        central image to stack_dir"""
+        stack_dz = self.stack_dz
+        images_to_capture = self.images_to_capture
+
+        stack_z_range = stack_dz * (images_to_capture - 1)
+        stage.move_relative(z=-stack_z_range / 2)
+
+        for capture_count in range(images_to_capture):
+            jpeg_path = os.path.join(
+                stack_dir,
+                f"{capture_count}.jpeg",
+            )
+            capture._capture_and_save(
+                jpeg_path=jpeg_path,
+                cam=cam,
+                logger=logger,
+                metadata_getter=metadata_getter,
+            )
+
+            # If the stack isn't complete yet, move
+            if capture_count + 1 < images_to_capture:
+                stage.move_relative(z=stack_dz)
+                time.sleep(0.3)
+
+        self.copy_central_image(images_dir, stack_dir)
+
+    def copy_central_image(
+        self,
+        images_dir: str,
+        stack_dir: str,
+    ):
+        """Gets a list of images in a folder (stack_dir), sorts them, and copies the central image
+        to images dir."""
+        image_list = glob.glob(os.path.join(stack_dir, "*"))
+        image_list.sort()
+        central_index = (len(image_list) - 1) // 2
+        central_image = image_list[central_index]
+        xy_location = os.path.basename(stack_dir)
+
+        shutil.copy(central_image, os.path.join(images_dir, f"{xy_location}.jpeg"))

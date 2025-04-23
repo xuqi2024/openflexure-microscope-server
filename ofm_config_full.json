@@ -14,8 +14,7 @@
             }
         },
         "/background_detect/": "openflexure_microscope_server.things.background_detect:BackgroundDetectThing",
-        "/z_stack/": "openflexure_microscope_server.things.z_stack:ZStackThing",
-        "/capturing/": "openflexure_microscope_server.things.z_stack:CapturingThing"
+        "/capture/": "openflexure_microscope_server.things.capture:CaptureThing"
     },
     "settings_folder": "/var/openflexure/settings/"
 }
