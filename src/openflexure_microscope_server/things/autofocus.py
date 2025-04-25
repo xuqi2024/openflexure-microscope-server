@@ -151,6 +151,7 @@ class AutofocusThing(Thing):
     Actions here involve moving a stage in z, and using the camera to either
     capture images (generally, z-stacking) and measuring the sharpness of the
     field of view to assess focus (autofocus and testing the success of a z-stack)"""
+
     @thing_action
     def fast_autofocus(
         self,
@@ -209,7 +210,11 @@ class AutofocusThing(Thing):
 
     @thing_action
     def looping_autofocus(
-        self, stage: Stage, sharpness_monitor: SharpnessMonitorDep, dz=2000, start="centre"
+        self,
+        stage: Stage,
+        sharpness_monitor: SharpnessMonitorDep,
+        dz=2000,
+        start="centre",
     ):
         """Repeatedly autofocus the stage until it looks focused.
 
