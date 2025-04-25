@@ -147,14 +147,14 @@ class SharpnessDataArrays(BaseModel):
 
 class AutofocusThing(Thing):
     """The Thing concerned with combinations of z axis movements and the camera.
-    
+
     Actions here involve moving a stage in z, and using the camera to either
     capture images (generally, z-stacking) and measuring the sharpness of the
     field of view to assess focus (autofocus and testing the success of a z-stack)"""
     @thing_action
     def fast_autofocus(
         self,
-        m: SharpnessMonitorDep,
+        sharpness_monitor: SharpnessMonitorDep,
         dz: int = 2000,
         start: str = "centre",
     ) -> SharpnessDataArrays:
@@ -164,27 +164,27 @@ class AutofocusThing(Thing):
         the position where the image was sharpest. We'll then move back down, and
         finally up to the sharpest point.
         """
-        with m.run():
+        with sharpness_monitor.run():
             # Move to (-dz / 2)
             if start == "centre":
-                m.focus_rel(-dz / 2)
+                sharpness_monitor.focus_rel(-dz / 2)
             # Move to dz while monitoring sharpness
             # i: Sharpness monitor index for this move
             # z: Final z position after move
-            i, z = m.focus_rel(dz, block_cancellation=True)
+            i, z = sharpness_monitor.focus_rel(dz, block_cancellation=True)
             # Get the z position with highest sharpness from the previous move (index i)
-            fz: int = m.sharpest_z_on_move(i)
+            fz: int = sharpness_monitor.sharpest_z_on_move(i)
             # Move all the way to the start so it's consistent
-            i, z = m.focus_rel(-dz)
+            i, z = sharpness_monitor.focus_rel(-dz)
             # Move to the target position fz (relative move of (fz - z))
-            m.focus_rel(fz - z)
+            sharpness_monitor.focus_rel(fz - z)
             # Return all focus data
-            return m.data_dict()
+            return sharpness_monitor.data_dict()
 
     @thing_action
     def z_move_and_measure_sharpness(
         self,
-        m: SharpnessMonitorDep,
+        sharpness_monitor: SharpnessMonitorDep,
         dz: Sequence[int],
         wait: float = 0,
     ) -> SharpnessDataArrays:
@@ -200,16 +200,16 @@ class AutofocusThing(Thing):
         If `wait` is specified, we will wait for that many seconds
         between moves.
         """
-        with m.run():
+        with sharpness_monitor.run():
             for i, current_dz in enumerate(dz):
                 if i > 0 and wait > 0:
                     time.sleep(wait)
-                m.focus_rel(current_dz)
-            return m.data_dict()
+                sharpness_monitor.focus_rel(current_dz)
+            return sharpness_monitor.data_dict()
 
     @thing_action
     def looping_autofocus(
-        self, stage: Stage, m: SharpnessMonitorDep, dz=2000, start="centre"
+        self, stage: Stage, sharpness_monitor: SharpnessMonitorDep, dz=2000, start="centre"
     ):
         """Repeatedly autofocus the stage until it looks focused.
 
@@ -222,14 +222,14 @@ class AutofocusThing(Thing):
         attempts = 0
         backlash = 200
 
-        with m.run():
+        with sharpness_monitor.run():
             while repeat and attempts < 10:
                 if start == "centre":
                     stage.move_relative(x=0, y=0, z=-(backlash + dz / 2))
                     stage.move_relative(x=0, y=0, z=backlash)
 
-                i, z = m.focus_rel(dz, block_cancellation=True)
-                _, heights, sizes = m.move_data(i)
+                i, z = sharpness_monitor.focus_rel(dz, block_cancellation=True)
+                _, heights, sizes = sharpness_monitor.move_data(i)
 
                 peak_height = heights[np.argmax(sizes)]
                 height_min = np.min(heights)
@@ -301,7 +301,7 @@ class AutofocusThing(Thing):
         """Run a z stack, saving all images to stack_dir and copying the
         central image to stack_dir"""
         stack_dz = self.stack_dz
-        images_to_capture = self.images_to_capture
+        images_to_capture = self.stack_images_to_capture
 
         stack_z_range = stack_dz * (images_to_capture - 1)
         stage.move_relative(z=-stack_z_range / 2)
