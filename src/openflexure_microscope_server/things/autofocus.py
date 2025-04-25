@@ -146,6 +146,11 @@ class SharpnessDataArrays(BaseModel):
 
 
 class AutofocusThing(Thing):
+    """The Thing concerned with combinations of z axis movements and the camera.
+    
+    Actions here involve moving a stage in z, and using the camera to either
+    capture images (generally, z-stacking) and measuring the sharpness of the
+    field of view to assess focus (autofocus and testing the success of a z-stack)"""
     @thing_action
     def fast_autofocus(
         self,
@@ -177,7 +182,7 @@ class AutofocusThing(Thing):
             return m.data_dict()
 
     @thing_action
-    def move_and_measure(
+    def z_move_and_measure_sharpness(
         self,
         m: SharpnessMonitorDep,
         dz: Sequence[int],
@@ -261,14 +266,14 @@ class AutofocusThing(Thing):
         return current_sharpness >= base + cutoff
 
     @thing_property
-    def images_to_capture(self) -> int:
+    def stack_images_to_capture(self) -> int:
         """The number of images to capture and save in a stack
         Defaults to 1 unless you need to see either side of focus"""
-        return self.thing_settings.get("images_to_capture", 1)
+        return self.thing_settings.get("stack_images_to_capture", 1)
 
-    @images_to_capture.setter
-    def images_to_capture(self, value: int) -> None:
-        self.thing_settings["images_to_capture"] = value
+    @stack_images_to_capture.setter
+    def stack_images_to_capture(self, value: int) -> None:
+        self.thing_settings["stack_images_to_capture"] = value
 
     @thing_property
     def stack_dz(self) -> int:
@@ -318,9 +323,9 @@ class AutofocusThing(Thing):
                 stage.move_relative(z=stack_dz)
                 time.sleep(0.3)
 
-        self.copy_central_image(images_dir, stack_dir)
+        self.copy_central_image_from_stack(images_dir, stack_dir)
 
-    def copy_central_image(
+    def copy_central_image_from_stack(
         self,
         images_dir: str,
         stack_dir: str,
