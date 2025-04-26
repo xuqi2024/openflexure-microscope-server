@@ -149,9 +149,7 @@ class RangeofMotionThing(Thing):
             #Should extract x and y separately because this assumes x and y are the same but for now it just averages between the two.
             pixel_per_step = ((1/abs(csm.image_to_stage_displacement_matrix[0][1])) + (1/abs(csm.image_to_stage_displacement_matrix[1][0])))/4
 
-            logger.info(f"{csm.image_to_stage_displacement_matrix[0][1]}, {csm.image_to_stage_displacement_matrix[1][0]}")
             logger.info(f"pixel per step = {pixel_per_step}")
-            logger.info(csm.last_calibration.dict['camera_stage_mapping_calibration']['image_to_stage_displacement'])
 
             this_big_step_size = {}
             this_small_step_size = {}
