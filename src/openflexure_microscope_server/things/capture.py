@@ -35,7 +35,7 @@ class CaptureThing(Thing):
         that the stage may be moved while it's saved.
         """
         capture_start = time.time()
-        image, metadata = self._capture_image(
+        image, metadata = self._capture_array(
             cam,
             metadata_getter,
         )
@@ -48,14 +48,21 @@ class CaptureThing(Thing):
             f"Acquired {jpeg_path} in {acquisition_duration}s then {saving_duration}s saving to disk"
         )
 
-    def _capture_image(self, cam, metadata_getter) -> tuple[np.ndarray, dict]:
+    @thing_action
+    def capture_jpeg(self, filename: str, cam: CamDep):
+        """Capture a JPEG (from a JPEGBlob) to disk"""
+        jpeg = cam.capture_jpeg(resolution="full")
+        jpeg.save(filename)
+
+    @thing_action
+    def _capture_array(self, cam: CamDep, metadata_getter: GetThingStates):
         """Capture an image in memory and return it with metadata
         CaptureError raised if the capture fails for any reason
         returns tuple with numpy array of image data, and dict of metadata
         """
         try:
             metadata = metadata_getter()
-            image = cam.capture_array()[..., :3]
+            image = cam.capture_array(stream_name="main")[..., :3]
         except Exception as e:
             raise CaptureError("An error occurred while capturing") from e
         return image, metadata
