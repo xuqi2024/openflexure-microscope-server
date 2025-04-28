@@ -44,7 +44,7 @@ class CameraProtocol(Protocol):
 
     def capture_array(
         self,
-        resolution: Literal["lores", "main", "full"] = "main",
+        stream_name: Literal["main", "lores", "raw"] = "main",
     ) -> NDArray: ...
 
     def capture_jpeg(
@@ -166,7 +166,7 @@ class CameraStub(BaseCamera):
     @thing_action
     def capture_array(
         self,
-        resolution: Literal["lores", "main", "full"] = "main",
+        stream_name: Literal["main", "lores", "raw"] = "main",
     ) -> NDArray:
         raise NotImplementedError("Cameras must not inherit from CameraStub")
 
