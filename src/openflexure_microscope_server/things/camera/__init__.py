@@ -77,6 +77,11 @@ class CameraProtocol(Protocol):
         """Acquire one image from the preview stream and return its size"""
         ...
 
+    def capture_jpeg_array(
+        self,
+        ):
+        ...
+
 
 class BaseCamera(Thing):
     """A Thing representing a camera
@@ -168,6 +173,12 @@ class CameraStub(BaseCamera):
         self,
         stream_name: Literal["main", "lores", "raw"] = "main",
     ) -> NDArray:
+        raise NotImplementedError("Cameras must not inherit from CameraStub")
+
+    @thing_action
+    def capture_jpeg_array(
+        self,
+        ):
         raise NotImplementedError("Cameras must not inherit from CameraStub")
 
     @thing_action
