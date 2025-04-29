@@ -28,7 +28,7 @@ from labthings_fastapi.dependencies.invocation import InvocationLogger
 from .camera import RawCameraDependency as Camera
 from .camera import CameraDependency as WrappedCamera
 from .stage import StageDependency as Stage
-from .capture import CaptureThing
+from .capture import CaptureThing, _save_capture
 import numpy as np
 from pydantic import BaseModel
 
@@ -316,7 +316,27 @@ class AutofocusThing(Thing):
                 stack_dir,
                 f"{capture_count}.jpeg",
             )
-            capture.capture_jpeg(filename=jpeg_path, cam=cam)
+            # The pre-existing capture_jpeg
+            # capture.capture_jpeg(filename=jpeg_path, cam=cam)
+            
+            # A new way to get the full array
+            img = capture.capture_jpeg_array()
+            
+            metadata = metadata_getter()
+            _save_capture(
+                jpeg_path,
+                img,
+                metadata,
+                logger
+            )
+            
+            # The old capture and save a "main" res image
+            # capture._capture_and_save(
+            #     jpeg_path=jpeg_path,
+            #     cam=cam,
+            #     logger=logger,
+            #     metadata_getter=metadata_getter,
+            # )
 
             # If the stack isn't complete yet, move
             if capture_count + 1 < images_to_capture:
