@@ -311,7 +311,7 @@ class AutofocusThing(Thing):
                 capture.capture_jpeg(filename=jpeg_path, cam=cam)
             elif capture_method == "hires_array":
             # A new way to get the full array
-                img = capture.capture_jpeg_array()
+                img = capture.capture_highres_array()
                 _save_capture(
                     jpeg_path,
                     img,

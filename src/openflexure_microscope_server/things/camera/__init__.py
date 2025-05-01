@@ -77,7 +77,7 @@ class CameraProtocol(Protocol):
         """Acquire one image from the preview stream and return its size"""
         ...
 
-    def capture_jpeg_array(
+    def capture_highres_array(
         self,
         ):
         ...
@@ -176,7 +176,7 @@ class CameraStub(BaseCamera):
         raise NotImplementedError("Cameras must not inherit from CameraStub")
 
     @thing_action
-    def capture_jpeg_array(
+    def capture_highres_array(
         self,
         ):
         raise NotImplementedError("Cameras must not inherit from CameraStub")

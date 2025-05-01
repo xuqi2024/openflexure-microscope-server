@@ -55,9 +55,9 @@ class CaptureThing(Thing):
         jpeg.save(filename)
 
     @thing_action
-    def capture_jpeg_array(self, cam: CamDep):
+    def capture_highres_array(self, cam: CamDep):
         """Return a full resolution stream array"""
-        return cam.capture_jpeg_array()
+        return cam.capture_highres_array()
 
     @thing_action
     def _capture_array(self, cam: CamDep, metadata_getter: GetThingStates):
