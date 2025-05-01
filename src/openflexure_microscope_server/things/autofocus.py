@@ -306,25 +306,16 @@ class AutofocusThing(Thing):
                     stack_dir,
                     f"{capture_count}.jpeg",
                 )
-            metadata = metadata_getter()
             if capture_method == "blob":                
                 capture.capture_jpeg(filename=jpeg_path, cam=cam)
-            elif capture_method == "hires_array":
-            # A new way to get the full array
-                img = capture.capture_highres_array()
-                _save_capture(
-                    jpeg_path,
-                    img,
-                    metadata,
-                    logger
-                )
-            elif capture_method == "array":
-            # The old capture and save a "main" res image
+            elif capture_method == "hires_array" or capture_method == "array":
+                stream = 'main' if capture_method == "array" else "full"
                 capture._capture_and_save(
                     jpeg_path=jpeg_path,
                     cam=cam,
                     logger=logger,
                     metadata_getter=metadata_getter,
+                    stream_name=stream,
                 )
             else:
                 raise ValueError('Capture method must be one of "array", "blob" or "hires_array"')
