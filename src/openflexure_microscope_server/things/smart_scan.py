@@ -139,6 +139,7 @@ class SmartScanThing(Thing):
         self._scan_images_taken: Optional[int] = None
         # TODO Scan data is a dict during refactoring, should become a dataclass
         self._scan_data: Optional[dict] = None
+        self._stitch_resize: Optional[float] = None
 
     @thing_action
     def sample_scan(
@@ -175,6 +176,7 @@ class SmartScanThing(Thing):
         self._background_detect = background_detect
         self._capture_thread = None
         self._scan_images_taken = 0
+        self._stitch_resize = 1
 
         # Don't set self._scan_data dictionary. This is done at the start of _run_scan
 
@@ -210,6 +212,7 @@ class SmartScanThing(Thing):
             self._scan_images_taken = None
             self._scan_data = None
             self._scan_lock.release()
+            self._stitch_resize = None
 
     def promote_stitch_files(
         self,
@@ -374,8 +377,24 @@ class SmartScanThing(Thing):
 
         return (next_point[0], next_point[1], z_estimate)
 
+    # @_scan_running
+    # def _calc_resize_from_test_image(self):
+    #     """
+    #     Take a test image to set the amount to downsample images for stitching
+
+    #     Return the decimal value to scale x and y by when stitching
+    #     """
+
+    #     #TODO: This needs to match how the capture in the z stack is done
+    #     test_jpg = self._cam.capture_jpeg(resolution="full")
+    #     test_jpg = test_jpg.content
+
+    #     test_image = Image.open(io.BytesIO(test_jpg))
+    #     test_image_res = list(test_image.size)
+    #     return STITCH_IMAGE_WIDTH / test_image_res[0]
+
     @_scan_running
-    def _take_test_image_to_calc_displacement(self, overlap):
+    def _calc_displacement_from_test_image(self, overlap):
         """
         Take a test image and use camera stage mapping to calculate x and y displacement
 
@@ -420,7 +439,14 @@ class SmartScanThing(Thing):
         dataclass.
         """
         overlap = self.overlap
-        dx, dy = self._take_test_image_to_calc_displacement(overlap)
+        dx, dy = self._calc_displacement_from_test_image(overlap)
+        # self._stitch_resize = self._calc_resize_from_test_image()
+        self._stitch_resize = 0.25
+
+        self._scan_logger.info(
+            f'Resizing images by {self._stitch_resize}'
+        )
+
         self._scan_logger.info(
             f"Based on an overlap of {overlap}, we will make steps of {dx}, {dy}"
         )
@@ -922,7 +948,7 @@ class SmartScanThing(Thing):
                     "--minimum_overlap",
                     f"{min_overlap}",
                     "--resize",
-                    "0.25",
+                    f"{self._stitch_resize}",
                     self._ongoing_scan_images_dir,
                 ]
             )
@@ -1043,7 +1069,7 @@ class SmartScanThing(Thing):
                 "--minimum_overlap",
                 f"{round(overlap * 0.9, 2)}",
                 "--resize",
-                "0.25",
+                f"{self._stitch_resize}",
                 images_folder,
             ],
         )
