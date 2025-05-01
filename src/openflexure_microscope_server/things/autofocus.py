@@ -302,6 +302,7 @@ class AutofocusThing(Thing):
         capture: CaptureDep,
         images_dir: str,
         stack_dir: str,
+        capture_method: str = 'array'
     ) -> None:
         """Run a z stack, saving all images to stack_dir and copying the
         central image to stack_dir"""
@@ -313,30 +314,31 @@ class AutofocusThing(Thing):
 
         for capture_count in range(images_to_capture):
             jpeg_path = os.path.join(
-                stack_dir,
-                f"{capture_count}.jpeg",
-            )
-            # The pre-existing capture_jpeg
-            # capture.capture_jpeg(filename=jpeg_path, cam=cam)
-            
-            # A new way to get the full array
-            img = capture.capture_jpeg_array()
-            
+                    stack_dir,
+                    f"{capture_count}.jpeg",
+                )
             metadata = metadata_getter()
-            _save_capture(
-                jpeg_path,
-                img,
-                metadata,
-                logger
-            )
-            
+            if capture_method == "blob":                
+                capture.capture_jpeg(filename=jpeg_path, cam=cam)
+            elif capture_method == "hires_array":
+            # A new way to get the full array
+                img = capture.capture_jpeg_array()
+                _save_capture(
+                    jpeg_path,
+                    img,
+                    metadata,
+                    logger
+                )
+            elif capture_method == "array":
             # The old capture and save a "main" res image
-            # capture._capture_and_save(
-            #     jpeg_path=jpeg_path,
-            #     cam=cam,
-            #     logger=logger,
-            #     metadata_getter=metadata_getter,
-            # )
+                capture._capture_and_save(
+                    jpeg_path=jpeg_path,
+                    cam=cam,
+                    logger=logger,
+                    metadata_getter=metadata_getter,
+                )
+            else:
+                raise ValueError('Capture method must be one of "array", "blob" or "hires_array"')
 
             # If the stack isn't complete yet, move
             if capture_count + 1 < images_to_capture:
