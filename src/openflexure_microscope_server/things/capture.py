@@ -28,6 +28,7 @@ class CaptureThing(Thing):
         cam: CamDep,
         logger: InvocationLogger,
         metadata_getter: GetThingStates,
+        stream: str = "main",
     ) -> None:
         """Capture an image and save it to disk
 
@@ -38,6 +39,7 @@ class CaptureThing(Thing):
         image, metadata = self._capture_array(
             cam,
             metadata_getter,
+            stream=stream,
         )
         acquisition_time = time.time()
         self._save_capture(jpeg_path, image, metadata, logger)
@@ -55,19 +57,14 @@ class CaptureThing(Thing):
         jpeg.save(filename)
 
     @thing_action
-    def capture_highres_array(self, cam: CamDep):
-        """Return a full resolution stream array"""
-        return cam.capture_highres_array()
-
-    @thing_action
-    def _capture_array(self, cam: CamDep, metadata_getter: GetThingStates):
+    def _capture_array(self, cam: CamDep, metadata_getter: GetThingStates, stream: str = 'main'):
         """Capture an image in memory and return it with metadata
         CaptureError raised if the capture fails for any reason
         returns tuple with numpy array of image data, and dict of metadata
         """
         try:
             metadata = metadata_getter()
-            image = cam.capture_array(stream_name="main")[..., :3]
+            image = cam.capture_array(stream_name=stream)[..., :3]
         except Exception as e:
             raise CaptureError("An error occurred while capturing") from e
         return image, metadata
@@ -99,30 +96,3 @@ class CaptureThing(Thing):
                 logger.warning(f"Failed to add metadata to {jpeg_path}")
         except Exception as e:
             raise IOError(f"An error occurred while saving {jpeg_path}") from e
-        
-def _save_capture(
-    jpeg_path: str,
-    image: np.ndarray,
-    metadata: dict,
-    logger: InvocationLogger,
-) -> None:
-    """Saving the captured image and metadata to disk
-    logger warning (via InvocationLogger) is raised if metadata is failed to be added
-    IOError is raised if the file cannot be saved
-    nothing is returned on success"""
-    try:
-        Image.fromarray(image.astype("uint8"), "RGB").save(
-            jpeg_path, quality=95, subsampling=0
-        )
-        try:
-            exif_dict = piexif.load(jpeg_path)
-            exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
-                metadata
-            ).encode("utf-8")
-            piexif.insert(piexif.dump(exif_dict), jpeg_path)
-        except:  # noqa: E722
-            # We need to capture any exception as there are many reasons metadata
-            # might not be added. We warn rather than log the error.
-            logger.warning(f"Failed to add metadata to {jpeg_path}")
-    except Exception as e:
-        raise IOError(f"An error occurred while saving {jpeg_path}") from e
