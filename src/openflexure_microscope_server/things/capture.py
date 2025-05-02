@@ -28,7 +28,7 @@ class CaptureThing(Thing):
         cam: CamDep,
         logger: InvocationLogger,
         metadata_getter: GetThingStates,
-        stream: str = "main",
+        stream_name: str = "main",
     ) -> None:
         """Capture an image and save it to disk
 
@@ -39,7 +39,7 @@ class CaptureThing(Thing):
         image, metadata = self._capture_array(
             cam,
             metadata_getter,
-            stream=stream,
+            stream=stream_name,
         )
         acquisition_time = time.time()
         self._save_capture(jpeg_path, image, metadata, logger)
