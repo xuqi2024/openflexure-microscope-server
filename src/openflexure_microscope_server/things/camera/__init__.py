@@ -8,7 +8,7 @@ See repository root for licensing information.
 
 from __future__ import annotations
 import logging
-from typing import Literal, Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable, Optional
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.decorators import thing_action, thing_property
@@ -45,12 +45,14 @@ class CameraProtocol(Protocol):
     def capture_array(
         self,
         stream_name: Literal["main", "lores", "raw", "full"] = "main",
+        wait: Optional[float] = 5,
     ) -> NDArray: ...
 
     def capture_jpeg(
         self,
         metadata_getter: GetThingStates,
         resolution: Literal["lores", "main", "full"] = "main",
+        wait: Optional[float] = 5,
     ) -> JPEGBlob:
         """Acquire one image from the camera and return as a JPEG blob"""
         ...
@@ -166,6 +168,7 @@ class CameraStub(BaseCamera):
     def capture_array(
         self,
         stream_name: Literal["main", "lores", "raw", "full"] = "main",
+        wait: Optional[float] = 5,
     ) -> NDArray:
         raise NotImplementedError("Cameras must not inherit from CameraStub")
 
@@ -174,6 +177,7 @@ class CameraStub(BaseCamera):
         self,
         metadata_getter: GetThingStates,
         resolution: Literal["lores", "main", "full"] = "main",
+        wait: Optional[float] = 5,
     ) -> JPEGBlob:
         """Acquire one image from the camera and return as a JPEG blob"""
         raise NotImplementedError("Cameras must not inherit from CameraStub")
