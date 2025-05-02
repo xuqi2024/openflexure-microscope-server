@@ -115,6 +115,7 @@ import cameraSettings from "./settingsComponents/cameraSettings.vue";
 import appSettings from "./settingsComponents/appSettings.vue";
 import CSMSettings from "./settingsComponents/CSMSettings.vue";
 import stageSettings from "./settingsComponents/stageSettings.vue";
+import calibrationSuite from "./settingsComponents/calibrationSuite.vue";
 // Import generic components
 import tabIcon from "../genericComponents/tabIcon";
 import tabContent from "../genericComponents/tabContent";
@@ -132,7 +133,8 @@ export default {
     appSettings,
     tabIcon,
     tabContent,
-    ActionButton
+    ActionButton,
+    calibrationSuite
   },
 
   data: function() {
