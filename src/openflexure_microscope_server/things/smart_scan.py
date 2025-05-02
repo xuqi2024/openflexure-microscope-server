@@ -612,7 +612,7 @@ class SmartScanThing(Thing):
             self._autofocus.run_z_stack(
                 images_dir=self._ongoing_scan_images_dir,
                 stack_dir=site_folder,
-                capture_method="hires_array",
+                capture_method="blob",
             )
 
             # increment capure counter as thread has completed
