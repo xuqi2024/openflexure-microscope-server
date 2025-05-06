@@ -441,6 +441,12 @@ html {
   height: 100%;
 }
 
+.thumbnail-fit {
+  max-height: 120px;
+  object-fit: contain;
+  overflow-y: hidden;
+}
+
 // Style tour
 .v-tour__target--highlighted {
   box-shadow: 0px 40px 200px 30px rgba(0, 0, 0, 0.5),
