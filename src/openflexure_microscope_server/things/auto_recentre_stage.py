@@ -337,7 +337,7 @@ class RangeofMotionThing(Thing):
 
                     this_motion_step[axs] = displacements * dir
                     
-                    for loop in range(8):
+                    for loop in range(np.shape(displacements)[0]):
                         logger.info(f"Testing with step size {this_motion_step[axs][loop]}")
                         image1 = cv2.resize(np.array(Image.open(cam.grab_jpeg().open())), dsize=(0,0), fx= 1, fy= 1)           
                         stage.move_relative(x = this_motion_step['x'][loop], y = this_motion_step['y'][loop], z = this_motion_step['z'])
