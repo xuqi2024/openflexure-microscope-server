@@ -144,6 +144,7 @@ class AutofocusThing(Thing):
         m: SharpnessMonitorDep,
         dz: int = 2000,
         start: str = "centre",
+        backlash: int = 0,
     ) -> SharpnessDataArrays:
         """Sweep the stage up and down, then move to the sharpest point
 
@@ -154,7 +155,8 @@ class AutofocusThing(Thing):
         with m.run():
             # Move to (-dz / 2)
             if start == "centre":
-                m.focus_rel(-dz / 2)
+                m.focus_rel(-dz / 2 - backlash)
+                m.focus_rel(backlash)
             # Move to dz while monitoring sharpness
             # i: Sharpness monitor index for this move
             # z: Final z position after move
@@ -162,7 +164,7 @@ class AutofocusThing(Thing):
             # Get the z position with highest sharpness from the previous move (index i)
             fz: int = m.sharpest_z_on_move(i)
             # Move all the way to the start so it's consistent
-            i, z = m.focus_rel(-dz)
+            i, z = m.focus_rel(-(dz + backlash))
             # Move to the target position fz (relative move of (fz - z))
             m.focus_rel(fz - z)
             # Return all focus data
@@ -196,7 +198,7 @@ class AutofocusThing(Thing):
 
     @thing_action
     def looping_autofocus(
-        self, stage: Stage, m: SharpnessMonitorDep, dz=2000, start="centre"
+        self, stage: Stage, m: SharpnessMonitorDep, dz=2000, start="centre", backlash=0
     ):
         """Repeatedly autofocus the stage until it looks focused.
 
@@ -205,12 +207,10 @@ class AutofocusThing(Thing):
         is close to focus, but not quite within `dz/2`. It will attempt to autofocus
         up to 10 times.
         """
-        repeat = True
         attempts = 0
-        backlash = 200
 
         with m.run():
-            while repeat and attempts < 10:
+            while attempts < 10:
                 if start == "centre":
                     stage.move_relative(x=0, y=0, z=-(backlash + dz / 2))
                     stage.move_relative(x=0, y=0, z=backlash)
@@ -222,6 +222,7 @@ class AutofocusThing(Thing):
                 height_min = np.min(heights)
                 height_max = np.max(heights)
 
+                # If focus was too close to the edge of range, run again
                 if (
                     peak_height - height_min < dz / 5
                     or height_max - peak_height < dz / 5
@@ -231,10 +232,12 @@ class AutofocusThing(Thing):
                     stage.move_absolute(z=peak_height - backlash)
                     stage.move_absolute(z=peak_height)
                 else:
-                    repeat = False
                     stage.move_relative(x=0, y=0, z=-(dz + backlash))
                     stage.move_absolute(z=peak_height)
-            return heights.tolist(), sizes.tolist()
+                    return heights.tolist(), sizes.tolist()
+        raise RuntimeError(
+            "Autofocus failed after 10 attempts - did you start near the focus?"
+        )
 
     @thing_action
     def verify_focus_sharpness(
