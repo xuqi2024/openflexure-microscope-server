@@ -691,6 +691,7 @@ class SmartScanThing(Thing):
                     logger=self._scan_logger,
                     scan_name=self._ongoing_scan_name,
                     overlap=self._scan_data["overlap"],
+                    stitch_resize=self._stitch_resize,
                 )
                 self.promote_stitch_files(self._scan_logger)
         except SubprocessError as e:
@@ -1022,6 +1023,7 @@ class SmartScanThing(Thing):
         logger: InvocationLogger,
         scan_name: str,
         overlap: float = 0.0,
+        stitch_resize: float = 0.25,
     ) -> None:
         """Generate a stitched image based on stage position metadata
 
@@ -1068,7 +1070,7 @@ class SmartScanThing(Thing):
                 "--minimum_overlap",
                 f"{round(overlap * 0.9, 2)}",
                 "--resize",
-                f"{self._stitch_resize}",
+                f"{stitch_resize}",
                 images_folder,
             ],
         )
