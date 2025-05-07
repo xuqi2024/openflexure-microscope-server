@@ -79,6 +79,16 @@ class CameraProtocol(Protocol):
         """Acquire one image from the preview stream and return its size"""
         ...
 
+    def start_highres_streaming(self) -> None:
+        """Start (or stop and restart) the camera in a configuration for low
+        res streaming and instant high res captures"""
+        ...
+    
+    def start_streaming(self) -> None:
+        """Start (or stop and restart) the camera in the default streaming
+        configuration which balances stream and capture quality"""
+        ...
+
 class BaseCamera(Thing):
     """A Thing representing a camera
 
@@ -182,6 +192,17 @@ class CameraStub(BaseCamera):
         """Acquire one image from the camera and return as a JPEG blob"""
         raise NotImplementedError("Cameras must not inherit from CameraStub")
 
+    @thing_action
+    def start_highres_streaming(self):
+        """Start (or stop and restart) the camera in a configuration for low
+        res streaming and instant high res captures"""
+        raise NotImplementedError("Cameras must not inherit from CameraStub")
+    
+    @thing_action
+    def start_streaming(self) -> None:
+        """Start (or stop and restart) the camera in the default streaming
+        configuration which balances stream and capture quality"""
+        raise NotImplementedError("Cameras must not inherit from CameraStub")
 
 CameraDependency = direct_thing_client_dependency(CameraStub, "/camera/")
 RawCameraDependency = raw_thing_dependency(CameraProtocol)
