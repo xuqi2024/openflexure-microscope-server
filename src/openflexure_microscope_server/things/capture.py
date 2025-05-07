@@ -28,7 +28,7 @@ class CaptureThing(Thing):
         cam: CamDep,
         logger: InvocationLogger,
         metadata_getter: GetThingStates,
-        stream_name: str = "main",
+        target_resolution: tuple[int, int],
     ) -> None:
         """Capture an image and save it to disk
 
@@ -39,7 +39,7 @@ class CaptureThing(Thing):
         image, metadata = self._capture_array(
             cam,
             metadata_getter,
-            stream=stream_name,
+            target_resolution=target_resolution,
             logger=logger,
         )
         acquisition_time = time.time()
@@ -81,7 +81,7 @@ class CaptureThing(Thing):
         cam: CamDep,
         metadata_getter: GetThingStates,
         logger: InvocationLogger,
-        stream: str = "main",
+        target_resolution: tuple[int, int] = (1640, 1232),
     ):
         """Capture an image in memory and return it with metadata
         CaptureError raised if the capture fails for any reason
@@ -90,7 +90,13 @@ class CaptureThing(Thing):
         for capture_attempts in range(5):
             try:
                 metadata = metadata_getter()
-                image = cam.capture_array(stream_name=stream, wait=5)[..., :3]
+                image = Image.fromarray(
+                    cam.capture_array(stream_name="main", wait=5)[..., :3].astype(
+                        "uint8"
+                    ),
+                    "RGB",
+                )
+                image = image.resize(target_resolution, Image.LANCZOS)
                 return image, metadata
             except TimeoutError:
                 logger.warning(
@@ -110,9 +116,7 @@ class CaptureThing(Thing):
         IOError is raised if the file cannot be saved
         nothing is returned on success"""
         try:
-            Image.fromarray(image.astype("uint8"), "RGB").save(
-                jpeg_path, quality=95, subsampling=0
-            )
+            image.save(jpeg_path, quality=95, subsampling=0)
             try:
                 exif_dict = piexif.load(jpeg_path)
                 exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(

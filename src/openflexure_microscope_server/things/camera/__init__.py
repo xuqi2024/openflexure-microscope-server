@@ -79,14 +79,9 @@ class CameraProtocol(Protocol):
         """Acquire one image from the preview stream and return its size"""
         ...
 
-    def start_highres_streaming(self) -> None:
-        """Start (or stop and restart) the camera in a configuration for low
-        res streaming and instant high res captures"""
-        ...
-
-    def start_streaming(self) -> None:
-        """Start (or stop and restart) the camera in the default streaming
-        configuration which balances stream and capture quality"""
+    def start_streaming(self, main_resolution) -> None:
+        """Start (or stop and restart) the camera with the given resolution
+        for the main stream"""
         ...
 
 
@@ -194,15 +189,9 @@ class CameraStub(BaseCamera):
         raise NotImplementedError("Cameras must not inherit from CameraStub")
 
     @thing_action
-    def start_highres_streaming(self):
-        """Start (or stop and restart) the camera in a configuration for low
-        res streaming and instant high res captures"""
-        raise NotImplementedError("Cameras must not inherit from CameraStub")
-
-    @thing_action
-    def start_streaming(self) -> None:
-        """Start (or stop and restart) the camera in the default streaming
-        configuration which balances stream and capture quality"""
+    def start_streaming(self, main_resolution) -> None:
+        """Start (or stop and restart) the camera with the given resolution
+        for the main stream"""
         raise NotImplementedError("Cameras must not inherit from CameraStub")
 
 

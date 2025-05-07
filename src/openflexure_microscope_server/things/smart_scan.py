@@ -178,7 +178,7 @@ class SmartScanThing(Thing):
         self._scan_images_taken = 0
         self._stitch_resize = 1
 
-        self._cam.start_highres_streaming()
+        self._cam.start_streaming(main_resolution=(3280, 2464))
 
         # Don't set self._scan_data dictionary. This is done at the start of _run_scan
 
@@ -650,7 +650,7 @@ class SmartScanThing(Thing):
             self._autofocus.run_z_stack(
                 images_dir=self._ongoing_scan_images_dir,
                 stack_dir=site_folder,
-                capture_method="blob",
+                target_resolution=(1640, 1232),
             )
 
             # increment capure counter as thread has completed
