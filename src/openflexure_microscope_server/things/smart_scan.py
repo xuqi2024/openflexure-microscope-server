@@ -11,10 +11,8 @@ from PIL import Image
 from pydantic import BaseModel
 from datetime import datetime
 from subprocess import CompletedProcess, Popen, PIPE, SubprocessError, STDOUT
-from threading import Event
 import glob
 import json
-import piexif
 import re
 
 from labthings_fastapi.thing import Thing
@@ -585,23 +583,25 @@ class SmartScanThing(Thing):
                 current_pos_xyz, imaged=True, focused=focused
             )
 
-            # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
-            if self._capture_thread:
-                self._wait_for_capture_thread()
-                # increment capure counter as thread has completed
-                self._scan_images_taken += 1
-                # Add it to the incremental zip
-                self.create_zip_of_scan(
-                    logger=self._scan_logger,
-                    scan_name=self._ongoing_scan_name,
-                    download_zip=False,
-                )
+            site_folder = os.path.join(
+                self._ongoing_scan_images_dir,
+                "stacks",
+                f"{new_pos_xyz[0]}_{new_pos_xyz[1]}",
+            )
+            os.makedirs(site_folder, exist_ok=True)
+            self._autofocus.run_z_stack(
+                images_dir=self._ongoing_scan_images_dir,
+                stack_dir=site_folder,
+            )
 
-            name = f"image_{new_pos_xyz[0]}_{new_pos_xyz[1]}.jpg"
-            jpeg_path = os.path.join(self._ongoing_scan_images_dir, name)
-            self._capture_thread, acquired = self._start_capture_thread(jpeg_path)
-            # wait until the image is acquired
-            acquired.wait()
+            # increment capure counter as thread has completed
+            self._scan_images_taken += 1
+            # Add it to the incremental zip
+            self.create_zip_of_scan(
+                logger=self._scan_logger,
+                scan_name=self._ongoing_scan_name,
+                download_zip=False,
+            )
 
     @_scan_running
     def _try_autofocus(
@@ -638,52 +638,6 @@ class SmartScanThing(Thing):
 
         self._scan_logger.warning("Could not autofocus after 3 attempts.")
         return False, self._stage.position["z"]
-
-    @_scan_running
-    def _wait_for_capture_thread(self) -> None:
-        """
-        Wait for the capture thread to be complete.
-        """
-        wait_start = time.time()
-        thread_was_alive = self._capture_thread.is_alive()
-
-        # If the capture thread has thrown an exception it will be raised
-        # when join is called, this will cause the scan to end. If we want
-        # to retry captures at a later date this is where we will need to
-        # catch the IOError or CaptureError from the thread.
-        self._capture_thread.join()
-        time.sleep(0.2)
-        if thread_was_alive:
-            wait_time = time.time() - wait_start
-            self._scan_logger.info(
-                f"Waited {wait_time:.1f}s for the previous capture to finish saving."
-            )
-
-    @_scan_running
-    def _start_capture_thread(
-        self, jpeg_path: str
-    ) -> tuple[ErrorCapturingThread, Event]:
-        """
-        Start the capture thread.
-
-        Args:
-           jpeg_path, the path to save the image once aquired
-
-        Return the thread and an event that will be set when the image is aquired
-        """
-        acquired = Event()
-        time.sleep(0.2)
-
-        # Acquire the image in a thread, and continue once it's acquired
-        # (i.e. leave saving in the background) Use ErrorCapturingThread
-        # intead of Thread. This will raise errors in the calling thread
-        # only when join() is called, allowing us to handle this appropriately.
-        capture_thread = ErrorCapturingThread(
-            target=self._capture_and_save,
-            kwargs={"acquired": acquired, "jpeg_path": jpeg_path},
-        )
-        capture_thread.start()
-        return capture_thread, acquired
 
     @_scan_running
     def _return_to_starting_position(self):
@@ -742,75 +696,6 @@ class SmartScanThing(Thing):
         if not os.path.isfile(path):
             raise HTTPException(404, "File not found")
         return FileResponse(path)
-
-    @_scan_running
-    def _capture_and_save(
-        self,
-        acquired: Event,
-        jpeg_path: str,
-    ) -> None:
-        """Capture an image and save it to disk
-
-        This will set the event `acquired` once the image has been acquired, so
-        that the stage may be moved while it's saved.
-        """
-        try:
-            capture_start = time.time()
-            image, metadata = self._capture_image()
-        finally:
-            # Ensure aquired is set even if capture fails or program will hang forever.
-            acquired.set()
-        acquisition_time = time.time()
-        self._save_capture(jpeg_path, image, metadata)
-        save_time = time.time()
-        acquisition_duration = round(acquisition_time - capture_start, 1)
-        saving_duration = round(save_time - acquisition_time, 1)
-        self._scan_logger.debug(
-            f"Acquired {jpeg_path} in {acquisition_duration}s then {saving_duration}s saving to disk"
-        )
-
-    @_scan_running
-    def _capture_image(self) -> tuple[np.ndarray, dict]:
-        """Capture an image in memory and return it with metadata
-        This will set the event `acquired` once the image has been acquired, so
-        that the stage may be moved while it's saved.
-        CaptureError raised if the capture fails for any reason
-        returns tuple with numpy array of image data, and dict of metadata
-        """
-        try:
-            metadata = self._metadata_getter()
-            image = self._cam.capture_array()[..., :3]
-        except Exception as e:
-            raise CaptureError("An error occurred while capturing") from e
-        return image, metadata
-
-    @_scan_running
-    def _save_capture(
-        self,
-        jpeg_path: str,
-        image: np.ndarray,
-        metadata: dict,
-    ) -> None:
-        """Saving the captured image and metadata to disk
-        logger warning (via InvocationLogger) is raised if metadata is failed to be added
-        IOError is raised if the file cannot be saved
-        nothing is returned on success"""
-        try:
-            Image.fromarray(image.astype("uint8"), "RGB").save(
-                jpeg_path, quality=95, subsampling=0
-            )
-            try:
-                exif_dict = piexif.load(jpeg_path)
-                exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
-                    metadata
-                ).encode("utf-8")
-                piexif.insert(piexif.dump(exif_dict), jpeg_path)
-            except:  # noqa: E722
-                # We need to capture any exception as there are many reasons metadata
-                # might not be added. We warn rather than log the error.
-                self._scan_logger.warning(f"Failed to add metadata to {jpeg_path}")
-        except Exception as e:
-            raise IOError(f"An error occurred while saving {jpeg_path}") from e
 
     @thing_property
     def max_range(self) -> int:
@@ -1241,7 +1126,3 @@ class SmartScanThing(Thing):
         """List the relative paths of all files and folders in the zip folder specified"""
         scan_zip = zipfile.ZipFile(zip_path)
         return [os.path.normpath(i) for i in scan_zip.namelist()]
-
-
-class CaptureError(RuntimeError):
-    """An error trying to capture from Picamera"""
