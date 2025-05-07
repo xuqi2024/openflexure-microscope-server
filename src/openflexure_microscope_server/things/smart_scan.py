@@ -13,6 +13,7 @@ from datetime import datetime
 from subprocess import CompletedProcess, Popen, PIPE, SubprocessError, STDOUT
 import glob
 import json
+from threading import Event
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.metadata import GetThingStates
@@ -400,7 +401,6 @@ class SmartScanThing(Thing):
         test_image_res = list(test_image.shape)
         csm_image_res = [int(i) for i in self._csm.image_resolution]
 
-
         # If current stream width is different to csm calibration width,
         # perform the conversion here
         res_ratio = csm_image_res[0] / test_image_res[0]
@@ -435,9 +435,7 @@ class SmartScanThing(Thing):
         # self._stitch_resize = self._calc_resize_from_test_image()
         self._stitch_resize = 0.25
 
-        self._scan_logger.info(
-            f'Resizing images by {self._stitch_resize}'
-        )
+        self._scan_logger.info(f"Resizing images by {self._stitch_resize}")
 
         self._scan_logger.info(
             f"Based on an overlap of {overlap}, we will make steps of {dx}, {dy}"
@@ -604,17 +602,21 @@ class SmartScanThing(Thing):
                 current_pos_xyz, imaged=True, focused=focused
             )
 
+            if self._capture_thread:
+                self._wait_for_capture_thread()
+
             site_folder = os.path.join(
                 self._ongoing_scan_images_dir,
                 "stacks",
                 f"{new_pos_xyz[0]}_{new_pos_xyz[1]}",
             )
             os.makedirs(site_folder, exist_ok=True)
-            self._autofocus.run_z_stack(
-                images_dir=self._ongoing_scan_images_dir,
-                stack_dir=site_folder,
-                capture_method="blob",
+            capture_method = "array"
+            self._capture_thread, acquired = self._start_capture_thread(
+                site_folder, capture_method
             )
+            # wait until the image is acquired
+            acquired.wait()
 
             # increment capure counter as thread has completed
             self._scan_images_taken += 1
@@ -623,6 +625,57 @@ class SmartScanThing(Thing):
                 logger=self._scan_logger,
                 scan_name=self._ongoing_scan_name,
                 download_zip=False,
+            )
+
+    @_scan_running
+    def _start_capture_thread(
+        self, site_folder: str, capture_method: str
+    ) -> tuple[ErrorCapturingThread, Event]:
+        """
+        Start the capture thread.
+
+        Args:
+           jpeg_path, the path to save the image once aquired
+
+        Return the thread and an event that will be set when the image is aquired
+        """
+        acquired = Event()
+        time.sleep(0.2)
+
+        # Acquire the image in a thread, and continue once it's acquired
+        # (i.e. leave saving in the background) Use ErrorCapturingThread
+        # intead of Thread. This will raise errors in the calling thread
+        # only when join() is called, allowing us to handle this appropriately.
+        capture_thread = ErrorCapturingThread(
+            target=self._autofocus.run_z_stack,
+            kwargs={
+                "acquired": acquired,
+                "images_dir": self._ongoing_scan_images_dir,
+                "stack_dir": site_folder,
+                "capture_method": capture_method,
+            },
+        )
+        capture_thread.start()
+        return capture_thread, acquired
+
+    @_scan_running
+    def _wait_for_capture_thread(self) -> None:
+        """
+        Wait for the capture thread to be complete.
+        """
+        wait_start = time.time()
+        thread_was_alive = self._capture_thread.is_alive()
+
+        # If the capture thread has thrown an exception it will be raised
+        # when join is called, this will cause the scan to end. If we want
+        # to retry captures at a later date this is where we will need to
+        # catch the IOError or CaptureError from the thread.
+        self._capture_thread.join()
+        time.sleep(0.2)
+        if thread_was_alive:
+            wait_time = time.time() - wait_start
+            self._scan_logger.info(
+                f"Waited {wait_time:.1f}s for the previous capture to finish saving."
             )
 
     @_scan_running

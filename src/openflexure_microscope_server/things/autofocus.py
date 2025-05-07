@@ -302,38 +302,59 @@ class AutofocusThing(Thing):
         capture: CaptureDep,
         images_dir: str,
         stack_dir: str,
-        capture_method: str = 'array'
+        acquired,
+        capture_method: str = "array",
     ) -> None:
         """Run a z stack, saving all images to stack_dir and copying the
         central image to stack_dir"""
-        stack_dz = self.stack_dz
-        images_to_capture = self.stack_images_to_capture
+        try:
+            stack_dz = self.stack_dz
+            images_to_capture = self.stack_images_to_capture
 
-        stack_z_range = stack_dz * (images_to_capture - 1)
-        stage.move_relative(z=-stack_z_range / 2)
+            stack_z_range = stack_dz * (images_to_capture - 1)
+            stage.move_relative(z=-stack_z_range / 2)
 
-        for capture_count in range(images_to_capture):
-            jpeg_path = os.path.join(
+            image_list = []
+
+            for capture_count in range(images_to_capture):
+                jpeg_path = os.path.join(
                     stack_dir,
                     f"{capture_count}.jpeg",
                 )
-            if capture_method == "blob":                
-                capture.capture_jpeg(filename=jpeg_path, cam=cam)
-            elif capture_method == "hires_array" or capture_method == "array":
-                stream = 'main' if capture_method == "array" else "full"
-                capture._capture_and_save(
-                    jpeg_path=jpeg_path,
-                    cam=cam,
-                    logger=logger,
-                    metadata_getter=metadata_getter,
-                    stream_name=stream,
-                )
-            else:
-                raise ValueError('Capture method must be one of "array", "blob" or "hires_array"')
+                if capture_method == "blob":
+                    capture.capture_jpeg(filename=jpeg_path, cam=cam)
+                elif capture_method == "hires_array" or capture_method == "array":
+                    stream = "main" if capture_method == "array" else "full"
 
-            # If the stack isn't complete yet, move
-            if capture_count + 1 < images_to_capture:
-                stage.move_relative(z=stack_dz)
+                    image, metadata = capture._capture_array(
+                        cam=cam,
+                        metadata_getter=metadata_getter,
+                        stream=stream,
+                        logger=logger,
+                    )
+
+                    image_list.append([image, metadata, jpeg_path])
+                else:
+                    raise ValueError(
+                        'Capture method must be one of "array", "blob" or "hires_array"'
+                    )
+
+                # If the stack isn't complete yet, move
+                if capture_count + 1 < images_to_capture:
+                    stage.move_relative(z=stack_dz)
+                    time.sleep(0.1)
+        except Exception as e:
+            raise Exception(e)
+        finally:
+            acquired.set()
+
+        for img in image_list:
+            capture._save_capture(
+                jpeg_path=img[2],
+                image=img[0],
+                metadata=img[1],
+                logger=InvocationLogger,
+            )
 
         self.copy_central_image_from_stack(images_dir, stack_dir)
 
