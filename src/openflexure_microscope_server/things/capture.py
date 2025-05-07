@@ -88,11 +88,12 @@ class CaptureThing(Thing):
                 logger.warning(f'Attempt {capture_attempts+1} to capture image timed out. Do you have enough RAM?')
         raise CaptureError("An error occurred while capturing after 5 attempts")
 
+    @thing_action
     def _save_capture(
         self,
         jpeg_path: str,
-        image: np.ndarray,
-        metadata: dict,
+        image,
+        metadata,
         logger: InvocationLogger,
     ) -> None:
         """Saving the captured image and metadata to disk

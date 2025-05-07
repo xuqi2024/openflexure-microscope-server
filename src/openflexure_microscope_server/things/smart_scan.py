@@ -195,7 +195,7 @@ class SmartScanThing(Thing):
         self._scan_images_taken = 0
         self._stitch_resize = 1
 
-        self._cam.start_highres_streaming()
+        self._cam.start_streaming(main_resolution=(3280,2464))
 
         # Don't set self._scan_data dictionary. This is done at the start of _run_scan
 
