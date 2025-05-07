@@ -8,7 +8,7 @@ See repository root for licensing information.
 
 from __future__ import annotations
 import logging
-from typing import Literal, Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable, Optional
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.decorators import thing_action, thing_property
@@ -44,13 +44,15 @@ class CameraProtocol(Protocol):
 
     def capture_array(
         self,
-        resolution: Literal["lores", "main", "full"] = "main",
+        stream_name: Literal["main", "lores", "raw", "full"] = "main",
+        wait: Optional[float] = 5,
     ) -> NDArray: ...
 
     def capture_jpeg(
         self,
         metadata_getter: GetThingStates,
         resolution: Literal["lores", "main", "full"] = "main",
+        wait: Optional[float] = 5,
     ) -> JPEGBlob:
         """Acquire one image from the camera and return as a JPEG blob"""
         ...
@@ -77,6 +79,11 @@ class CameraProtocol(Protocol):
         """Acquire one image from the preview stream and return its size"""
         ...
 
+    
+    def start_streaming(self, main_resolution) -> None:
+        """Start (or stop and restart) the camera with the given resolution
+        for the main stream"""
+        ...
 
 class BaseCamera(Thing):
     """A Thing representing a camera
@@ -166,7 +173,8 @@ class CameraStub(BaseCamera):
     @thing_action
     def capture_array(
         self,
-        resolution: Literal["lores", "main", "full"] = "main",
+        stream_name: Literal["main", "lores", "raw", "full"] = "main",
+        wait: Optional[float] = 5,
     ) -> NDArray:
         raise NotImplementedError("Cameras must not inherit from CameraStub")
 
@@ -175,10 +183,17 @@ class CameraStub(BaseCamera):
         self,
         metadata_getter: GetThingStates,
         resolution: Literal["lores", "main", "full"] = "main",
+        wait: Optional[float] = 5,
     ) -> JPEGBlob:
         """Acquire one image from the camera and return as a JPEG blob"""
         raise NotImplementedError("Cameras must not inherit from CameraStub")
 
+    @thing_action
+    def start_streaming(self, main_resolution) -> None:
+        """Start (or stop and restart) the camera with the given resolution
+        for the main stream"""
+        raise NotImplementedError("Cameras must not inherit from CameraStub")
+    
 
 CameraDependency = direct_thing_client_dependency(CameraStub, "/camera/")
 RawCameraDependency = raw_thing_dependency(CameraProtocol)

@@ -11,10 +11,9 @@ from PIL import Image
 from pydantic import BaseModel
 from datetime import datetime
 from subprocess import CompletedProcess, Popen, PIPE, SubprocessError, STDOUT
-from threading import Event
 import glob
 import json
-import piexif
+from threading import Event
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.metadata import GetThingStates
@@ -157,6 +156,7 @@ class SmartScanThing(Thing):
         self._scan_images_taken: Optional[int] = None
         # TODO Scan data is a dict during refactoring, should become a dataclass
         self._scan_data: Optional[dict] = None
+        self._stitch_resize: Optional[float] = None
 
     @thing_action
     def sample_scan(
@@ -193,6 +193,9 @@ class SmartScanThing(Thing):
         self._background_detect = background_detect
         self._capture_thread = None
         self._scan_images_taken = 0
+        self._stitch_resize = 1
+
+        self._cam.start_streaming(main_resolution=(3280,2464))
 
         # Don't set self._scan_data dictionary. This is done at the start of _run_scan
 
@@ -213,6 +216,7 @@ class SmartScanThing(Thing):
             # Error must be raised so UI gives correct output
             raise e
         finally:
+            self._cam.start_streaming()
             # However the scan finishes unset all variables and release lock
             self._cancel = None
             self._scan_logger = None
@@ -227,6 +231,7 @@ class SmartScanThing(Thing):
             self._scan_images_taken = None
             self._scan_data = None
             self._scan_lock.release()
+            self._stitch_resize = None
 
     @_scan_running
     def _check_background_and_csm_set(self):
@@ -367,8 +372,24 @@ class SmartScanThing(Thing):
 
         return (next_point[0], next_point[1], z_estimate)
 
+    # @_scan_running
+    # def _calc_resize_from_test_image(self):
+    #     """
+    #     Take a test image to set the amount to downsample images for stitching
+
+    #     Return the decimal value to scale x and y by when stitching
+    #     """
+
+    #     #TODO: This needs to match how the capture in the z stack is done
+    #     test_jpg = self._cam.capture_jpeg(resolution="full")
+    #     test_jpg = test_jpg.content
+
+    #     test_image = Image.open(io.BytesIO(test_jpg))
+    #     test_image_res = list(test_image.size)
+    #     return STITCH_IMAGE_WIDTH / test_image_res[0]
+
     @_scan_running
-    def _take_test_image_to_calc_displacement(self, overlap):
+    def _calc_displacement_from_test_image(self, overlap):
         """
         Take a test image and use camera stage mapping to calculate x and y displacement
 
@@ -377,19 +398,16 @@ class SmartScanThing(Thing):
         test_jpg = self._cam.grab_jpeg()
         test_image = np.array(Image.open(test_jpg.open()))
 
-        test_image_res = list(test_image.shape[:2])
+        test_image_res = list(test_image.shape)
         csm_image_res = [int(i) for i in self._csm.image_resolution]
 
-        if test_image_res != csm_image_res:
-            raise RuntimeError(
-                "Cannot start scan as it is set up to capture with a resolution that "
-                "has not been mapped.\n"
-                f"Scan resolution: {test_image_res}\n"
-                f"camera-stage-mapping resolution {csm_image_res}."
-            )
+        # If current stream width is different to csm calibration width,
+        # perform the conversion here
+        res_ratio = csm_image_res[0] / test_image_res[0]
 
         # get displacement matrix. note it is for (y, x) not (x, y) coordinates
-        csm_disp_matrix = self._csm.image_to_stage_displacement_matrix
+        csm_disp_matrix = np.array(self._csm.image_to_stage_displacement_matrix)
+        csm_disp_matrix *= res_ratio
 
         # Calculate displacements in image coordinates
         dx_img = test_image.shape[1] * (1 - overlap)
@@ -413,7 +431,12 @@ class SmartScanThing(Thing):
         dataclass.
         """
         overlap = self.overlap
-        dx, dy = self._take_test_image_to_calc_displacement(overlap)
+        dx, dy = self._calc_displacement_from_test_image(overlap)
+        # self._stitch_resize = self._calc_resize_from_test_image()
+        self._stitch_resize = 0.25
+
+        self._scan_logger.info(f"Resizing images by {self._stitch_resize}")
+
         self._scan_logger.info(
             f"Based on an overlap of {overlap}, we will make steps of {dx}, {dy}"
         )
@@ -579,23 +602,81 @@ class SmartScanThing(Thing):
                 current_pos_xyz, imaged=True, focused=focused
             )
 
-            # wait for the previous capture to be saved, i.e. don't leave more than one image saving in the background
             if self._capture_thread:
                 self._wait_for_capture_thread()
-                # increment capure counter as thread has completed
-                self._scan_images_taken += 1
-                # Add it to the incremental zip
-                self.create_zip_of_scan(
-                    logger=self._scan_logger,
-                    scan_name=self._ongoing_scan_name,
-                    download_zip=False,
-                )
 
-            name = f"image_{new_pos_xyz[0]}_{new_pos_xyz[1]}.jpg"
-            jpeg_path = os.path.join(self._ongoing_scan_images_dir, name)
-            self._capture_thread, acquired = self._start_capture_thread(jpeg_path)
+            site_folder = os.path.join(
+                self._ongoing_scan_images_dir,
+                "stacks",
+                f"{new_pos_xyz[0]}_{new_pos_xyz[1]}",
+            )
+            os.makedirs(site_folder, exist_ok=True)
+            capture_method = "array"
+            self._capture_thread, acquired = self._start_capture_thread(
+                site_folder, capture_method
+            )
             # wait until the image is acquired
             acquired.wait()
+
+            # increment capure counter as thread has completed
+            self._scan_images_taken += 1
+            # Add it to the incremental zip
+            self.create_zip_of_scan(
+                logger=self._scan_logger,
+                scan_name=self._ongoing_scan_name,
+                download_zip=False,
+            )
+
+    @_scan_running
+    def _start_capture_thread(
+        self, site_folder: str, capture_method: str
+    ) -> tuple[ErrorCapturingThread, Event]:
+        """
+        Start the capture thread.
+
+        Args:
+           jpeg_path, the path to save the image once aquired
+
+        Return the thread and an event that will be set when the image is aquired
+        """
+        acquired = Event()
+        time.sleep(0.2)
+
+        # Acquire the image in a thread, and continue once it's acquired
+        # (i.e. leave saving in the background) Use ErrorCapturingThread
+        # intead of Thread. This will raise errors in the calling thread
+        # only when join() is called, allowing us to handle this appropriately.
+        capture_thread = ErrorCapturingThread(
+            target=self._autofocus.run_z_stack,
+            kwargs={
+                "acquired": acquired,
+                "images_dir": self._ongoing_scan_images_dir,
+                "stack_dir": site_folder,
+                "capture_method": capture_method,
+            },
+        )
+        capture_thread.start()
+        return capture_thread, acquired
+
+    @_scan_running
+    def _wait_for_capture_thread(self) -> None:
+        """
+        Wait for the capture thread to be complete.
+        """
+        wait_start = time.time()
+        thread_was_alive = self._capture_thread.is_alive()
+
+        # If the capture thread has thrown an exception it will be raised
+        # when join is called, this will cause the scan to end. If we want
+        # to retry captures at a later date this is where we will need to
+        # catch the IOError or CaptureError from the thread.
+        self._capture_thread.join()
+        time.sleep(0.2)
+        if thread_was_alive:
+            wait_time = time.time() - wait_start
+            self._scan_logger.info(
+                f"Waited {wait_time:.1f}s for the previous capture to finish saving."
+            )
 
     @_scan_running
     def _try_autofocus(
@@ -634,52 +715,6 @@ class SmartScanThing(Thing):
         return False, self._stage.position["z"]
 
     @_scan_running
-    def _wait_for_capture_thread(self) -> None:
-        """
-        Wait for the capture thread to be complete.
-        """
-        wait_start = time.time()
-        thread_was_alive = self._capture_thread.is_alive()
-
-        # If the capture thread has thrown an exception it will be raised
-        # when join is called, this will cause the scan to end. If we want
-        # to retry captures at a later date this is where we will need to
-        # catch the IOError or CaptureError from the thread.
-        self._capture_thread.join()
-        time.sleep(0.2)
-        if thread_was_alive:
-            wait_time = time.time() - wait_start
-            self._scan_logger.info(
-                f"Waited {wait_time:.1f}s for the previous capture to finish saving."
-            )
-
-    @_scan_running
-    def _start_capture_thread(
-        self, jpeg_path: str
-    ) -> tuple[ErrorCapturingThread, Event]:
-        """
-        Start the capture thread.
-
-        Args:
-           jpeg_path, the path to save the image once aquired
-
-        Return the thread and an event that will be set when the image is aquired
-        """
-        acquired = Event()
-        time.sleep(0.2)
-
-        # Acquire the image in a thread, and continue once it's acquired
-        # (i.e. leave saving in the background) Use ErrorCapturingThread
-        # intead of Thread. This will raise errors in the calling thread
-        # only when join() is called, allowing us to handle this appropriately.
-        capture_thread = ErrorCapturingThread(
-            target=self._capture_and_save,
-            kwargs={"acquired": acquired, "jpeg_path": jpeg_path},
-        )
-        capture_thread.start()
-        return capture_thread, acquired
-
-    @_scan_running
     def _return_to_starting_position(self):
         self._scan_logger.info("Returning to starting position.")
         if self._starting_position is not None:
@@ -713,75 +748,6 @@ class SmartScanThing(Thing):
                 )
         except SubprocessError as e:
             self._scan_logger.error(f"Stitching failed: {e}", exc_info=e)
-
-    @_scan_running
-    def _capture_and_save(
-        self,
-        acquired: Event,
-        jpeg_path: str,
-    ) -> None:
-        """Capture an image and save it to disk
-
-        This will set the event `acquired` once the image has been acquired, so
-        that the stage may be moved while it's saved.
-        """
-        try:
-            capture_start = time.time()
-            image, metadata = self._capture_image()
-        finally:
-            # Ensure aquired is set even if capture fails or program will hang forever.
-            acquired.set()
-        acquisition_time = time.time()
-        self._save_capture(jpeg_path, image, metadata)
-        save_time = time.time()
-        acquisition_duration = round(acquisition_time - capture_start, 1)
-        saving_duration = round(save_time - acquisition_time, 1)
-        self._scan_logger.debug(
-            f"Acquired {jpeg_path} in {acquisition_duration}s then {saving_duration}s saving to disk"
-        )
-
-    @_scan_running
-    def _capture_image(self) -> tuple[np.ndarray, dict]:
-        """Capture an image in memory and return it with metadata
-        This will set the event `acquired` once the image has been acquired, so
-        that the stage may be moved while it's saved.
-        CaptureError raised if the capture fails for any reason
-        returns tuple with numpy array of image data, and dict of metadata
-        """
-        try:
-            metadata = self._metadata_getter()
-            image = self._cam.capture_array()[..., :3]
-        except Exception as e:
-            raise CaptureError("An error occurred while capturing") from e
-        return image, metadata
-
-    @_scan_running
-    def _save_capture(
-        self,
-        jpeg_path: str,
-        image: np.ndarray,
-        metadata: dict,
-    ) -> None:
-        """Saving the captured image and metadata to disk
-        logger warning (via InvocationLogger) is raised if metadata is failed to be added
-        IOError is raised if the file cannot be saved
-        nothing is returned on success"""
-        try:
-            Image.fromarray(image.astype("uint8"), "RGB").save(
-                jpeg_path, quality=95, subsampling=0
-            )
-            try:
-                exif_dict = piexif.load(jpeg_path)
-                exif_dict["Exif"][piexif.ExifIFD.UserComment] = json.dumps(
-                    metadata
-                ).encode("utf-8")
-                piexif.insert(piexif.dump(exif_dict), jpeg_path)
-            except:  # noqa: E722
-                # We need to capture any exception as there are many reasons metadata
-                # might not be added. We warn rather than log the error.
-                self._scan_logger.warning(f"Failed to add metadata to {jpeg_path}")
-        except Exception as e:
-            raise IOError(f"An error occurred while saving {jpeg_path}") from e
 
     @thing_property
     def max_range(self) -> int:
@@ -1002,6 +968,8 @@ class SmartScanThing(Thing):
                     "only_stage_stitch",
                     "--minimum_overlap",
                     f"{min_overlap}",
+                    "--resize",
+                    f"{self._stitch_resize}",
                     self._ongoing_scan_images_dir,
                 ]
             )
@@ -1118,6 +1086,8 @@ class SmartScanThing(Thing):
                 f"{tiff_arg}",
                 "--minimum_overlap",
                 f"{round(overlap * 0.9, 2)}",
+                "--resize",
+                f"{self._stitch_resize}",
                 images_folder,
             ],
         )
@@ -1209,7 +1179,3 @@ class SmartScanThing(Thing):
         """List the relative paths of all files and folders in the zip folder specified"""
         scan_zip = zipfile.ZipFile(zip_path)
         return [os.path.normpath(i) for i in scan_zip.namelist()]
-
-
-class CaptureError(RuntimeError):
-    """An error trying to capture from Picamera"""
