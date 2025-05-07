@@ -84,6 +84,12 @@ class CameraProtocol(Protocol):
         for the main stream"""
         ...
 
+    @thing_action
+    def capture_image(self, stream_name, wait):
+        """Capture a PIL image from stream stream_name with timeout wait
+        """
+        ...
+
 
 class BaseCamera(Thing):
     """A Thing representing a camera
@@ -193,6 +199,12 @@ class CameraStub(BaseCamera):
         """Start (or stop and restart) the camera with the given resolution
         for the main stream"""
         raise NotImplementedError("Cameras must not inherit from CameraStub")
+
+    @thing_action
+    def capture_image(self, stream_name, wait):
+        """Capture a PIL image from stream stream_name with timeout wait
+        """
+        raise Exception
 
 
 CameraDependency = direct_thing_client_dependency(CameraStub, "/camera/")

@@ -1,5 +1,3 @@
-import numpy as np
-from PIL import Image
 import time
 import piexif
 import json
@@ -28,7 +26,6 @@ class CaptureThing(Thing):
         cam: CamDep,
         logger: InvocationLogger,
         metadata_getter: GetThingStates,
-        target_resolution: tuple[int, int],
     ) -> None:
         """Capture an image and save it to disk
 
@@ -36,14 +33,18 @@ class CaptureThing(Thing):
         that the stage may be moved while it's saved.
         """
         capture_start = time.time()
-        image, metadata = self._capture_array(
+        image, metadata = self._capture_image(
             cam,
             metadata_getter,
-            target_resolution=target_resolution,
             logger=logger,
         )
         acquisition_time = time.time()
-        self._save_capture(jpeg_path, image, metadata, logger)
+        self._save_capture(
+            jpeg_path,
+            image,
+            metadata,
+            logger,
+        )
         save_time = time.time()
         acquisition_duration = round(acquisition_time - capture_start, 1)
         saving_duration = round(save_time - acquisition_time, 1)
@@ -56,7 +57,7 @@ class CaptureThing(Thing):
         """Capture a JPEG (from a JPEGBlob) to disk"""
         for capture_attempts in range(5):
             try:
-                jpeg = cam.capture_jpeg(resolution="full", wait=5)
+                jpeg = cam.capture_jpeg(resolution="main", wait=5)
                 jpeg.save(filename)
                 return
             except TimeoutError:
@@ -76,12 +77,11 @@ class CaptureThing(Thing):
         cam.restart_stream()
 
     @thing_action
-    def _capture_array(
+    def _capture_image(
         self,
         cam: CamDep,
         metadata_getter: GetThingStates,
         logger: InvocationLogger,
-        target_resolution: tuple[int, int] = (1640, 1232),
     ):
         """Capture an image in memory and return it with metadata
         CaptureError raised if the capture fails for any reason
@@ -90,13 +90,7 @@ class CaptureThing(Thing):
         for capture_attempts in range(5):
             try:
                 metadata = metadata_getter()
-                image = Image.fromarray(
-                    cam.capture_array(stream_name="main", wait=5)[..., :3].astype(
-                        "uint8"
-                    ),
-                    "RGB",
-                )
-                image = image.resize(target_resolution, Image.LANCZOS)
+                image = cam.capture_image(stream_name="main", wait=5)
                 return image, metadata
             except TimeoutError:
                 logger.warning(
@@ -104,10 +98,11 @@ class CaptureThing(Thing):
                 )
         raise CaptureError("An error occurred while capturing after 5 attempts")
 
+    @thing_action
     def _save_capture(
         self,
         jpeg_path: str,
-        image: np.ndarray,
+        image,
         metadata: dict,
         logger: InvocationLogger,
     ) -> None:
