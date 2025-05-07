@@ -60,7 +60,9 @@ class CaptureThing(Thing):
                 jpeg.save(filename)
                 return
             except TimeoutError:
-                logger.warning(f'Attempt {capture_attempts+1} to capture image timed out. Do you have enough RAM?')
+                logger.warning(
+                    f"Attempt {capture_attempts + 1} to capture image timed out. Do you have enough RAM?"
+                )
             except Exception as e:
                 logger.warning(e)
         raise CaptureError("An error occurred while capturing after 5 attempts")
@@ -70,11 +72,17 @@ class CaptureThing(Thing):
         cam.stop_streaming()
 
     @thing_action
-    def restart_stream(self, cam:CamDep):
+    def restart_stream(self, cam: CamDep):
         cam.restart_stream()
 
     @thing_action
-    def _capture_array(self, cam: CamDep, metadata_getter: GetThingStates, logger: InvocationLogger, stream: str = 'main'):
+    def _capture_array(
+        self,
+        cam: CamDep,
+        metadata_getter: GetThingStates,
+        logger: InvocationLogger,
+        stream: str = "main",
+    ):
         """Capture an image in memory and return it with metadata
         CaptureError raised if the capture fails for any reason
         returns tuple with numpy array of image data, and dict of metadata
@@ -85,7 +93,9 @@ class CaptureThing(Thing):
                 image = cam.capture_array(stream_name=stream, wait=5)[..., :3]
                 return image, metadata
             except TimeoutError:
-                logger.warning(f'Attempt {capture_attempts+1} to capture image timed out. Do you have enough RAM?')
+                logger.warning(
+                    f"Attempt {capture_attempts + 1} to capture image timed out. Do you have enough RAM?"
+                )
         raise CaptureError("An error occurred while capturing after 5 attempts")
 
     def _save_capture(

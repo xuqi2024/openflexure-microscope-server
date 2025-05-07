@@ -409,7 +409,6 @@ class SmartScanThing(Thing):
         test_image_res = list(test_image.shape)
         csm_image_res = [int(i) for i in self._csm.image_resolution]
 
-
         # If current stream width is different to csm calibration width,
         # perform the conversion here
         res_ratio = csm_image_res[0] / test_image_res[0]
@@ -444,9 +443,7 @@ class SmartScanThing(Thing):
         # self._stitch_resize = self._calc_resize_from_test_image()
         self._stitch_resize = 0.25
 
-        self._scan_logger.info(
-            f'Resizing images by {self._stitch_resize}'
-        )
+        self._scan_logger.info(f"Resizing images by {self._stitch_resize}")
 
         self._scan_logger.info(
             f"Based on an overlap of {overlap}, we will make steps of {dx}, {dy}"

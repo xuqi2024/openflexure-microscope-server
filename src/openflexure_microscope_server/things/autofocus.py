@@ -291,7 +291,7 @@ class AutofocusThing(Thing):
         capture: CaptureDep,
         images_dir: str,
         stack_dir: str,
-        capture_method: str = 'array'
+        capture_method: str = "array",
     ) -> None:
         """Run a z stack, saving all images to stack_dir and copying the
         central image to stack_dir"""
@@ -303,13 +303,13 @@ class AutofocusThing(Thing):
 
         for capture_count in range(images_to_capture):
             jpeg_path = os.path.join(
-                    stack_dir,
-                    f"{capture_count}.jpeg",
-                )
-            if capture_method == "blob":                
+                stack_dir,
+                f"{capture_count}.jpeg",
+            )
+            if capture_method == "blob":
                 capture.capture_jpeg(filename=jpeg_path, cam=cam)
             elif capture_method == "hires_array" or capture_method == "array":
-                stream = 'main' if capture_method == "array" else "full"
+                stream = "main" if capture_method == "array" else "full"
                 capture._capture_and_save(
                     jpeg_path=jpeg_path,
                     cam=cam,
@@ -318,7 +318,9 @@ class AutofocusThing(Thing):
                     stream_name=stream,
                 )
             else:
-                raise ValueError('Capture method must be one of "array", "blob" or "hires_array"')
+                raise ValueError(
+                    'Capture method must be one of "array", "blob" or "hires_array"'
+                )
 
             # If the stack isn't complete yet, move
             if capture_count + 1 < images_to_capture:
