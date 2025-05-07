@@ -66,6 +66,14 @@ class CaptureThing(Thing):
         raise CaptureError("An error occurred while capturing after 5 attempts")
 
     @thing_action
+    def stop_streaming(self, cam: CamDep):
+        cam.stop_streaming()
+
+    @thing_action
+    def restart_stream(self, cam:CamDep):
+        cam.restart_stream()
+
+    @thing_action
     def _capture_array(self, cam: CamDep, metadata_getter: GetThingStates, logger: InvocationLogger, stream: str = 'main'):
         """Capture an image in memory and return it with metadata
         CaptureError raised if the capture fails for any reason

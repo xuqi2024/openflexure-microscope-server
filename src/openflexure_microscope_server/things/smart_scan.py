@@ -194,6 +194,8 @@ class SmartScanThing(Thing):
         self._scan_images_taken = 0
         self._stitch_resize = 1
 
+        self._cam.start_highres_streaming()
+
         # Don't set self._scan_data dictionary. This is done at the start of _run_scan
 
         try:
@@ -213,6 +215,7 @@ class SmartScanThing(Thing):
             # Error must be raised so UI gives correct output
             raise e
         finally:
+            self._cam.start_streaming()
             # However the scan finishes unset all variables and release lock
             self._cancel = None
             self._scan_logger = None
@@ -394,19 +397,17 @@ class SmartScanThing(Thing):
         test_jpg = self._cam.grab_jpeg()
         test_image = np.array(Image.open(test_jpg.open()))
 
-        test_image_res = list(test_image.shape[:2])
+        test_image_res = list(test_image.shape)
         csm_image_res = [int(i) for i in self._csm.image_resolution]
 
-        if test_image_res != csm_image_res:
-            raise RuntimeError(
-                "Cannot start scan as it is set up to capture with a resolution that "
-                "has not been mapped.\n"
-                f"Scan resolution: {test_image_res}\n"
-                f"camera-stage-mapping resolution {csm_image_res}."
-            )
+
+        # If current stream width is different to csm calibration width,
+        # perform the conversion here
+        res_ratio = csm_image_res[0] / test_image_res[0]
 
         # get displacement matrix. note it is for (y, x) not (x, y) coordinates
-        csm_disp_matrix = self._csm.image_to_stage_displacement_matrix
+        csm_disp_matrix = np.array(self._csm.image_to_stage_displacement_matrix)
+        csm_disp_matrix *= res_ratio
 
         # Calculate displacements in image coordinates
         dx_img = test_image.shape[1] * (1 - overlap)
