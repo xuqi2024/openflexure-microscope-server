@@ -68,7 +68,7 @@
               <h3 class="uk-card-title">{{ item.name }}</h3>
               <action-button
                 thing="smart_scan"
-                action="create_zip_of_scan"
+                action="download_zip"
                 submit-label="Download ZIP"
                 :can-terminate="false"
                 :submit-data="{ scan_name: item.name }"

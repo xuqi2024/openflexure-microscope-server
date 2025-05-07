@@ -203,6 +203,9 @@ class SmartScanThing(Thing):
         try:
             self._check_background_and_csm_set()
             self._ongoing_scan_name = self._get_unique_scan_name_and_dir(scan_name)
+            self.create_zip_of_scan(
+                logger=self._scan_logger, scan_name=self._ongoing_scan_name
+            )
             self._autofocus.looping_autofocus(dz=self.autofocus_dz, start="centre")
             # record starting position so we can return there
             self._starting_position = self._stage.position
@@ -231,6 +234,30 @@ class SmartScanThing(Thing):
             self._scan_images_taken = None
             self._scan_data = None
             self._scan_lock.release()
+
+    def promote_stitch_files(
+        self,
+        logger,
+    ):
+        """Copy the stitched image from the scan images folder to the top level"""
+
+        # Search the scan images dir for a file ending in '_stitched.jpg
+        stitched_image_path = glob.glob(
+            os.path.join(self._ongoing_scan_images_dir, "*_stitched.jpg")
+        )
+
+        if len(stitched_image_path) == 0:
+            logger.warning("Could't find a stitched image to copy")
+        else:
+            for stitched_image in stitched_image_path:
+                stitch_name = os.path.basename(stitched_image)
+
+                shutil.copy(
+                    stitched_image,
+                    os.path.join(
+                        self.dir_for_scan(self._ongoing_scan_name), stitch_name
+                    ),
+                )
 
     @_scan_running
     def _check_background_and_csm_set(self):
@@ -597,10 +624,8 @@ class SmartScanThing(Thing):
             # increment capure counter as thread has completed
             self._scan_images_taken += 1
             # Add it to the incremental zip
-            self.create_zip_of_scan(
-                logger=self._scan_logger,
+            self.update_zip(
                 scan_name=self._ongoing_scan_name,
-                download_zip=False,
             )
 
     @_scan_running
@@ -655,10 +680,9 @@ class SmartScanThing(Thing):
             self._scan_logger.info("Not performing a stitch as 3 or fewer images taken")
             return
 
-        self.create_zip_of_scan(
-            logger=self._scan_logger,
+        self.update_zip(
             scan_name=self._ongoing_scan_name,
-            download_zip=False,
+            final_version=False,
         )
         self._scan_logger.info("Waiting for background processes to finish...")
 
@@ -671,6 +695,7 @@ class SmartScanThing(Thing):
                     scan_name=self._ongoing_scan_name,
                     overlap=self._scan_data["overlap"],
                 )
+                self.promote_stitch_files(self._scan_logger)
         except SubprocessError as e:
             self._scan_logger.error(f"Stitching failed: {e}", exc_info=e)
 
@@ -1044,13 +1069,8 @@ class SmartScanThing(Thing):
         self,
         logger: InvocationLogger,
         scan_name: str,
-        download_zip=True,
-    ) -> ZipBlob:
-        """Generate a zip file that can be downloaded, with all the scan files in it.
-
-        Note that as this is a thing_action it needs the logger passed as
-        a variable if called from another thing action
-        """
+    ) -> None:
+        """Generate an empty zip file for the current scan"""
         images_folder = self.images_dir_for_scan(scan_name=scan_name)
         scan_folder = self.dir_for_scan(scan_name=scan_name)
 
@@ -1062,11 +1082,24 @@ class SmartScanThing(Thing):
         zip_fname = os.path.join(scan_folder, "images.zip")
 
         # Create an empty zip file - we don't want to autofill it with files,
-        # as some of them should only be added at the end (as we can't overwrite)
+        # as some of them should only be added at the end, as we can't overwrite
         # them once they change
         if not os.path.isfile(zip_fname):
-            with zipfile.ZipFile(zip_fname, mode="w") as scan_zip:
+            with zipfile.ZipFile(zip_fname, mode="w"):
                 pass
+
+    def update_zip(
+        self,
+        scan_name: str,
+        final_version: bool = False,
+    ) -> None:
+        """Update the zip file with any images added to the folder since the last run,
+        except for files containing 'files_to_delay', which are files to only include
+        once the scan is finished or the user wants to download the zip
+        """
+        scan_folder = self.dir_for_scan(scan_name=scan_name)
+
+        zip_fname = os.path.join(scan_folder, "images.zip")
 
         # get a list of files in the existing zip
         current_zip = self.get_files_in_zip(zip_fname)
@@ -1085,43 +1118,46 @@ class SmartScanThing(Thing):
             "stitched.jp",
             "stitched_from",
             "stitched.om",
+            "stitching_correlations",
         ]
-        tiff_name = ""
 
         with zipfile.ZipFile(zip_fname, mode="a") as scan_zip:
             for file in files:
-                if "stitched.jp" in file:
-                    stitch_name = os.path.split(file)[1]
-                if ".ome.tiff" in file:
-                    tiff_name = os.path.split(file)[1]
-                if any(banned_name in file for banned_name in files_to_delay):
+                if any(skipped_name in file for skipped_name in files_to_delay):
                     pass
                 elif file in current_zip:
                     pass
-                elif ".zip" in file or "raw" in file:
+                elif ".zip" in file:
                     pass
                 else:
-                    logger.info(f"appending {file} to zip")
                     scan_zip.write(os.path.join(scan_folder, file), arcname=file)
 
-        # Promote key files to the top level of the zip only at the end of the scan (when downloading)
-        # and finally zip some of the final files
+        # Finally zip the updating files we skipped previously
         # TODO: if you download multiple times, you get duplicate files - is this a problem?
-        if download_zip:
+        # TODO: check if they're already in
+        if final_version:
             with zipfile.ZipFile(zip_fname, mode="a") as scan_zip:
-                for fname in ["stitched_from_stage.jpg", stitch_name, tiff_name]:
-                    fpath = os.path.join(images_folder, fname)
-                    if os.path.exists(fpath):
-                        logger.info(f"copying {fpath} to upper level")
-                        scan_zip.write(fpath, arcname=fname)
                 for file in files:
-                    if any(banned_name in file for banned_name in files_to_delay):
-                        logger.info(f"we are finally adding {file} into zip")
+                    if any(delayed_name in file for delayed_name in files_to_delay):
                         scan_zip.write(os.path.join(scan_folder, file), arcname=file)
-            logger.info("about to download zip")
-            return ZipBlob.from_file(zip_fname)
 
     @thing_action
+    def download_zip(
+        self,
+        scan_name: str,
+    ):
+        """Update the zip to include the files we leave to the end, then return the
+        zip file as a Blob"""
+        self.update_zip(
+            scan_name=scan_name,
+            final_version=True,
+        )
+
+        scan_folder = self.dir_for_scan(scan_name=scan_name)
+
+        zip_fname = os.path.join(scan_folder, "images.zip")
+        return ZipBlob.from_file(zip_fname)
+
     def get_files_in_zip(self, zip_path):
         """List the relative paths of all files and folders in the zip folder specified"""
         scan_zip = zipfile.ZipFile(zip_path)
