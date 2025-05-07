@@ -196,7 +196,7 @@ export default {
     this.checkConnection();
     // Handle guided tour
     // If the user has already completed or skipped the guided tour
-    var completedTour = this.getLocalStorageObj("completedTour") || false;
+    var completedTour = this.getLocalStorageObj("completedTour") || true;
     if (!completedTour) {
       this.$tours["guidedTour"].start();
     }
@@ -282,11 +282,6 @@ export default {
     this.keyboardManual.push({
       shortcut: "shift+↑ / shift+↓",
       description: "Switch tab"
-    });
-
-    // Re-run tour
-    Mousetrap.bind("alt+t", () => {
-      this.$tours["guidedTour"].start();
     });
   },
 
