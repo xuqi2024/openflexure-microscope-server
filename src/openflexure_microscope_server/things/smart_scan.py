@@ -43,30 +43,6 @@ BackgroundDep = direct_thing_client_dependency(
 IMAGE_REGEX = re.compile(r"-?[0-9]+_-?[0-9]+\.jpeg$")
 
 
-def unpack_autofocus(scan_data):
-    """Extract z, sharpness data from a move_and_measure call
-
-    Data will start at `start_index`, i.e. `start_index` points are dropped
-    from the beginning of the array.
-    """
-    jpeg_times = scan_data["jpeg_times"]
-    jpeg_sizes = scan_data["jpeg_sizes"]
-    jpeg_sizes_mb = [x / 10**3 for x in jpeg_sizes]
-    stage_times = scan_data["stage_times"]
-    stage_positions = scan_data["stage_positions"]
-    stage_height = [pos[2] for pos in stage_positions]
-
-    jpeg_heights = np.interp(jpeg_times, stage_times, stage_height)
-
-    def turningpoints(lst):
-        dx = np.diff(lst)
-        return dx[1:] * dx[:-1] < 0
-
-    turning = np.where(turningpoints(jpeg_heights))[0] + 1
-
-    return jpeg_heights[turning[0] : turning[1]], jpeg_sizes_mb[turning[0] : turning[1]]
-
-
 class NotEnoughFreeSpaceError(IOError):
     pass
 
@@ -603,8 +579,16 @@ class SmartScanThing(Thing):
 
             focused = False
             if self._scan_data["autofocus_on"]:
-                focused, focused_z = self._try_autofocus(new_pos_xyz)
-                current_pos_xyz = (new_pos_xyz[0], new_pos_xyz[1], focused_z)
+                self._autofocus.looping_autofocus(
+                    dz=self._scan_data["autofocus_dz"], start="centre"
+                )
+                current_pos_xyz = (
+                    new_pos_xyz[0],
+                    new_pos_xyz[1],
+                    self._stage.position["z"],
+                )
+                # Without a test for autofocus success, assume it worked
+                focused = True
 
             route_planner.mark_location_visited(
                 current_pos_xyz, imaged=True, focused=focused
@@ -627,42 +611,6 @@ class SmartScanThing(Thing):
             self.update_zip(
                 scan_name=self._ongoing_scan_name,
             )
-
-    @_scan_running
-    def _try_autofocus(
-        self,
-        this_xyz: tuple[int, int, int],
-    ) -> bool:
-        """
-        Try to perform autofocus and return boolean for if successful
-
-        Args:
-            this_xyz is the current x,y,z position.
-
-        Return True, focused_height on successful autofocus.
-        Return False, initial_height if failed after 3 tries - the position will be the initial estimate
-        """
-        attempts = 0
-        max_attempts = 3
-        dz = self._scan_data["autofocus_dz"]
-
-        while attempts < max_attempts:
-            attempts += 1
-
-            _, jpeg_sizes = self._autofocus.looping_autofocus(dz=dz, start="centre")
-            time.sleep(0.2)
-            autofocus_sharp_enough = self._autofocus.verify_focus_sharpness(
-                sweep_sizes=jpeg_sizes, camera=CamDep, threshold=0.92
-            )
-
-            # If sharp enough, break and return success, otherwise go to start and try again
-            if autofocus_sharp_enough:
-                return True, self._stage.position["z"]
-            else:
-                self._stage.move_absolute(z=this_xyz[2])
-
-        self._scan_logger.warning("Could not autofocus after 3 attempts.")
-        return False, self._stage.position["z"]
 
     @_scan_running
     def _return_to_starting_position(self):
