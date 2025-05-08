@@ -197,6 +197,10 @@ class SmartScanThing(Thing):
         self._background_detect = background_detect
         self._capture_thread = None
         self._scan_images_taken = 0
+        self._stitch_resize = 1
+        self._autofocus_dz = self.autofocus_dz
+
+        self._cam.start_streaming(main_resolution=(3280, 2464))
 
         # Don't set self._scan_data dictionary. This is done at the start of _run_scan
 
@@ -206,7 +210,7 @@ class SmartScanThing(Thing):
             self.create_zip_of_scan(
                 logger=self._scan_logger, scan_name=self._ongoing_scan_name
             )
-            self._autofocus.looping_autofocus(dz=self.autofocus_dz, start="centre")
+            self._autofocus.looping_autofocus(dz=self._autofocus_dz, start="centre")
             # record starting position so we can return there
             self._starting_position = self._stage.position
             self._run_scan()
@@ -234,6 +238,8 @@ class SmartScanThing(Thing):
             self._scan_images_taken = None
             self._scan_data = None
             self._scan_lock.release()
+            self._stitch_resize = None
+            self._autofocus_dz = None
 
     def promote_stitch_files(
         self,
@@ -449,15 +455,14 @@ class SmartScanThing(Thing):
             f"Based on an overlap of {overlap}, we will make steps of {dx}, {dy}"
         )
 
-        autofocus_dz = self.autofocus_dz
-        if autofocus_dz == 0:
+        if self._autofocus_dz == 0:
             self._scan_logger.info("Running scan without autofocus")
-        elif autofocus_dz <= 200:
+        elif self._autofocus_dz <= 200:
             self._scan_logger.warning(
-                f"Your autofocus range is {autofocus_dz} steps, which is too short to "
+                f"Your autofocus range is {self._autofocus_dz} steps, which is too short to "
                 "attempt to focus. Running without autofocus"
             )
-            autofocus_dz = 0
+            self._autofocus_dz = 0
 
         # Fix scan parameters in case UI is updated during scan.
         self._scan_data = {
@@ -466,8 +471,8 @@ class SmartScanThing(Thing):
             "max_dist": self.max_range,
             "dx": dx,
             "dy": dy,
-            "autofocus_dz": autofocus_dz,
-            "autofocus_on": bool(autofocus_dz),
+            "autofocus_dz": self._autofocus_dz,
+            "autofocus_on": bool(self._autofocus_dz),
             "start_time": time.strftime("%H_%M_%S-%d_%m_%Y"),
             "skip_background": self.skip_background,
             "stitch_automatically": self.stitch_automatically,
@@ -603,8 +608,12 @@ class SmartScanThing(Thing):
 
             focused = False
             if self._scan_data["autofocus_on"]:
-                focused, focused_z = self._try_autofocus(new_pos_xyz)
-                current_pos_xyz = (new_pos_xyz[0], new_pos_xyz[1], focused_z)
+                self._autofocus.looping_autofocus(dz=self._autofocus_dz, start="centre")
+                current_pos_xyz = (
+                    new_pos_xyz[0],
+                    new_pos_xyz[1],
+                    self._stage.position["z"],
+                )
 
             route_planner.mark_location_visited(
                 current_pos_xyz, imaged=True, focused=focused
@@ -627,42 +636,6 @@ class SmartScanThing(Thing):
             self.update_zip(
                 scan_name=self._ongoing_scan_name,
             )
-
-    @_scan_running
-    def _try_autofocus(
-        self,
-        this_xyz: tuple[int, int, int],
-    ) -> bool:
-        """
-        Try to perform autofocus and return boolean for if successful
-
-        Args:
-            this_xyz is the current x,y,z position.
-
-        Return True, focused_height on successful autofocus.
-        Return False, initial_height if failed after 3 tries - the position will be the initial estimate
-        """
-        attempts = 0
-        max_attempts = 3
-        dz = self._scan_data["autofocus_dz"]
-
-        while attempts < max_attempts:
-            attempts += 1
-
-            _, jpeg_sizes = self._autofocus.looping_autofocus(dz=dz, start="centre")
-            time.sleep(0.2)
-            autofocus_sharp_enough = self._autofocus.verify_focus_sharpness(
-                sweep_sizes=jpeg_sizes, camera=CamDep, threshold=0.92
-            )
-
-            # If sharp enough, break and return success, otherwise go to start and try again
-            if autofocus_sharp_enough:
-                return True, self._stage.position["z"]
-            else:
-                self._stage.move_absolute(z=this_xyz[2])
-
-        self._scan_logger.warning("Could not autofocus after 3 attempts.")
-        return False, self._stage.position["z"]
 
     @_scan_running
     def _return_to_starting_position(self):
