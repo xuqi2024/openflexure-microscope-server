@@ -68,7 +68,9 @@ def ensure_free_disk_space(path: str, min_space: int = 500000000) -> None:
 
 
 class ScanInfo(BaseModel):
-    """ "Summary information about a scan folder"""
+    """Summary information about a scan folder"""
+
+    """Summary information about a scan folder"""
 
     name: str
     created: datetime
@@ -155,7 +157,7 @@ class SmartScanThing(Thing):
 
         The stage will move in a pattern that grows outwards from the starting point,
         stopping once it is surrounded by "background" (as detected by the
-        background_detect Thing).
+        background_detect Thing) or reaches the "max_range" measured in steps.
         """
 
         got_lock = self._scan_lock.acquire(timeout=0.1)
@@ -179,9 +181,7 @@ class SmartScanThing(Thing):
         try:
             self._check_background_and_csm_set()
             self._ongoing_scan_name = self._get_unique_scan_name_and_dir(scan_name)
-            self.create_zip_of_scan(
-                logger=self._scan_logger, scan_name=self._ongoing_scan_name
-            )
+            self.create_zip_of_scan(scan_name=self._ongoing_scan_name)
             self._autofocus.looping_autofocus(dz=self.autofocus_dz, start="centre")
             # record starting position so we can return there
             self._starting_position = self._stage.position
@@ -196,7 +196,7 @@ class SmartScanThing(Thing):
             # Error must be raised so UI gives correct output
             raise e
         finally:
-            # However the scan finishes unset all variables and release lock
+            # However the scan finishes, unset all variables and release lock
             self._cancel = None
             self._scan_logger = None
             self._autofocus = None
@@ -237,11 +237,11 @@ class SmartScanThing(Thing):
 
     @_scan_running
     def _check_background_and_csm_set(self):
-        """Before starting a scan check that background and camera-stage-mapping are set
+        """Before starting a scan, check that background and camera-stage-mapping are set
 
         Raise error if:
           - background is to be skipped but is not set
-          -  camera stage mapping is not set
+          - camera stage mapping is not set
 
         Raise warning if not using background detect that scan will go on until max steps reached
         """
@@ -290,7 +290,7 @@ class SmartScanThing(Thing):
     @property
     @_scan_running
     def _ongoing_scan_dir(self):
-        """For the ongoing scan this returns the scan directory"""
+        """For the ongoing scan, this returns the scan directory"""
         if not self._ongoing_scan_name:
             raise RuntimeError("Cannot get ongoing scan name while no scan is running")
         return self.dir_for_scan(self._ongoing_scan_name)
@@ -298,7 +298,7 @@ class SmartScanThing(Thing):
     @property
     @_scan_running
     def _ongoing_scan_images_dir(self):
-        """For the ongoing scan this returns the image directory"""
+        """For the ongoing scan, this returns the image directory"""
         if not self._ongoing_scan_name:
             raise RuntimeError("Cannot get ongoing scan name while no scan is running")
         return self.images_dir_for_scan(self._ongoing_scan_name)
@@ -354,10 +354,10 @@ class SmartScanThing(Thing):
     def _move_to_next_point(
         self, next_point: tuple[int, int], z_estimate: Optional[int] = None
     ) -> tuple[int, int, int]:
-        """Move to the next position (half an autofocus move below estimated z)
-
-        Moves the stage to the next poistion. If no z_estimate is given then
-        the current stage position is used.
+        """Moves the stage to the next poistion. If no z_estimate is given then
+        the current stage position is used. Must move to the estimated focused position
+        (although moving below would be marginally faster) because background detect is
+        most reliable at the focused position.
 
         Returns the (x,y,z) with the chosen z_estimate
         """
@@ -407,7 +407,7 @@ class SmartScanThing(Thing):
         dy_vec = np.dot(np.array([dy_img, 0]), csm_disp_matrix)
 
         # Assume no rotation or skew and take only the aligned axis of vector.
-        # Cooerce to positive integer
+        # Coerce to positive integer
         dx = int(np.abs(dx_vec[0]))
         dy = int(np.abs(dy_vec[1]))
 
@@ -451,6 +451,10 @@ class SmartScanThing(Thing):
 
     @_scan_running
     def _save_scan_inputs_json(self):
+        """
+        Save scan inputs as a JSON file in the scan folder, to allow
+        the user to review the settings used in the scan
+        """
         # This should be a method of the scan_data dataclass
 
         data = {
@@ -472,17 +476,26 @@ class SmartScanThing(Thing):
     @_scan_running
     def _manage_stitching_threads(self):
         """
-        Manage the stitching threads starting them if the are needed
-        and not running.
+        Manage the stitching threads, starting them if needed and not already running.
         """
+
+        # Assume 4 images means at least one offset in x and y, making the stitching
+        # well constrained.
         if self._scan_images_taken > 3:
             if not self._preview_stitch_running():
                 self._preview_stitch_start(overlap=self._scan_data["overlap"])
 
     @_scan_running
     def _run_scan(self):
-        # Uset to check if finally was reached via exeption (except
-        # cancel by user.
+        """
+        Prepare and run the main scan, handling the threads performing
+        stitching. Uses the result (or exception) from the scanning to
+        determine whether the scan should be stitched and the microscope
+        should return to the starting x,y,z position
+        """
+
+        # Used to check if finally was reached via exeption (except
+        # cancel by user)
         scan_successful = True
 
         try:
@@ -515,13 +528,13 @@ class SmartScanThing(Thing):
             raise e
         finally:
             if self._capture_thread:
-                # If the capture thread had an error we capture it here
+                # If the capture thread had an error, we capture it here
                 try:
                     self._capture_thread.join()
                 except Exception as e:
-                    # If the scan has already ended due to an exception we will
-                    # ignore any exceptions, but if it appeared to be successful
-                    # we will log the error.
+                    # If the scan has already ended due to an exception,
+                    # ignore any exceptions. If it appeared to be successful,
+                    # log the error.
                     if scan_successful:
                         self._scan_logger.error(
                             "The scan appears to have started successfully, however "
@@ -537,6 +550,15 @@ class SmartScanThing(Thing):
 
     @_scan_running
     def _main_scan_loop(self):
+        """
+        The loop to run through during a scan, until no more scan x,y positions
+        are remaining.
+        """
+
+        # The initial plan for the scan should be a single x,y position. All future
+        # moves will be planned around this point. In future, route planner could
+        # have multiple starting positions, each of which will be visited before the
+        # scan can end.
         planner_settings = {
             "dx": self._scan_data["dx"],
             "dy": self._scan_data["dy"],
@@ -547,9 +569,10 @@ class SmartScanThing(Thing):
             planner_settings=planner_settings,
         )
 
-        # At the start of the loop, we simultaneously capture an image and move to the next scan point.
-        # We skip capturing on the first run, because we've not focused yet - and also we skip capturing if
-        # it looks like background.
+        # The loop tests if the scan should continue, moves to the next position,
+        # decides whether to capture an image, autofocuses if necessary,
+        # captures an image if necessary, updates the scan path and future path,
+        # and updates the zip file with new images.
         while not route_planner.scan_complete:
             ensure_free_disk_space(self._ongoing_scan_dir)
             self._manage_stitching_threads()
@@ -563,7 +586,7 @@ class SmartScanThing(Thing):
             )
 
             capture_image = True
-            # If skipping background, take an image to check if it is background
+            # If skipping background, take an image to check if current field of view is background
             if self._scan_data["skip_background"]:
                 capture_image = self._background_detect.image_is_sample()
 
@@ -614,6 +637,7 @@ class SmartScanThing(Thing):
 
     @_scan_running
     def _return_to_starting_position(self):
+        """Return to the initial scan position, if set"""
         self._scan_logger.info("Returning to starting position.")
         if self._starting_position is not None:
             self._stage.move_absolute(
@@ -622,7 +646,7 @@ class SmartScanThing(Thing):
 
     @_scan_running
     def _perform_final_stitch(self):
-        """Perform final stitch of the data"""
+        """Update the scan zip and perform final stitch of the data"""
 
         if self._scan_images_taken <= 3:
             self._scan_logger.info("Not performing a stitch as 3 or fewer images taken")
@@ -672,7 +696,7 @@ class SmartScanThing(Thing):
 
     @thing_property
     def max_range(self) -> int:
-        """The maximum distance from the centre of the scan before we break"""
+        """The maximum distance from the centre of the scan before we break in steps"""
         return self.thing_settings.get("max_range", 45000)
 
     @max_range.setter
@@ -702,7 +726,7 @@ class SmartScanThing(Thing):
 
     @thing_property
     def autofocus_dz(self) -> int:
-        """The z distance to perform an autofocus"""
+        """The z distance to perform an autofocus in steps"""
         return self.thing_settings.get("autofocus_dz", 1000)
 
     @autofocus_dz.setter
@@ -711,7 +735,7 @@ class SmartScanThing(Thing):
 
     @thing_property
     def overlap(self) -> float:
-        """The z distance to perform an autofocus"""
+        """The fraction (0-1) that adjacent images should overlap in x or y"""
         return self.thing_settings.get("overlap", 0.45)
 
     @overlap.setter
@@ -720,7 +744,7 @@ class SmartScanThing(Thing):
 
     @thing_property
     def stitch_automatically(self) -> bool:
-        """Should we attempt to stitch scans as we go?"""
+        """Whether to run a final stitch at the end of the scan (assuming scan success)"""
         return self.thing_settings.get("stitch_automatically", True)
 
     @stitch_automatically.setter
@@ -733,9 +757,9 @@ class SmartScanThing(Thing):
 
         Each scan has a name (which can be used to access it), along with
         its modified and created times (according to the filesystem) and
-        the number of items in the `images` folder. Note that the number
-        of images reported may be confused if non-image files are present
-        in the `images` folder.
+        the number of items in the `images` folder. Note that image count
+        uses a regular expression, and changes to the naming scheme will
+        break it.
         """
         scans: list[ScanInfo] = []
         if not os.path.isdir(self.base_scan_dir):
@@ -751,6 +775,11 @@ class SmartScanThing(Thing):
                 else:
                     number_of_images = 0
                 modified = max(os.stat(root).st_mtime for root, _, _ in os.walk(path))
+                # If number of images is 0, should the scan be appended or ignored?
+                # When deleting images, empty scans should be deleted. When displaying
+                # scans in the GUI or choosing a new scan name, should be ignored
+
+                # A function to delete empty scan folders from the disk achieves all of this
                 scans.append(
                     ScanInfo(
                         name=f,
@@ -815,7 +844,7 @@ class SmartScanThing(Thing):
     def delete_all_scans(self) -> None:
         """Delete all the scans on the microscope
 
-        **This will irreversibly remove all smart scan data from the
+        **This will irreversibly remove all scanned data from the
         microscope!**
         Use with extreme caution.
         """
@@ -908,6 +937,9 @@ class SmartScanThing(Thing):
 
     @_scan_running
     def _preview_stitch_wait(self):
+        """
+        Wait for an ongoing preview stitch to return
+        """
         if self._preview_stitch_running():
             with self._preview_stitch_popen_lock:
                 self._preview_stitch_popen.wait()
@@ -986,7 +1018,7 @@ class SmartScanThing(Thing):
                 overlap = data_loaded["overlap"]
             except (json.decoder.JSONDecodeError, FileNotFoundError, TypeError):
                 # As there is no schema or pydantic model this should handle
-                # The file not being there, it not being json in the file,
+                # the file not being there, it not being json in the file,
                 # or the imported data not being indexable
                 logger.warning(
                     f"Couldn't read scan data, is {json_fname} missing or corrupt? "
@@ -1015,7 +1047,6 @@ class SmartScanThing(Thing):
     @thing_action
     def create_zip_of_scan(
         self,
-        logger: InvocationLogger,
         scan_name: str,
     ) -> None:
         """Generate an empty zip file for the current scan"""
@@ -1029,9 +1060,7 @@ class SmartScanThing(Thing):
 
         zip_fname = os.path.join(scan_folder, "images.zip")
 
-        # Create an empty zip file - we don't want to autofill it with files,
-        # as some of them should only be added at the end, as we can't overwrite
-        # them once they change
+        # Create an empty zip file
         if not os.path.isfile(zip_fname):
             with zipfile.ZipFile(zip_fname, mode="w"):
                 pass
@@ -1060,6 +1089,10 @@ class SmartScanThing(Thing):
         # This is a list of file names that are updated as the scan goes,
         # and should only be zipped at the end of the scan - otherwise they'll
         # be appended on every loop as we can't overwrite files in the zip
+
+        # More elegant ways would be to only zip the images matching the global regex,
+        # which will all be images, then append other files at the end.
+        # Alternatively, use "output_dir" in stitching to separate stitching image files
         files_to_delay = [
             "TileConfiguration",
             "tiling_cache",
@@ -1080,9 +1113,7 @@ class SmartScanThing(Thing):
                 else:
                     scan_zip.write(os.path.join(scan_folder, file), arcname=file)
 
-        # Finally zip the updating files we skipped previously
-        # TODO: if you download multiple times, you get duplicate files - is this a problem?
-        # TODO: check if they're already in
+        # Finally, zip the files skipped previously
         if final_version:
             with zipfile.ZipFile(zip_fname, mode="a") as scan_zip:
                 for file in files:
@@ -1094,7 +1125,7 @@ class SmartScanThing(Thing):
         self,
         scan_name: str,
     ):
-        """Update the zip to include the files we leave to the end, then return the
+        """Update the zip to include the files left until the end, then return the
         zip file as a Blob"""
         self.update_zip(
             scan_name=scan_name,
