@@ -297,8 +297,10 @@ class AutofocusThing(Thing):
         images_to_capture = self.stack_images_to_capture
 
         stack_z_range = stack_dz * (images_to_capture - 1)
-        stage.move_relative(z=-(STACK_OVERSHOOT + stack_z_range / 2))
-        stage.move_relative(z=STACK_OVERSHOOT)
+        if stack_z_range > 0:
+            stage.move_relative(z=-(STACK_OVERSHOOT + stack_z_range / 2))
+            stage.move_relative(z=STACK_OVERSHOOT)
+        time.sleep(0.3)
 
         for capture_count in range(images_to_capture):
             jpeg_path = os.path.join(
