@@ -129,7 +129,7 @@ class RangeofMotionThing(Thing):
 
                 return offset, delta, image1, focus_data
 
-            logger.info("Using the stage to measure the range of motion")
+            logger.info("Using the stage to measure the range of motion (simplified)")
             start_time = time.time() #starts the timer
             filepath = "/var/openflexure/" #Location where any images or JSON files are saved
 
@@ -148,8 +148,6 @@ class RangeofMotionThing(Thing):
 
             #Should extract x and y separately because this assumes x and y are the same but for now it just averages between the two.
             pixel_per_step = ((1/abs(csm.image_to_stage_displacement_matrix[0][1])) + (1/abs(csm.image_to_stage_displacement_matrix[1][0])))/4
-
-            logger.info(f"pixel per step = {pixel_per_step}")
 
             this_big_step_size = {}
             this_small_step_size = {}
@@ -375,9 +373,19 @@ class RangeofMotionThing(Thing):
                 x_max_pos = stage_coords[max_index]['x']
                 logging.info(f'Apparent peak was at {x_max_pos}. We started at {starting_pos[0]}')
 
+            logger.info(f"Results: {results}")
+
+            x_pos = results['x'][1]['final_position']['x']
+            x_neg = results['x'][-1]['final_position']['x']
+            y_pos = results['y'][1]['final_position']['y']
+            y_neg = results['y'][-1]['final_position']['y']
+
+            #rom stores the range of motion in steps (x, y).
+            rom = [abs(x_pos - x_neg), abs(y_pos - y_neg)]
             end_time = time.time()
             total_time = (end_time - start_time)/60 #converting to minutes
             logger.info(f"Range of motion measurement took {int(total_time)} minutes.")
+            logger.info(f"Measured range of motion is {rom[0]} X {rom[1]} steps.")
             results['Time(minutes)'] = total_time
 
             results['csm'] = csm.image_to_stage_displacement_matrix #This doesn't change on each run, it is data intrinsic to the microscope
@@ -390,9 +398,6 @@ class RangeofMotionThing(Thing):
                 json.dump(results, file_object, indent = 3)
 
             return results
-
-                
-                #file_i += 1
         
         except:
             logger.error("Stopping measurement because it was cancelled by the user")
