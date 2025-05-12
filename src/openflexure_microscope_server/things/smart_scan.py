@@ -63,7 +63,7 @@ def ensure_free_disk_space(path: str, min_space: int = 500000000) -> None:
     if du.free < min_space:
         raise NotEnoughFreeSpaceError(
             "There is not enough free disk space to continue. "
-            f"(Required: {min_space}, {du})."
+            f"(Required: {min_space >> 20}MB, free: {du.free >> 20}MB)."
         )
 
 
@@ -178,8 +178,6 @@ class SmartScanThing(Thing):
         self._scan_images_taken = 0
         self._stitch_resize = 1
 
-        self._cam.start_streaming(main_resolution=(3280, 2464))
-
         # Don't set self._scan_data dictionary. This is done at the start of _run_scan
 
         try:
@@ -200,7 +198,6 @@ class SmartScanThing(Thing):
             # Error must be raised so UI gives correct output
             raise e
         finally:
-            self._cam.start_streaming()
             # However the scan finishes, unset all variables and release lock
             self._cancel = None
             self._scan_logger = None
@@ -523,6 +520,7 @@ class SmartScanThing(Thing):
         scan_successful = True
 
         try:
+            self._cam.start_streaming(main_resolution = (3280,2464))
             self._set_scan_data()
             self._save_scan_inputs_json()
             if self._scan_images_taken != 0:
@@ -551,6 +549,8 @@ class SmartScanThing(Thing):
             )
             raise e
         finally:
+            # Start streaming in the default resolution again as soon as possible
+            self._cam.start_streaming()
             if self._capture_thread:
                 # If the capture thread had an error, we capture it here
                 try:
