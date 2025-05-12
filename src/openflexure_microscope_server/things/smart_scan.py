@@ -88,6 +88,8 @@ ZipBlob = blob_type("application/zip")
 IMG_DIR_NAME = "images"
 
 SCAN_ZERO_PAD_DIGITS = 4
+TARGET_RESOLUTION = (1640, 1232)
+STITCHING_RESOLUTION = (820, 616)
 
 
 def _scan_running(method):
@@ -139,7 +141,6 @@ class SmartScanThing(Thing):
         self._scan_images_taken: Optional[int] = None
         # TODO Scan data is a dict during refactoring, should become a dataclass
         self._scan_data: Optional[dict] = None
-        self._stitch_resize: Optional[float] = None
 
     @thing_action
     def sample_scan(
@@ -176,7 +177,6 @@ class SmartScanThing(Thing):
         self._background_detect = background_detect
         self._capture_thread = None
         self._scan_images_taken = 0
-        self._stitch_resize = 1
 
         # Don't set self._scan_data dictionary. This is done at the start of _run_scan
 
@@ -212,7 +212,6 @@ class SmartScanThing(Thing):
             self._scan_images_taken = None
             self._scan_data = None
             self._scan_lock.release()
-            self._stitch_resize = None
 
     def promote_stitch_files(
         self,
@@ -377,22 +376,6 @@ class SmartScanThing(Thing):
 
         return (next_point[0], next_point[1], z_estimate)
 
-    # @_scan_running
-    # def _calc_resize_from_test_image(self):
-    #     """
-    #     Take a test image to set the amount to downsample images for stitching
-
-    #     Return the decimal value to scale x and y by when stitching
-    #     """
-
-    #     #TODO: This needs to match how the capture in the z stack is done
-    #     test_jpg = self._cam.capture_jpeg(resolution="full")
-    #     test_jpg = test_jpg.content
-
-    #     test_image = Image.open(io.BytesIO(test_jpg))
-    #     test_image_res = list(test_image.size)
-    #     return STITCH_IMAGE_WIDTH / test_image_res[0]
-
     @_scan_running
     def _calc_displacement_from_test_image(self, overlap):
         """
@@ -437,10 +420,9 @@ class SmartScanThing(Thing):
         """
         overlap = self.overlap
         dx, dy = self._calc_displacement_from_test_image(overlap)
-        # self._stitch_resize = self._calc_resize_from_test_image()
-        self._stitch_resize = 0.25
+        stitch_resize = STITCHING_RESOLUTION[0] / TARGET_RESOLUTION[0]
 
-        self._scan_logger.info(f"Resizing images by {self._stitch_resize}")
+        self._scan_logger.debug(f"Resizing images when stitching by {stitch_resize}")
 
         self._scan_logger.info(
             f"Based on an overlap of {overlap}, we will make steps of {dx}, {dy}"
@@ -468,6 +450,7 @@ class SmartScanThing(Thing):
             "start_time": time.strftime("%H_%M_%S-%d_%m_%Y"),
             "skip_background": self.skip_background,
             "stitch_automatically": self.stitch_automatically,
+            "stitch_resize": stitch_resize,
         }
 
     @_scan_running
@@ -520,7 +503,7 @@ class SmartScanThing(Thing):
         scan_successful = True
 
         try:
-            self._cam.start_streaming(main_resolution = (3280,2464))
+            self._cam.start_streaming(main_resolution=(3280, 2464))
             self._set_scan_data()
             self._save_scan_inputs_json()
             if self._scan_images_taken != 0:
@@ -650,7 +633,7 @@ class SmartScanThing(Thing):
             self._autofocus.run_z_stack(
                 images_dir=self._ongoing_scan_images_dir,
                 stack_dir=site_folder,
-                target_resolution=(1640, 1232),
+                target_resolution=TARGET_RESOLUTION,
             )
 
             # increment capure counter as thread has completed
@@ -691,7 +674,6 @@ class SmartScanThing(Thing):
                     logger=self._scan_logger,
                     scan_name=self._ongoing_scan_name,
                     overlap=self._scan_data["overlap"],
-                    stitch_resize=self._stitch_resize,
                 )
                 self.promote_stitch_files(self._scan_logger)
         except SubprocessError as e:
@@ -948,7 +930,7 @@ class SmartScanThing(Thing):
                     "--minimum_overlap",
                     f"{min_overlap}",
                     "--resize",
-                    f"{self._stitch_resize}",
+                    f"{self._scan_data['stitch_resize']}",
                     self._ongoing_scan_images_dir,
                 ]
             )
