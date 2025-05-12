@@ -315,9 +315,10 @@ class AutofocusThing(Thing):
             )
             captured = time.time()
             # There's an unnecessary move up at the end of the stack
-            stage.move_relative(z=stack_dz)
+            if capture_count + 1 < images_to_capture:
+                stage.move_relative(z=stack_dz)
             moved = time.time()
-            image = image.resize(target_resolution, Image.LANCZOS)
+            image = image.resize(target_resolution, Image.BOX)
             downsampled = time.time()
             capture._save_capture(
                 jpeg_path=jpeg_path,
@@ -326,12 +327,12 @@ class AutofocusThing(Thing):
                 logger=logger,
             )
             saved = time.time()
-            logger.info(f"Capturing took {round(captured - start, 2)} s")
-            logger.info(f"Resizing took {round(downsampled - moved, 2)} s")
-            logger.info(f"Saving took {round(saved - downsampled, 2)} s")
-            logger.info(f"Effective settling time was {round(saved - moved, 2)} s")
+            logger.debug(f"Capturing took {round(captured - start, 2)} s")
+            logger.debug(f"Resizing took {round(downsampled - moved, 2)} s")
+            logger.debug(f"Saving took {round(saved - downsampled, 2)} s")
+            logger.debug(f"Effective settling time was {round(saved - moved, 2)} s")
 
-        self.copy_central_image_from_stack(images_dir, stack_dir)
+        self.copy_sharpest_image_from_stack(images_dir, stack_dir, logger)
 
     def copy_central_image_from_stack(
         self,
@@ -346,4 +347,21 @@ class AutofocusThing(Thing):
         central_image = image_list[central_index]
         xy_location = os.path.basename(stack_dir)
 
+        shutil.copy(central_image, os.path.join(images_dir, f"{xy_location}.jpeg"))
+
+    def copy_sharpest_image_from_stack(
+        self,
+        images_dir: str,
+        stack_dir: str,
+        logger: InvocationLogger,
+    ):
+        """Gets a list of images in a folder (stack_dir), sorts them by filesize, and copies the sharpest
+        image to images dir."""
+        image_list = glob.glob(os.path.join(stack_dir, "*"))
+        image_list = sorted(image_list, key=os.path.getsize)
+        central_index = (len(image_list) - 1) // 2
+        central_image = image_list[central_index]
+        xy_location = os.path.basename(stack_dir)
+
+        logger.info(central_image)
         shutil.copy(central_image, os.path.join(images_dir, f"{xy_location}.jpeg"))
