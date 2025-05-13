@@ -86,6 +86,7 @@ DOWNLOADABLE_SCAN_FILES = (
 JPEGBlob = blob_type("image/jpeg")
 ZipBlob = blob_type("application/zip")
 IMG_DIR_NAME = "images"
+SCAN_DATA_FILENAME = "scan_data.json"
 
 SCAN_ZERO_PAD_DIGITS = 4
 
@@ -455,7 +456,7 @@ class SmartScanThing(Thing):
         Save scan inputs as a JSON file in the scan folder, to allow
         the user to review the settings used in the scan
         """
-        # This should be a method of the scan_data dataclass
+        # Should this be a method of the scan_data dataclass?
 
         data = {
             "scan_name": self._ongoing_scan_name,
@@ -468,9 +469,44 @@ class SmartScanThing(Thing):
         }
 
         scan_inputs_fname = os.path.join(
-            self._ongoing_scan_images_dir, "scan_inputs.json"
+            self._ongoing_scan_images_dir, SCAN_DATA_FILENAME
         )
         with open(scan_inputs_fname, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+
+    @_scan_running
+    def _update_scan_data_json(self, scan_result: str):
+        """
+        Update scan data as a JSON file in the scan folder, with
+        data only known at the end of the scan.
+
+        Takes scan_result, a string that is either "success",
+        "cancelled by user", or the error that ended the scan.
+        """
+        # Should this be a method of the scan_data dataclass?
+        current_time = datetime.now().replace(microsecond=0)
+        start_time = datetime.strptime(
+            self._scan_data["start_time"], "%H_%M_%S-%d_%m_%Y"
+        ).replace(microsecond=0)
+
+        duration = current_time - start_time
+
+        outputs = {
+            "image_count": self._scan_images_taken,
+            "duration": str(duration),
+            "scan_result": scan_result,
+        }
+
+        scan_data_fname = os.path.join(
+            self._ongoing_scan_images_dir, SCAN_DATA_FILENAME
+        )
+
+        with open(scan_data_fname, encoding="utf-8") as f:
+            data = json.load(f)
+
+        data.update(outputs)
+
+        with open(scan_data_fname, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
 
     @_scan_running
@@ -507,12 +543,15 @@ class SmartScanThing(Thing):
 
             # This is the main loop of the scan!
             self._main_scan_loop()
+            self._update_scan_data_json(scan_result="success")
 
         except InvocationCancelledError:
             scan_successful = False
             self._scan_logger.info("Stopping scan because it was cancelled.")
+            self._update_scan_data_json(scan_result="cancelled by user")
         except NotEnoughFreeSpaceError as e:
             scan_successful = False
+            self._update_scan_data_json(scan_result=str(e))
             self._scan_logger.error(
                 f"Stopping scan to avoid filling up the disk: {e}",
                 exc_info=e,
@@ -1001,9 +1040,8 @@ class SmartScanThing(Thing):
         Note that as this is a thing_action it needs the logger passed as
         a variable if called from another thing action
         """
-        json_fname = "scan_inputs.json"
         images_folder = self.images_dir_for_scan(scan_name=scan_name)
-        json_fpath = os.path.join(images_folder, json_fname)
+        json_fpath = os.path.join(images_folder, SCAN_DATA_FILENAME)
 
         if self.stitch_tiff:
             tiff_arg = "--stitch_tiff"
@@ -1021,7 +1059,7 @@ class SmartScanThing(Thing):
                 # the file not being there, it not being json in the file,
                 # or the imported data not being indexable
                 logger.warning(
-                    f"Couldn't read scan data, is {json_fname} missing or corrupt? "
+                    f"Couldn't read scan data, is {SCAN_DATA_FILENAME} missing or corrupt? "
                     "Attempting stitch with overlap value of 0.1"
                 )
                 overlap = 0.1
