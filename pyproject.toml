@@ -17,14 +17,15 @@ classifiers = [
 dependencies = [
   "labthings-fastapi[server] == 0.0.7",
   "labthings-sangaboard",
-  "camera-stage-mapping ~= 0.1.8",
-  "opencv-python ~= 4.7.0",
+  "camera-stage-mapping ~= 0.1.10",
+  "opencv-python ~= 4.11.0",
   "pillow ~= 10.4",
   "anyio ~= 4.0",
-  "numpy ~= 1.20",
+  "numpy ~= 2.2",
   "scipy ~=1.14",
   "piexif",
   "pydantic ~= 2.10.6",
+  "simplejpeg >= 1.8.2",
 ]
 
 [project.optional-dependencies]
