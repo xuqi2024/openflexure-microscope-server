@@ -76,6 +76,7 @@ class ScanInfo(BaseModel):
     created: datetime
     modified: datetime
     number_of_images: int
+    stitch_available: bool
 
 
 DOWNLOADABLE_SCAN_FILES = (
@@ -809,22 +810,24 @@ class SmartScanThing(Thing):
                 images_folder = os.path.join(path, IMG_DIR_NAME)
                 if os.path.isdir(images_folder):
                     folder_contents = os.listdir(images_folder)
-                    scan_images = [x for x in folder_contents if IMAGE_REGEX.search(x)]
+                    scan_images = [i for i in folder_contents if IMAGE_REGEX.search(i)]
+                    stitches = [
+                        i for i in folder_contents if i.endswith("_stitched.jpg")
+                    ]
                     number_of_images = len(scan_images)
+                    stitch_available = len(stitches) > 0
                 else:
                     number_of_images = 0
+                    stitch_available = False
                 modified = max(os.stat(root).st_mtime for root, _, _ in os.walk(path))
-                # If number of images is 0, should the scan be appended or ignored?
-                # When deleting images, empty scans should be deleted. When displaying
-                # scans in the GUI or choosing a new scan name, should be ignored
 
-                # A function to delete empty scan folders from the disk achieves all of this
                 scans.append(
                     ScanInfo(
                         name=f,
                         created=os.path.getctime(path),
                         modified=modified,
                         number_of_images=number_of_images,
+                        stitch_available=stitch_available,
                     )
                 )
         return scans
@@ -998,12 +1001,9 @@ class SmartScanThing(Thing):
 
         def log_buffer(buffer):
             """A short internal function to read everything in the buffer to
-            a multiline string and log"""
-            lines = []
+            the log"""
             while line := buffer.readline():
-                lines.append(line)
-            if lines:
-                logger.info("".join(lines))
+                logger.info(line)
 
         # Run the command piping stdout into the process for reading and
         # forwarding the stdrerr to stdout

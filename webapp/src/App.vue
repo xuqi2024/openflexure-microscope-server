@@ -438,6 +438,7 @@ html {
 
 .thumbnail-fit {
   max-height: 120px;
+  max-width: 240px;
   object-fit: contain;
   overflow-y: hidden;
 }

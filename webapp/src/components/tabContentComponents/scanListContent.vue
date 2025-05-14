@@ -41,8 +41,7 @@
       class="uk-padding-remove-top"
       uk-lightbox="toggle: .lightbox-link"
     >
-      <!-- Gallery capture cards -->
-      
+      <!-- Gallery capture cards -->      
       <div class="gallery-grid uk-grid-match" uk-grid>
         <div v-if="scansEmpty">
           <h2>No scans available</h2>
@@ -65,7 +64,7 @@
                   />
                 </div>
               </div>
-              <h3 class="uk-card-title">{{ item.name }}</h3>
+              <h3 class="uk-card-title" style="text-align: center;">{{ item.name }}</h3>
               <action-button
                 thing="smart_scan"
                 action="download_zip"
@@ -86,6 +85,7 @@
                 submit-label="Stitch Images"
                 thing="smart_scan"
                 action="stitch_scan"
+                v-if="item.can_stitch"
                 :can-terminate="false"
                 :submit-data="{ scan_name: item.name }"
                 :button-primary="false"
@@ -94,15 +94,11 @@
               />
               <ul>
                 <li>{{ item.number_of_images }} images</li>
-                <li>created {{ formatDate(item.created) }}</li>
-                <li>modified {{ formatDate(item.modified) }}</li>
+                <li>created: {{ formatDate(item.created) }}</li>
+                <li>modified: {{ formatDate(item.modified) }}</li>
+                <li v-if="item.number_of_images<3" style="color:red; font-weight: bold;">Not enough images to stitch</li>  
+                <li v-else-if=!item.stitch_available style="color:red; font-weight: bold;">Scan not stitched</li>  
               </ul>
-
-              <div
-                class="uk-text-meta uk-margin-remove-top uk-padding-remove uk-width-expand"
-              >
-                <time>{{ item.created }}</time>
-              </div>
             </div>
           </div>
         </div>
@@ -198,6 +194,7 @@ export default {
         scans.forEach(scan => {
           scan.modified = Date.parse(scan.modified);
           scan.created = Date.parse(scan.created);
+          scan.can_stitch = !scan.stitch_available && scan.number_of_images > 3;
         });
         scans.sort((a, b) => {
           return b.modified - a.modified;
@@ -280,7 +277,7 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fill, 320px);
   justify-content: center;
-  overflow-y: auto;
+  overflow-y: hidden;
 }
 
 .gallery-grid > div {
@@ -294,4 +291,10 @@ export default {
   margin-left: auto;
   margin-right: auto;
 }*/
+
+ul {
+  display: inline-block;
+  text-align: center;
+  list-style-type:none;
+}
 </style>
