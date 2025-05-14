@@ -156,54 +156,8 @@ export default {
       }
     },
     async updateLogs() {
-      let response = await axios.get(this.logURI);
-      let lines = response.data.split("\n");
-      let logs = [];
-      let regexp = /\[(.+)\] \[(.+)\] (.*)$/;
-      for (let line of lines) {
-        if (line.length > 0) {
-          let m = line.match(regexp);
-          if (m) {
-            logs.push({
-              timestamp: m[1],
-              level: m[2],
-              summary: m[3],
-              message: this.escapeText(m[3]),
-              sequence: logs.length,
-              expanded: false
-            });
-          } else if (logs) {
-            // If a line does not look like a log entry, append it to the last
-            // log entry (i.e. allow multi-line messages)
-            let entry = logs[logs.length - 1];
-            m = line.match(/^( *)(\^+)/); // detect python stack trace "underlines"
-            if (m) {
-              let linestart = entry.message.lastIndexOf("\n") + 1;
-              let ustart = linestart + m[1].length;
-              let uend = ustart + m[2].length;
-              entry.message =
-                entry.message.substring(0, ustart) +
-                "<u>" +
-                entry.message.substring(ustart, uend) +
-                "</u>" +
-                entry.message.substring(uend);
-            } else {
-              entry.message += "\n" + this.escapeText(line);
-              if (entry.message.startsWith("Traceback")) {
-                entry.summary = line; // For tracebacks, the last line is the best summary
-              }
-            }
-          } else {
-            // if there's no existing log message to append to, discard lines
-            // until we find one.
-            console.log(
-              "Ignored non-matching lines at the start of the log file."
-            );
-            continue;
-          }
-        }
-      }
-      this.logs = logs.reverse(); // Display in reverse chronological order
+      let logs = await axios.get(this.logURI);
+      this.logs = Object.values(logs.data);
     },
     formatDateTime: function(isoDateTimeString) {
       isoDateTimeString = isoDateTimeString.replace(",", ".");
