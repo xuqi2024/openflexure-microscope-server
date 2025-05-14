@@ -37,6 +37,7 @@ from .capture import CaptureThing
 CaptureDep = direct_thing_client_dependency(CaptureThing, "/capture/")
 
 STACK_OVERSHOOT = 200
+SETTLING_TIME = 0.3
 
 
 class JPEGSharpnessMonitor:
@@ -318,7 +319,8 @@ class AutofocusThing(Thing):
             if capture_count + 1 < images_to_capture:
                 stage.move_relative(z=stack_dz)
             moved = time.time()
-            image = image.resize(target_resolution, Image.BOX)
+            if image.size != target_resolution:
+                image = image.resize(target_resolution, Image.BOX)
             downsampled = time.time()
             capture._save_capture(
                 jpeg_path=jpeg_path,
@@ -327,6 +329,11 @@ class AutofocusThing(Thing):
                 logger=logger,
             )
             saved = time.time()
+            if saved - start < SETTLING_TIME:
+                time.sleep(SETTLING_TIME - (saved - start))
+                logger.info(
+                    f"Settled for an extra {round(SETTLING_TIME - (saved - start), 3)} seconds"
+                )
             logger.debug(f"Capturing took {round(captured - start, 2)} s")
             logger.debug(f"Resizing took {round(downsampled - moved, 2)} s")
             logger.debug(f"Saving took {round(saved - downsampled, 2)} s")
