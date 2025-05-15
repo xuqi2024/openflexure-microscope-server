@@ -1,33 +1,33 @@
 import os
-import pathlib
 
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI
 
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
-def add_static_file(app: FastAPI, fname: str, folder: str):
+
+def add_static_file(app: FastAPI, fname: str, folder: str) -> None:
+    """Add a single file to the root of the FastAPI app
+    The file  with name `fname` will be mounted at `/fname` - the
+    `folder` does not affect where it is mounted in the app.
+
+    app: The FastAPI app to add to, in this case the OpenFlexure server
+    fname: the name of the file to add
+    folder: the containing folder of the file
+    """
     p = os.path.join(folder, fname)
     app.get(f"/{fname}", response_class=FileResponse, include_in_schema=False)(
         lambda: FileResponse(p)
     )
 
 
-def add_static_files(app: FastAPI):
+def add_static_files(app: FastAPI) -> None:
+    """Add the static files responsible for the webapp app to the FastAPI app
 
-    search_paths = [
-        "/var/openflexure/application/openflexure-microscope-server/src/openflexure_microscope_server/static",
-        pathlib.Path().absolute()
-        / "application/openflexure-microscope-server/src/openflexure_microscope_server/static",
-    ]
-    if __file__:
-        search_paths.append(pathlib.Path(__file__).parent.parent / "static")
-
-    for static_path in search_paths:
-        if os.path.isdir(static_path):
-            break  # stop once one of the paths exists
-    else:
-        raise RuntimeError("Can't find static files")
+    app: The FastAPI app to add to, in this case the OpenFlexure server
+    """
+    static_path = os.path.normpath(os.path.join(THIS_DIR, "..", "static"))
 
     @app.get("/", response_class=RedirectResponse)
     async def redirect_fastapi():
