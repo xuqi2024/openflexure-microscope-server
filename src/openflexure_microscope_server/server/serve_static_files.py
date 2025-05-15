@@ -1,4 +1,5 @@
 import os
+import pathlib
 
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -13,8 +14,19 @@ def add_static_file(app: FastAPI, fname: str, folder: str):
 
 
 def add_static_files(app: FastAPI):
-    static_path = os.path.abspath(os.path.join(__file__, "..", "static"))
-    if not os.path.isdir(static_path):
+
+    search_paths = [
+        "/var/openflexure/application/openflexure-microscope-server/src/openflexure_microscope_server/static",
+        pathlib.Path().absolute()
+        / "application/openflexure-microscope-server/src/openflexure_microscope_server/static",
+    ]
+    if __file__:
+        search_paths.append(pathlib.Path(__file__).parent.parent / "static")
+
+    for static_path in search_paths:
+        if os.path.isdir(static_path):
+            break  # stop once one of the paths exists
+    else:
         raise RuntimeError("Can't find static files")
 
     @app.get("/", response_class=RedirectResponse)
