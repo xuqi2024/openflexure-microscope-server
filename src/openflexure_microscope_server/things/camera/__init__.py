@@ -79,7 +79,7 @@ class CameraProtocol(Protocol):
         """Acquire one image from the preview stream and return its size"""
         ...
 
-    def start_streaming(self, main_resolution) -> None:
+    def start_streaming(self, main_resolution, buffer_count) -> None:
         """Start (or stop and restart) the camera with the given resolution
         for the main stream"""
         ...
@@ -193,7 +193,7 @@ class CameraStub(BaseCamera):
         raise NotImplementedError("Cameras must not inherit from CameraStub")
 
     @thing_action
-    def start_streaming(self, main_resolution) -> None:
+    def start_streaming(self, main_resolution, buffer_count) -> None:
         """Start (or stop and restart) the camera with the given resolution
         for the main stream"""
         raise NotImplementedError("Cameras must not inherit from CameraStub")
