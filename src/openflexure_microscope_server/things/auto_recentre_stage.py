@@ -129,7 +129,7 @@ class RangeofMotionThing(Thing):
 
                 return offset, delta, image1, focus_data
 
-            logger.info("Using the stage to measure the range of motion (simplified)")
+            logger.info("Using the stage to measure the range of motion. This will provide the number of steps across each axis.")
             start_time = time.time() #starts the timer
             filepath = "/var/openflexure/" #Location where any images or JSON files are saved
 
@@ -143,8 +143,6 @@ class RangeofMotionThing(Thing):
             #Opens the CSM settings json so that the pixel per step value can be read and saved
             with open('/var/openflexure/settings/camera_stage_mapping/settings.json') as f:
                 csm_settings = json.load(f)
-
-            #pixel_per_step = csm_settings['last_calibration']['linear_calibration_x']['pixels_per_step']
 
             #Should extract x and y separately because this assumes x and y are the same but for now it just averages between the two.
             pixel_per_step = ((1/abs(csm.image_to_stage_displacement_matrix[0][1])) + (1/abs(csm.image_to_stage_displacement_matrix[1][0])))/4
@@ -372,8 +370,6 @@ class RangeofMotionThing(Thing):
                 max_index = np.argmax(z_pos_list)
                 x_max_pos = stage_coords[max_index]['x']
                 logging.info(f'Apparent peak was at {x_max_pos}. We started at {starting_pos[0]}')
-
-            logger.info(f"Results: {results}")
 
             x_pos = results['x'][1]['final_position']['x']
             x_neg = results['x'][-1]['final_position']['x']
