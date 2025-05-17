@@ -57,11 +57,30 @@
             Camera to Stage Mapping
           </tabIcon>
         </li>
+        <li>
+          <tabIcon
+            id="settings-features-icon"
+            tab-i-d="calibration"
+            :show-title="false"
+            :show-tooltip="false"
+            :require-connection="false"
+            :current-tab="currentTab"
+            @set-tab="setTab"
+          >
+            Calibration
+          </tabIcon>
+        </li>
       </ul>
       <action-button
         thing="settings"
         action="save_all_thing_settings"
         submit-label="Save All Settings"
+      />
+      <action-button
+        thing="RangeofMotionThing"
+        action="measure_rom"
+        submit-label="Launch Calibration Wizard"
+        class="uk-margin"
       />
     </div>
     <div class="view-component uk-width-expand uk-padding-small">
@@ -83,6 +102,16 @@
       >
         <div class="settings-pane uk-padding-small">
           <cameraSettings />
+        </div>
+      </tabContent>
+
+      <tabContent
+        tab-i-d="calibration"
+        :require-connection="true"
+        :current-tab="currentTab"
+      >
+        <div class="settings-pane uk-padding-small">
+          <Calibration />
         </div>
       </tabContent>
 
@@ -115,7 +144,7 @@ import cameraSettings from "./settingsComponents/cameraSettings.vue";
 import appSettings from "./settingsComponents/appSettings.vue";
 import CSMSettings from "./settingsComponents/CSMSettings.vue";
 import stageSettings from "./settingsComponents/stageSettings.vue";
-import calibrationSuite from "./settingsComponents/calibrationSuite.vue";
+import Calibration from "./settingsComponents/calibrationSuite.vue"
 // Import generic components
 import tabIcon from "../genericComponents/tabIcon";
 import tabContent from "../genericComponents/tabContent";
@@ -134,7 +163,7 @@ export default {
     tabIcon,
     tabContent,
     ActionButton,
-    calibrationSuite
+    Calibration
   },
 
   data: function() {
