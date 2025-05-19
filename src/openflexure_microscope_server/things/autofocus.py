@@ -290,7 +290,7 @@ class AutofocusThing(Thing):
         capture: CaptureDep,
         images_dir: str,
         stack_dir: str,
-        target_resolution: tuple[int, int],
+        capture_resolution: tuple[int, int],
     ) -> None:
         """Run a z stack, saving all images to stack_dir and copying the
         central image to stack_dir"""
@@ -319,8 +319,8 @@ class AutofocusThing(Thing):
             if capture_count + 1 < images_to_capture:
                 stage.move_relative(z=stack_dz)
             moved = time.time()
-            if image.size != target_resolution:
-                image = image.resize(target_resolution, Image.BOX)
+            if image.size != capture_resolution:
+                image = image.resize(capture_resolution, Image.BOX)
             downsampled = time.time()
             capture._save_capture(
                 jpeg_path=jpeg_path,

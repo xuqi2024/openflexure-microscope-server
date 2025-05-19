@@ -88,7 +88,6 @@ ZipBlob = blob_type("application/zip")
 IMG_DIR_NAME = "images"
 
 SCAN_ZERO_PAD_DIGITS = 4
-TARGET_RESOLUTION = (1640, 1232)
 STITCHING_RESOLUTION = (820, 616)
 
 
@@ -420,7 +419,7 @@ class SmartScanThing(Thing):
         """
         overlap = self.overlap
         dx, dy = self._calc_displacement_from_test_image(overlap)
-        stitch_resize = STITCHING_RESOLUTION[0] / TARGET_RESOLUTION[0]
+        stitch_resize = STITCHING_RESOLUTION[0] / self.capture_resolution[0]
 
         self._scan_logger.debug(f"Resizing images when stitching by {stitch_resize}")
 
@@ -451,6 +450,7 @@ class SmartScanThing(Thing):
             "skip_background": self.skip_background,
             "stitch_automatically": self.stitch_automatically,
             "stitch_resize": stitch_resize,
+            "capture_resolution": self.capture_resolution,
         }
 
     @_scan_running
@@ -469,6 +469,7 @@ class SmartScanThing(Thing):
             "dy": self._scan_data["dy"],
             "start time": self._scan_data["start_time"],
             "skipping background": self._scan_data["skip_background"],
+            "capture resolution": self._scan_data["capture_resolution"],
         }
 
         scan_inputs_fname = os.path.join(
@@ -633,7 +634,7 @@ class SmartScanThing(Thing):
             self._autofocus.run_z_stack(
                 images_dir=self._ongoing_scan_images_dir,
                 stack_dir=site_folder,
-                target_resolution=TARGET_RESOLUTION,
+                capture_resolution=self._scan_data["capture_resolution"],
             )
 
             # increment capure counter as thread has completed
@@ -701,6 +702,16 @@ class SmartScanThing(Thing):
         if not os.path.isfile(path):
             raise HTTPException(404, "File not found")
         return FileResponse(path)
+
+    @thing_property
+    def capture_resolution(self) -> tuple[int, int]:
+        """A tuple of the image resolution to capture. Should be in a
+        4:3 aspect ratio"""
+        return self.thing_settings.get("capture_resolution", ((1640, 1232)))
+
+    @capture_resolution.setter
+    def capture_resolution(self, value: tuple[int, int]) -> None:
+        self.thing_settings["capture_resolution"] = value
 
     @thing_property
     def max_range(self) -> int:
