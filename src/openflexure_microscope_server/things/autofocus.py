@@ -315,7 +315,7 @@ class AutofocusThing(Thing):
                 logger=logger,
             )
             captured_time = time.time()
-            # There's an unnecessary move up at the end of the stack
+
             if capture_count + 1 < images_to_capture:
                 stage.move_relative(z=stack_dz)
             moved_time = time.time()
@@ -329,11 +329,10 @@ class AutofocusThing(Thing):
                 logger=logger,
             )
             saved_time = time.time()
-            if saved_time - start_time < SETTLING_TIME:
-                time.sleep(SETTLING_TIME - (saved_time - start_time))
-                logger.info(
-                    f"Settled for an extra {round(SETTLING_TIME - (saved_time - start_time), 3)} seconds"
-                )
+            time_remaining = SETTLING_TIME - (saved_time - start_time)
+            if time_remaining > 0:
+                time.sleep(time_remaining)
+                logger.info(f"Settled for an extra {round(time_remaining, 3)} seconds")
             logger.debug(f"Capturing took {round(captured_time - start_time, 2)} s")
             logger.debug(f"Resizing took {round(downsampled_time - moved_time, 2)} s")
             logger.debug(f"Saving took {round(saved_time - downsampled_time, 2)} s")
