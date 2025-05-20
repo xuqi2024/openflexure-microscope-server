@@ -59,11 +59,11 @@ def ensure_free_disk_space(path: str, min_space: int = 500000000) -> None:
     Raises:
         NotEnoughFreeSpaceError if the remaining storage is below min_space
     """
-    du = shutil.disk_usage(path)
-    if du.free < min_space:
+    disk_usage = shutil.disk_usage(path)
+    if disk_usage.free < min_space:
         raise NotEnoughFreeSpaceError(
             "There is not enough free disk space to continue. "
-            f"(Required: {min_space >> 20}MB, free: {du.free >> 20}MB)."
+            f"(Required: {min_space >> 20}MB, free: {disk_usage.free >> 20}MB)."
         )
 
 
@@ -674,6 +674,7 @@ class SmartScanThing(Thing):
                 self.stitch_scan(
                     logger=self._scan_logger,
                     scan_name=self._ongoing_scan_name,
+                    stitch_resize=self._scan_data["stitch_resize"],
                     overlap=self._scan_data["overlap"],
                 )
                 self.promote_stitch_files(self._scan_logger)
@@ -1015,8 +1016,8 @@ class SmartScanThing(Thing):
         self,
         logger: InvocationLogger,
         scan_name: str,
+        stitch_resize: float,
         overlap: float = 0.0,
-        stitch_resize: float = 0.25,
     ) -> None:
         """Generate a stitched image based on stage position metadata
 
