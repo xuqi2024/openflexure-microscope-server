@@ -53,30 +53,6 @@ class CaptureThing(Thing):
         )
 
     @thing_action
-    def capture_jpeg(self, filename: str, cam: CamDep, logger: InvocationLogger):
-        """Capture a JPEG (from a JPEGBlob) to disk"""
-        for capture_attempts in range(5):
-            try:
-                jpeg = cam.capture_jpeg(resolution="main", wait=5)
-                jpeg.save(filename)
-                return
-            except TimeoutError:
-                logger.warning(
-                    f"Attempt {capture_attempts + 1} to capture image timed out. Do you have enough RAM?"
-                )
-            except Exception as e:
-                logger.warning(e)
-        raise CaptureError("An error occurred while capturing after 5 attempts")
-
-    @thing_action
-    def stop_streaming(self, cam: CamDep):
-        cam.stop_streaming()
-
-    @thing_action
-    def restart_stream(self, cam: CamDep):
-        cam.restart_stream()
-
-    @thing_action
     def _capture_image(
         self,
         cam: CamDep,
@@ -85,7 +61,7 @@ class CaptureThing(Thing):
     ):
         """Capture an image in memory and return it with metadata
         CaptureError raised if the capture fails for any reason
-        returns tuple with numpy array of image data, and dict of metadata
+        returns tuple with PIL Image, and dict of metadata
         """
         for capture_attempts in range(5):
             try:
