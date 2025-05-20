@@ -144,10 +144,16 @@ Vue.mixin({
       if (error.response) {
         // If the response is a nicely formatted JSON response from the server
         if (error.response.data.message) {
-          return `${error.response.status}: ${error.response.data.message}`;
+          return `${error.response.data.message}`;
+        }
+        if (error.response.data.detail) {
+          return `${error.response.data.detail}`;
         }
         // If the response is just some generic error response
-        return `${error.response.status}: ${error.response.data}`;
+        if (error.response.data){
+          return `${error.response.data}`;
+        }
+        return `${error.response}`;
       }
       // If we have an error object with a message, use that
       if (error.message) return `${error.message}`;
