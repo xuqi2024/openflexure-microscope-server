@@ -308,36 +308,38 @@ class AutofocusThing(Thing):
                 stack_dir,
                 f"{capture_count}.jpeg",
             )
-            start = time.time()
+            start_time = time.time()
             image, metadata = capture._capture_image(
                 cam=cam,
                 metadata_getter=metadata_getter,
                 logger=logger,
             )
-            captured = time.time()
+            captured_time = time.time()
             # There's an unnecessary move up at the end of the stack
             if capture_count + 1 < images_to_capture:
                 stage.move_relative(z=stack_dz)
-            moved = time.time()
+            moved_time = time.time()
             if image.size != capture_resolution:
                 image = image.resize(capture_resolution, Image.BOX)
-            downsampled = time.time()
+            downsampled_time = time.time()
             capture._save_capture(
                 jpeg_path=jpeg_path,
                 image=image,
                 metadata=metadata,
                 logger=logger,
             )
-            saved = time.time()
-            if saved - start < SETTLING_TIME:
-                time.sleep(SETTLING_TIME - (saved - start))
+            saved_time = time.time()
+            if saved_time - start_time < SETTLING_TIME:
+                time.sleep(SETTLING_TIME - (saved_time - start_time))
                 logger.info(
-                    f"Settled for an extra {round(SETTLING_TIME - (saved - start), 3)} seconds"
+                    f"Settled for an extra {round(SETTLING_TIME - (saved_time - start_time), 3)} seconds"
                 )
-            logger.debug(f"Capturing took {round(captured - start, 2)} s")
-            logger.debug(f"Resizing took {round(downsampled - moved, 2)} s")
-            logger.debug(f"Saving took {round(saved - downsampled, 2)} s")
-            logger.debug(f"Effective settling time was {round(saved - moved, 2)} s")
+            logger.debug(f"Capturing took {round(captured_time - start_time, 2)} s")
+            logger.debug(f"Resizing took {round(downsampled_time - moved_time, 2)} s")
+            logger.debug(f"Saving took {round(saved_time - downsampled_time, 2)} s")
+            logger.debug(
+                f"Effective settling time was {round(saved_time - moved_time, 2)} s"
+            )
 
         self.copy_sharpest_image_from_stack(images_dir, stack_dir, logger)
 
