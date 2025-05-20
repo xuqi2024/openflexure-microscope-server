@@ -251,7 +251,7 @@ export default {
           this.modalNotify(`The action '${this.submitLabel}' was cancelled.`);
         }
       } catch (error) {
-        this.$emit("error", error | Error("Unknown error"));
+        this.$emit("error", error);
       } finally {
         // Reset taskRunning and taskId
         this.taskRunning = false;
@@ -297,7 +297,19 @@ export default {
             else if (result == "error") {
               // Pass the error string back with reject
               if (!this.progress) this.progress = 1;
-              reject(new Error(response.data.output));
+              // Test whether the log is empty or the most recent message is not from an error
+              // If so, return a default message
+              if (response.data.log.length == 0 | response.data.log.at(-1).levelname != "ERROR") {
+                var message = "Unexpected error, please check the logs";
+              }
+              // As LabThings Actions add the message from any raised exception to the log, the
+              // last message in the log is the message from the Exception.
+              //If the Exception was raised with no message, use a default.
+              else {
+                message = response.data.log.at(-1).message||"Unexpected error, please check the logs";
+              }
+              // Raise an Error with the chosen message
+              reject(new Error(message));
             }
             // If task ends without reporting an error
             // (NB this includes cancellation)
