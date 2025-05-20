@@ -201,7 +201,7 @@ class CameraStub(BaseCamera):
     @thing_action
     def capture_image(self, stream_name, wait):
         """Capture a PIL image from stream stream_name with timeout wait"""
-        raise Exception
+        raise NotImplementedError("Cameras must not inherit from CameraStub")
 
 
 CameraDependency = direct_thing_client_dependency(CameraStub, "/camera/")
