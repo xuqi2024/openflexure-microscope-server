@@ -21,7 +21,7 @@
                 <propertyControl
                   thing-name="smart_scan"
                   property-name="autofocus_dz"
-                  label="Autofocus range (steps)"
+                  label="Autofocus Range (steps)"
                 />
               </div>
               <div class="uk-margin">
@@ -35,21 +35,21 @@
                 <propertyControl
                   thing-name="autofocus"
                   property-name="stack_images_to_capture"
-                  label="Images in stack to capture"
+                  label="Images in Stack to Capture"
                 />
               </div>
               <div class="uk-margin">
                 <propertyControl
                   thing-name="smart_scan"
                   property-name="overlap"
-                  label="Image overlap (0-1)"
+                  label="Image Overlap (0-1)"
                 />
               </div>
               <div class="uk-margin">
                 <propertyControl
                   thing-name="smart_scan"
                   property-name="stitch_tiff"
-                  label="When stitching, produce a pyramidal tiff"
+                  label="When Stitching, Produce a Pyramidal TIFF"
                 />
               </div>
             </div>
@@ -61,14 +61,14 @@
                 <propertyControl
                   thing-name="smart_scan"
                   property-name="skip_background"
-                  label="Detect and skip empty fields"
+                  label="Detect and Skip Empty Fields"
                 />
               </div>
               <div class="uk-margin">
                 <propertyControl
                   thing-name="smart_scan"
                   property-name="stitch_automatically"
-                  label="Automatically stitch images together"
+                  label="Automatically Stitch Images Together"
                 />
               </div>
             </div>
@@ -89,7 +89,7 @@
             thing="smart_scan"
             action="sample_scan"
             :submit-data="{ scan_name: scan_name }"
-            submit-label="Start smart scan"
+            submit-label="Start Smart Scan"
             :can-terminate="true"
             @taskStarted="startScanning"
             @update:taskStatus="taskStatus = $event"

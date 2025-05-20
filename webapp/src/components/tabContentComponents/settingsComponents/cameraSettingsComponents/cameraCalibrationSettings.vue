@@ -21,7 +21,7 @@
         :requires-confirmation="false"
         thing="camera"
         action="auto_expose_from_minimum"
-        :submit-label="'Auto gain &amp; shutter speed'"
+        :submit-label="'Auto Gain &amp; Shutter Speed'"
         @response="onRecalibrateResponse"
         @error="modalError"
       />
@@ -32,7 +32,7 @@
         :requires-confirmation="false"
         thing="camera"
         action="calibrate_white_balance"
-        :submit-label="'Auto white balance'"
+        :submit-label="'Auto White Balance'"
         @response="onRecalibrateResponse"
         @error="modalError"
       />
@@ -47,7 +47,7 @@
         "
         thing="camera"
         action="calibrate_lens_shading"
-        :submit-label="'Auto flat field correction'"
+        :submit-label="'Auto Flat Field Correction'"
         @response="onRecalibrateResponse"
         @error="modalError"
       />
@@ -63,7 +63,7 @@
         :requires-confirmation="false"
         thing="camera"
         action="flat_lens_shading"
-        :submit-label="'Disable flat field correction'"
+        :submit-label="'Disable Flat Field Correction'"
         @response="onRecalibrateResponse"
         @error="modalError"
       />
@@ -78,7 +78,7 @@
         :requires-confirmation="false"
         thing="camera"
         action="reset_lens_shading"
-        :submit-label="'Reset flat field correction'"
+        :submit-label="'Reset Flat Field Correction'"
         @response="onRecalibrateResponse"
         @error="modalError"
       />

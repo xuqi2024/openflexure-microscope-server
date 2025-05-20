@@ -3,12 +3,12 @@
     <div v-if="$store.state.available">
       <div>
         <div class="uk-margin-small-bottom">
-          <b>Microscope hostname:</b>
+          <b>Microscope Hostname:</b>
           <br />
           {{ $store.state.microscopeHostname }}
         </div>
         <div class="uk-margin-small-bottom">
-          <b>API origin:</b>
+          <b>API Origin:</b>
           <br />
           {{ $store.state.origin }}
         </div>
@@ -24,7 +24,7 @@
       <hr />
 
       <div>
-        <b>Server version:</b> <br />
+        <b>Server Version:</b> <br />
         TODO
       </div>
 

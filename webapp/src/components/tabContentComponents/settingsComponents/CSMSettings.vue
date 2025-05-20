@@ -5,9 +5,9 @@
     uk-grid
   >
     <div class="uk-width-large">
-      <h3>Camera/stage mapping</h3>
+      <h3>Camera to Stage Mapping</h3>
       <p>
-        Camera/stage mapping allows the stage to move relative to the camera
+        Camera-stage mapping allows the stage to move relative to the camera
         view. This enables functions like click-to-move, and more precise tile
         scans.
       </p>

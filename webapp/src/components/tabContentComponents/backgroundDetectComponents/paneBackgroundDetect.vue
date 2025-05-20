@@ -19,14 +19,14 @@
               <propertyControl
                 thing-name="background_detect"
                 property-name="fraction"
-                label="Sample coverage required (%)"
+                label="Sample Coverage Required (%)"
               />
             </div>
             <div class="uk-margin">
               <action-button
                 thing="background_detect"
                 action="background_fraction"
-                submit-label="Check coverage"
+                submit-label="Check Coverage"
                 :can-terminate="false"
                 :poll-interval="0.1"
                 @response="alertBackgroundFraction"
@@ -40,7 +40,7 @@
         <action-button
           thing="background_detect"
           action="set_background"
-          submit-label="Set background"
+          submit-label="Set Background"
           :can-terminate="false"
           :poll-interval="0.1"
           @response="alertBackgroundSet"
@@ -50,7 +50,7 @@
         <action-button
           thing="background_detect"
           action="image_is_sample"
-          submit-label="Check current image"
+          submit-label="Check Current Image"
           :can-terminate="false"
           :poll-interval="0.1"
           @response="alertImageLabel"

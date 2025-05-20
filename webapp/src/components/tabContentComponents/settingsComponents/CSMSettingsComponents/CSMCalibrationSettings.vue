@@ -11,7 +11,7 @@
         "
         thing="camera_stage_mapping"
         action="calibrate_xy"
-        :submit-label="'Auto-Calibrate using camera'"
+        :submit-label="'Auto-Calibrate Using Camera'"
         :modal-progress="true"
         @response="onRecalibrateResponse"
         @error="modalError"
@@ -24,7 +24,7 @@
       class="uk-button uk-button-default uk-width-1-1"
       @click="getCalibrationData()"
     >
-      Download calibration data
+      Download Calibration Data
     </button>
   </div>
 </template>

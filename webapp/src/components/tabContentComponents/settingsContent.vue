@@ -3,7 +3,7 @@
   <div uk-grid class="uk-height-1-1 uk-margin-remove uk-padding-remove">
     <div class="settings-nav">
       <ul class="uk-nav uk-nav-default">
-        <li class="uk-nav-header">Application settings</li>
+        <li class="uk-nav-header">Application Settings</li>
         <li>
           <tabIcon
             id="settings-display-icon"
@@ -17,20 +17,7 @@
             Display
           </tabIcon>
         </li>
-        <li>
-          <tabIcon
-            id="settings-features-icon"
-            tab-i-d="features"
-            :show-title="false"
-            :show-tooltip="false"
-            :require-connection="false"
-            :current-tab="currentTab"
-            @set-tab="setTab"
-          >
-            Features
-          </tabIcon>
-        </li>
-        <li class="uk-nav-header">Microscope settings</li>
+        <li class="uk-nav-header">Microscope Settings</li>
         <li>
           <tabIcon
             id="settings-camera-icon"
@@ -67,15 +54,14 @@
             :current-tab="currentTab"
             @set-tab="setTab"
           >
-            Camera/stage mapping
+            Camera to Stage Mapping
           </tabIcon>
         </li>
       </ul>
       <action-button
         thing="settings"
         action="save_all_thing_settings"
-        submit-label="Save all settings"
-        class="uk-margin"
+        submit-label="Save All Settings"
       />
     </div>
     <div class="view-component uk-width-expand uk-padding-small">
@@ -87,16 +73,6 @@
         <div class="settings-pane uk-padding-small">
           <appSettings />
           <streamSettings />
-        </div>
-      </tabContent>
-
-      <tabContent
-        tab-i-d="features"
-        :require-connection="false"
-        :current-tab="currentTab"
-      >
-        <div class="settings-pane uk-padding-small">
-          <featuresSettings />
         </div>
       </tabContent>
 
@@ -137,7 +113,6 @@
 import streamSettings from "./settingsComponents/streamSettings.vue";
 import cameraSettings from "./settingsComponents/cameraSettings.vue";
 import appSettings from "./settingsComponents/appSettings.vue";
-import featuresSettings from "./settingsComponents/featuresSettings.vue";
 import CSMSettings from "./settingsComponents/CSMSettings.vue";
 import stageSettings from "./settingsComponents/stageSettings.vue";
 // Import generic components
@@ -155,7 +130,6 @@ export default {
     stageSettings,
     CSMSettings,
     appSettings,
-    featuresSettings,
     tabIcon,
     tabContent,
     ActionButton

@@ -13,19 +13,19 @@
                 <a class="uk-accordion-title" href="#">Pi Camera Settings</a>
                 <div class="uk-accordion-content">
                   <PropertyControl
-                    label="Exposure time (0-33251)"
+                    label="Exposure Time (0-33251)"
                     property-name="exposure_time"
                     thing-name="camera"
                     :read-back-delay="1000"
                   />
                   <PropertyControl
-                    label="Analogue gain"
+                    label="Analogue Gain"
                     property-name="analogue_gain"
                     thing-name="camera"
                     :read-back-delay="1000"
                   />
                   <PropertyControl
-                    label="Colour gains"
+                    label="Colour Gains"
                     property-name="colour_gains"
                     thing-name="camera"
                     :read-back-delay="1000"
@@ -36,13 +36,13 @@
                 <a class="uk-accordion-title" href="#">Image Quality</a>
                 <div class="uk-accordion-content">
                   <PropertyControl
-                    label="MJPEG stream bit rate"
+                    label="MJPEG Stream Bit Rate"
                     property-name="mjpeg_bitrate"
                     thing-name="camera"
                     :read-back-delay="100"
                   />
                   <PropertyControl
-                    label="MJPEG stream resolution"
+                    label="MJPEG Stream Resolution"
                     property-name="stream_resolution"
                     thing-name="camera"
                     :read-back-delay="100"

@@ -5,7 +5,7 @@
         <li>
           <a class="uk-accordion-title" href="#">Configure</a>
           <div class="uk-accordion-content">
-            <b>STEP SIZE</b>
+            <b>Step Size</b>
             <div class="uk-grid-small uk-child-width-1-3" uk-grid>
               <div>
                 <label class="uk-form-label" for="form-stacked-text">x</label>

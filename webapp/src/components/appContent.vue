@@ -205,27 +205,27 @@ export default {
     topTabs: function() {
       let tabs = [
         {
-          id: "view",
+          id: "View",
           icon: "visibility",
           component: viewContent
         },
         {
-          id: "navigate",
+          id: "Navigate",
           icon: "gamepad",
           component: navigateContent
         },
         {
-          id: "background detect",
+          id: "Background Detect",
           icon: "background_replace",
           component: backgroundDetectContent
         },
         {
-          id: "slide scan",
+          id: "Slide Scan",
           icon: "settings_overscan",
           component: slideScanContent
         },
         {
-          id: "scan list",
+          id: "Scan List",
           icon: "photo_library",
           component: ScanListContent
         }

@@ -25,12 +25,6 @@
         Apply
       </button>
     </form>
-    <form class="uk-form-stacked" @submit.prevent="resetTour">
-      <label class="uk-form-label">Re-run tour on next load</label>
-      <button class="uk-button uk-button-default uk-margin-small">
-        Reset
-      </button>
-    </form>
   </div>
 </template>
 
