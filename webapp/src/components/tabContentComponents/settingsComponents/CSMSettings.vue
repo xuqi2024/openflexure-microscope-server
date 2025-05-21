@@ -4,7 +4,7 @@
     class="uk-grid uk-grid-divider uk-child-width-expand"
     uk-grid
   >
-    <div class="uk-width-large">
+    <div class="uk-width-xlarge">
       <h3>Camera to Stage Mapping</h3>
       <p>
         Camera-stage mapping allows the stage to move relative to the camera
