@@ -556,43 +556,6 @@ class StreamingPiCamera2(BaseCamera):
         piexif.insert(piexif.dump(exif_dict), path)
         return JPEGBlob.from_temporary_directory(folder, fname)
 
-    @thing_action
-    def grab_jpeg(
-        self,
-        portal: BlockingPortal,
-        stream_name: Literal["main", "lores"] = "main",
-    ) -> JPEGBlob:
-        """Acquire one image from the preview stream and return as an array
-
-        This differs from `capture_jpeg` in that it does not pause the MJPEG
-        preview stream. Instead, we simply return the next frame from that
-        stream (either "main" for the preview stream, or "lores" for the low
-        resolution preview). No metadata is returned.
-        """
-        logging.debug(
-            f"StreamingPiCamera2.grab_jpeg(stream_name={stream_name}) starting"
-        )
-        stream = (
-            self.lores_mjpeg_stream if stream_name == "lores" else self.mjpeg_stream
-        )
-        frame = portal.call(stream.grab_frame)
-        logging.debug(
-            f"StreamingPiCamera2.grab_jpeg(stream_name={stream_name}) got frame"
-        )
-        return JPEGBlob.from_bytes(frame)
-
-    @thing_action
-    def grab_jpeg_size(
-        self,
-        portal: BlockingPortal,
-        stream_name: Literal["main", "lores"] = "main",
-    ) -> int:
-        """Acquire one image from the preview stream and return its size"""
-        stream = (
-            self.lores_mjpeg_stream if stream_name == "lores" else self.mjpeg_stream
-        )
-        return portal.call(stream.next_frame_size)
-
     @thing_property
     def exposure(self) -> float:
         """An alias for `exposure_time` to fit the micromanager API"""
