@@ -53,9 +53,6 @@ class OpenCVCamera(BaseCamera):
             return self._capture_thread.is_alive()
         return False
 
-    mjpeg_stream = MJPEGStreamDescriptor()
-    lores_mjpeg_stream = MJPEGStreamDescriptor()
-
     def _capture_frames(self):
         portal = get_blocking_portal(self)
         while self._capture_enabled:
