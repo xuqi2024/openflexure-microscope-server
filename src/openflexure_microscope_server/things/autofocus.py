@@ -34,6 +34,8 @@ from .capture import CaptureThing
 
 CaptureDep = direct_thing_client_dependency(CaptureThing, "/capture/")
 
+SETTLING_TIME = 0.3
+
 
 class JPEGSharpnessMonitor:
     __globals__ = globals()  # Required for FastAPI dependency
@@ -295,6 +297,8 @@ class AutofocusThing(Thing):
         stage.move_relative(z=-stack_z_range / 2)
 
         for capture_count in range(images_to_capture):
+            time.sleep(SETTLING_TIME)
+
             jpeg_path = os.path.join(
                 stack_dir,
                 f"{capture_count}.jpeg",
@@ -309,7 +313,6 @@ class AutofocusThing(Thing):
             # If the stack isn't complete yet, move
             if capture_count + 1 < images_to_capture:
                 stage.move_relative(z=stack_dz)
-                time.sleep(0.3)
 
         self.copy_central_image_from_stack(images_dir, stack_dir)
 
