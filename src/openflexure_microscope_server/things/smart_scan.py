@@ -88,6 +88,7 @@ JPEGBlob = blob_type("image/jpeg")
 ZipBlob = blob_type("application/zip")
 IMG_DIR_NAME = "images"
 SCAN_DATA_FILENAME = "scan_data.json"
+STITCHING_CMD = "openflexure-stitch"
 
 SCAN_ZERO_PAD_DIGITS = 4
 
@@ -112,8 +113,7 @@ def _scan_running(method):
 
 
 class SmartScanThing(Thing):
-    def __init__(self, path_to_openflexure_stitch: str):
-        self._stitching_script = path_to_openflexure_stitch
+    def __init__(self):
         self._preview_stitch_popen = None
         self._preview_stitch_popen_lock = threading.Lock()
         self._scan_lock = threading.Lock()
@@ -978,7 +978,7 @@ class SmartScanThing(Thing):
         with self._preview_stitch_popen_lock:
             self._preview_stitch_popen = Popen(
                 [
-                    self._stitching_script,
+                    STITCHING_CMD,
                     "--stitching_mode",
                     "only_stage_stitch",
                     "--minimum_overlap",
@@ -1092,7 +1092,7 @@ class SmartScanThing(Thing):
         self.run_subprocess(
             logger,
             [
-                self._stitching_script,
+                STITCHING_CMD,
                 "--stitching_mode",
                 "all",
                 f"{tiff_arg}",
