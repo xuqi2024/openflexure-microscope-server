@@ -6,6 +6,7 @@ from PIL import Image
 import numpy as np
 from pytest import fixture
 
+
 @fixture(scope="module")
 def client():
     server = ThingServer()
@@ -14,8 +15,10 @@ def client():
         client = ThingClient.from_url("/camera/", client=test_client)
         yield client
 
+
 def test_calibration(client):
     client.full_auto_calibrate()
+
 
 def test_jpeg_and_array(client):
     blob = client.grab_jpeg()
@@ -28,5 +31,3 @@ def test_jpeg_and_array(client):
     array_main = np.array(arrlist)
     assert mjpeg_frame.size == jpeg_capture.size
     assert array_main.shape[1::-1] == jpeg_capture.size
-
-

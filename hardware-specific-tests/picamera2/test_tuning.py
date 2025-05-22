@@ -5,7 +5,7 @@ from labthings_picamera2 import recalibrate_utils
 import pytest
 
 
-MODEL = Picamera2.global_camera_info()[0]['Model']
+MODEL = Picamera2.global_camera_info()[0]["Model"]
 
 
 def check_camera_available():

@@ -1,7 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass
 from datetime import datetime
-import io
 import json
 import logging
 import os
@@ -12,19 +10,14 @@ from tempfile import TemporaryDirectory
 from pydantic import BaseModel, BeforeValidator
 
 from labthings_fastapi.descriptors.property import PropertyDescriptor
-from labthings_fastapi.thing import Thing
 from labthings_fastapi.decorators import thing_action, thing_property
 from labthings_fastapi.outputs.mjpeg_stream import MJPEGStream
 from labthings_fastapi.utilities import get_blocking_portal
-from labthings_fastapi.types.numpy import NDArray
 from labthings_fastapi.dependencies.metadata import GetThingStates
 from labthings_fastapi.dependencies.blocking_portal import BlockingPortal
-from typing import Annotated, Any, Iterator, Literal, Mapping, Optional, Self
+from typing import Annotated, Any, Iterator, Literal, Mapping, Optional
 from contextlib import contextmanager
 import piexif
-from scipy.ndimage import zoom
-from scipy.interpolate import interp1d
-from PIL import Image
 from threading import RLock
 import picamera2
 from picamera2 import Picamera2
@@ -33,7 +26,7 @@ from picamera2.outputs import Output
 import numpy as np
 from . import picamera_recalibrate_utils as recalibrate_utils
 
-from . import BaseCamera, JPEGBlob, PNGBlob, ArrayModel
+from . import BaseCamera, JPEGBlob, ArrayModel
 
 
 class PicameraControl(PropertyDescriptor):
@@ -636,7 +629,9 @@ class StreamingPiCamera2(BaseCamera):
         the processed images. It should not affect raw images.
         """
         with self.picamera(pause_stream=True) as cam:
-            L, Cr, Cb = recalibrate_utils.lst_from_camera(cam)
+            # Suppress lint warning that L, Cr, and Cb are not lowercase, as this is the
+            # Standard format for these mathematical vars.
+            L, Cr, Cb = recalibrate_utils.lst_from_camera(cam)  # noqa: N806
             recalibrate_utils.set_static_lst(self.tuning, L, Cr, Cb)
             self.initialise_picamera()
 

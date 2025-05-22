@@ -21,13 +21,10 @@ import piexif
 from labthings_fastapi.utilities import get_blocking_portal
 from labthings_fastapi.decorators import thing_action, thing_property
 from labthings_fastapi.dependencies.metadata import GetThingStates
-from labthings_fastapi.types.numpy import NDArray
 from labthings_fastapi.server import ThingServer
-from pydantic import RootModel
 
 from . import BaseCamera, JPEGBlob, ArrayModel
 from ..stage import StageProtocol as Stage
-
 
 
 class SimulatedCamera(BaseCamera):

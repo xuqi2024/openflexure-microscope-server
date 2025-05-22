@@ -30,6 +30,11 @@ picamera.lens_shading_table = lst
 ```
 """
 
+# Disable N806 & 803, which checks that all variables and args are lowercase.
+# This is due to the number of matrix calculations and colour channel
+# calculations that are clearer using the standard R, G, B, or L, Cr, Cb terms.
+# ruff: noqa: N806 N803
+
 from __future__ import annotations
 import gc
 import logging
@@ -41,6 +46,9 @@ from scipy.ndimage import zoom
 
 from picamera2 import Picamera2
 import picamera2
+
+
+LensShadingTables = tuple[np.ndarray, np.ndarray, np.ndarray]
 
 
 def load_default_tuning(cam: Picamera2) -> dict:
@@ -58,12 +66,13 @@ def load_default_tuning(cam: Picamera2) -> dict:
     try:
         return cam.load_tuning_file(fname)
     except RuntimeError:
-        dir = "/usr/share/libcamera/ipa/raspberrypi"  # from picamera2 v0.3.9
-        # The directory above has been removed from the search path, which I
+        tuning_dir = "/usr/share/libcamera/ipa/raspberrypi"
+        # from picamera2 v0.3.9
+        # The directory above has been removed from the search path seems
         # find odd - as that's where the files currently are on a default
         # Raspbian image. This may need updating if the files have moved
         # in future updates to the system libcamera package
-        return cam.load_tuning_file(fname, dir=dir)
+        return cam.load_tuning_file(fname, dir=tuning_dir)
 
 
 def set_minimum_exposure(camera: Picamera2):
@@ -219,7 +228,7 @@ def adjust_shutter_and_gain_from_raw(
             break
 
     if check_convergence(test, target_white_level, tolerance):
-        logging.info(f"Brightness has converged to within {tolerance * 100 :.0f}%.")
+        logging.info(f"Brightness has converged to within {tolerance * 100:.0f}%.")
     else:
         logging.warning(
             f"Failed to reach target brightness of {target_white_level}."
@@ -257,9 +266,11 @@ def adjust_white_balance_from_raw(
         channel_gains = 1 / grids
         if channel_gains.shape[1:] != channels.shape[1:]:
             channel_gains = upsample_channels(channel_gains, channels.shape[1:])
-        logging.info(f"Before gains, channel maxima are {np.max(channels, axis=(1,2))}")
+        logging.info(
+            f"Before gains, channel maxima are {np.max(channels, axis=(1, 2))}"
+        )
         channels = channels * channel_gains
-        logging.info(f"After gains, channel maxima are {np.max(channels, axis=(1,2))}")
+        logging.info(f"After gains, channel maxima are {np.max(channels, axis=(1, 2))}")
     if method == "centre":
         _, h, w = channels.shape
         blue, g1, g2, red = (
@@ -308,9 +319,6 @@ def channels_from_bayer_array(bayer_array: np.ndarray) -> np.ndarray:
         channels[i, :, :] = bayer_array[offset[0] :: 2, offset[1] :: 2]
 
     return channels
-
-
-LensShadingTables = tuple[np.ndarray, np.ndarray, np.ndarray]
 
 
 def get_16x12_grid(chan: np.ndarray, dx: int, dy: int):
@@ -525,37 +533,16 @@ def raw_channels_from_camera(camera: Picamera2) -> LensShadingTables:
     # raw_image is a 3D array, with full resolution and 3 colour channels.  No
     # de-mosaicing has been done, so 2/3 of the values are zero (3/4 for R and B
     # channels, 1/2 for green because there's twice as many green pixels).
-    format = camera.camera_configuration()["raw"]["format"]
-    print(f"Acquired a raw image in format {format}")
+    raw_format = camera.camera_configuration()["raw"]["format"]
+    print(f"Acquired a raw image in format {raw_format}")
     return channels_from_bayer_array(raw_image)
 
 
 def recreate_camera_manager():
     """Delete and recreate the camera manager.
-    
+
     This is necessary to ensure the tuning file is re-read.
     """
     del Picamera2._cm
     gc.collect()
     Picamera2._cm = picamera2.picamera2.CameraManager()
-
-
-if __name__ == "__main__":
-    """This block is untested but has been updated."""
-    with Picamera2() as cam:
-        tuning = load_default_tuning(cam)
-    f = np.ones((12, 16))
-    set_static_lst(tuning, f, f, f)
-    set_static_geq(tuning)
-    with Picamera2(tuning=tuning) as cam:
-        cam.start_preview()
-        time.sleep(3)
-        logging.info("Recalibrating...")
-        adjust_shutter_and_gain_from_raw(cam)
-        adjust_white_balance_from_raw(cam)
-        lst = lst_from_camera(cam)
-        set_static_lst(tuning, *lst)
-        logging.info("Done.")
-    with Picamera2(tuning=tuning) as cam:
-        cam.start_preview()
-        time.sleep(2)

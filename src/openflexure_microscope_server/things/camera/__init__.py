@@ -7,11 +7,12 @@ See repository root for licensing information.
 """
 
 from __future__ import annotations
-import logging
 from typing import Literal, Optional, Tuple
+import json
 
 from pydantic import RootModel
 from PIL import Image
+import piexif
 
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.decorators import thing_action, thing_property
@@ -28,23 +29,27 @@ from labthings_fastapi.types.numpy import NDArray
 class JPEGBlob(Blob):
     media_type: str = "image/jpeg"
 
+
 class PNGBlob(Blob):
     media_type: str = "image/png"
 
+
 class ArrayModel(RootModel):
     """A model for an array"""
+
     root: NDArray
 
 
 class CaptureError(RuntimeError):
     """An error trying to capture from a CameraThing"""
 
+
 class NoImageInMemoryError(RuntimeError):
     """An error called if no image in in memory when an method is called to use that image"""
 
+
 class BaseCamera(Thing):
-    """The base class for all cameras. All cameras must directly inherit from this class
-    """
+    """The base class for all cameras. All cameras must directly inherit from this class"""
 
     _memory_image: Optional[Image] = None
     _memory_metadata: Optional[dict] = None
@@ -72,12 +77,16 @@ class BaseCamera(Thing):
     def start_streaming(self, main_resolution, buffer_count) -> None:
         """Start (or stop and restart) the camera with the given resolution
         for the main stream, and buffer_count number of images in the buffer"""
-        raise NotImplementedError("CameraThings must define their own start_streaming method")
+        raise NotImplementedError(
+            "CameraThings must define their own start_streaming method"
+        )
 
     @thing_property
     def stream_active(self) -> bool:
         "Whether the MJPEG stream is active"
-        raise NotImplementedError("CameraThings must define their own stream_active method")
+        raise NotImplementedError(
+            "CameraThings must define their own stream_active method"
+        )
 
     @thing_action
     def capture_array(
@@ -85,7 +94,9 @@ class BaseCamera(Thing):
         stream_name: Literal["main", "lores", "raw", "full"] = "main",
         wait: Optional[float] = 5,
     ) -> NDArray:
-        raise NotImplementedError("CameraThings must define their own capture_array method")
+        raise NotImplementedError(
+            "CameraThings must define their own capture_array method"
+        )
 
     @thing_action
     def capture_jpeg(
@@ -95,7 +106,9 @@ class BaseCamera(Thing):
         wait: Optional[float] = 5,
     ) -> JPEGBlob:
         """Acquire one image from the camera and return as a JPEG blob"""
-        raise NotImplementedError("CameraThings must define their own capture_jpeg method")
+        raise NotImplementedError(
+            "CameraThings must define their own capture_jpeg method"
+        )
 
     @thing_action
     def grab_jpeg(
@@ -119,7 +132,9 @@ class BaseCamera(Thing):
     @thing_action
     def capture_image(self, stream_name, wait):
         """Capture a PIL image from stream stream_name with timeout wait"""
-        raise NotImplementedError("CameraThings must define their own capture_image method")
+        raise NotImplementedError(
+            "CameraThings must define their own capture_image method"
+        )
 
     @thing_action
     def capture_and_save(
@@ -127,7 +142,7 @@ class BaseCamera(Thing):
         jpeg_path: str,
         logger: InvocationLogger,
         metadata_getter: GetThingStates,
-        save_resolution: Optional[Tuple[int, int]]=None,
+        save_resolution: Optional[Tuple[int, int]] = None,
     ) -> None:
         """Capture an image and save it to disk
 
@@ -172,7 +187,7 @@ class BaseCamera(Thing):
         self,
         jpeg_path: str,
         logger: InvocationLogger,
-        save_resolution: Optional[Tuple[int, int]]=None,
+        save_resolution: Optional[Tuple[int, int]] = None,
     ) -> None:
         """
         Save an image that has been captured to memory.
@@ -188,7 +203,6 @@ class BaseCamera(Thing):
             save_resolution=save_resolution,
         )
         self.clear_image_memory()
-
 
     def _robust_image_capture(
         self,
@@ -216,7 +230,7 @@ class BaseCamera(Thing):
         image: Image,
         metadata: dict,
         logger: InvocationLogger,
-        save_resolution: Optional[Tuple[int, int]]=None,
+        save_resolution: Optional[Tuple[int, int]] = None,
     ) -> None:
         """Saving the captured image and metadata to disk
         logger warning (via InvocationLogger) is raised if metadata is failed to be added

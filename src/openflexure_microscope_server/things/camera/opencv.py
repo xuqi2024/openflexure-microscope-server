@@ -19,7 +19,6 @@ import piexif
 from labthings_fastapi.utilities import get_blocking_portal
 from labthings_fastapi.decorators import thing_action, thing_property
 from labthings_fastapi.dependencies.metadata import GetThingStates
-from labthings_fastapi.outputs.mjpeg_stream import MJPEGStreamDescriptor
 from labthings_fastapi.types.numpy import NDArray
 
 from . import BaseCamera, JPEGBlob
