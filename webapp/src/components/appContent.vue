@@ -138,6 +138,7 @@ import viewContent from "./tabContentComponents/viewContent.vue";
 import settingsContent from "./tabContentComponents/settingsContent.vue";
 import aboutContent from "./tabContentComponents/aboutContent.vue";
 import loggingContent from "./tabContentComponents/loggingContent.vue";
+import powerContent from "./tabContentComponents/powerContent.vue";
 // ImJoy is loaded asynchronously to allow it to be disabled if needed
 const imjoyContent = () =>
   import(
@@ -164,6 +165,7 @@ export default {
     aboutContent,
     loggingContent,
     TabIcon,
+    powerContent,
     imjoyContent
   },
   data: function() {
@@ -185,6 +187,11 @@ export default {
           id: "about",
           icon: "info",
           component: aboutContent
+        },
+        {
+          id: "power",
+          icon: "power_settings_new",
+          component: powerContent
         }
       ]
     };

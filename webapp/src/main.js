@@ -86,6 +86,9 @@ Vue.mixin({
       // Stop GPU preview to show modal
       context.$root.$emit("globalTogglePreview", false);
 
+      // force OK to be capitalised
+      UIkit.modal.i18n = { ok: "OK", cancel: "Cancel" };
+
       var showModal = function(resolve, reject) {
         UIkit.modal
           .confirm(modalText, { stack: true })
@@ -150,7 +153,7 @@ Vue.mixin({
           return `${error.response.data.detail}`;
         }
         // If the response is just some generic error response
-        if (error.response.data){
+        if (error.response.data) {
           return `${error.response.data}`;
         }
         return `${error.response}`;

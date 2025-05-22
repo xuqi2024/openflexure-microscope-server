@@ -25,7 +25,7 @@
 
       <div>
         <b>Server Version:</b> <br />
-        TODO
+        V3 (pre-alpha)
       </div>
 
       <hr />
@@ -48,28 +48,6 @@
       </div>
 
       <hr />
-
-      <div class="uk-grid-small uk-child-width-1-2" uk-grid>
-        <div>
-          <button
-            v-show="'shutdown' in things.system_control.actions"
-            class="uk-button uk-button-danger uk-float-right uk-margin uk-margin-remove-top uk-width-1-1"
-            @click="systemRequest('shutdown')"
-          >
-            Shutdown
-          </button>
-        </div>
-
-        <div>
-          <button
-            v-show="'reboot' in things.system_control.actions"
-            class="uk-button uk-button-danger uk-float-right uk-margin uk-margin-remove-top uk-width-1-1"
-            @click="systemRequest('reboot')"
-          >
-            Restart
-          </button>
-        </div>
-      </div>
     </div>
     <div v-else-if="$store.state.waiting">
       Loading...
@@ -82,7 +60,6 @@
 </template>
 
 <script>
-import axios from "axios";
 import ActionButton from "../../labThingsComponents/actionButton.vue";
 
 export default {
@@ -94,22 +71,6 @@ export default {
       return this.$store.getters["wot/thingDescriptions"];
     }
   },
-
-  methods: {
-    systemRequest: function(action) {
-      this.modalConfirm("Restart microscope?").then(
-        () => {
-          this.$store.commit("resetState");
-          this.$store.commit("wot/deleteAllThingDescriptions");
-          // Post and silence errors
-          axios
-            .post(this.thingActionUrl("system_control", action))
-            .catch(() => {});
-        },
-        () => {}
-      );
-    }
-  }
 };
 </script>
 
