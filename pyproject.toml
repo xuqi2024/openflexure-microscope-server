@@ -38,7 +38,7 @@ dev = [
   "matplotlib~=3.10"
 ]
 pi = [
-  "labthings-picamera2 == 0.0.2-dev0",
+  "picamera2~=0.3.12",
 ]
 
 [project.scripts]
@@ -81,8 +81,8 @@ addopts = [
 ]
 
 norecursedirs = [".git", "build", "node_modules"]
-
 pythonpath = ["."]
+testpaths = ["tests"]
 
 [tool.ruff.format]
 # Use native line endings for all files
