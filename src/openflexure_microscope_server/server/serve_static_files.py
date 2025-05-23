@@ -44,3 +44,10 @@ def add_static_files(app: FastAPI) -> None:
                 StaticFiles(directory=fpath),
                 name=f"static_{fname}",
             )
+
+    # Mount the scan directory to .../scans/, to allow dzi viewing
+    app.mount(
+        "/scans/",
+        StaticFiles(directory="/var/openflexure/scans/"),
+        name="scans",
+    )

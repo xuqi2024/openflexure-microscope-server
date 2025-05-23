@@ -77,6 +77,7 @@ class ScanInfo(BaseModel):
     modified: datetime
     number_of_images: int
     stitch_available: bool
+    dzi: Optional[str]
 
 
 DOWNLOADABLE_SCAN_FILES = (
@@ -819,6 +820,11 @@ class SmartScanThing(Thing):
                     ]
                     number_of_images = len(scan_images)
                     stitch_available = len(stitches) > 0
+                    dzi = [i for i in folder_contents if i.endswith("dzi")]
+                    if len(dzi) > 0:
+                        dzi = str(dzi[0])
+                    else:
+                        dzi = None
                 else:
                     number_of_images = 0
                     stitch_available = False
@@ -831,6 +837,7 @@ class SmartScanThing(Thing):
                         modified=modified,
                         number_of_images=number_of_images,
                         stitch_available=stitch_available,
+                        dzi=dzi,
                     )
                 )
         return scans
@@ -925,7 +932,7 @@ class SmartScanThing(Thing):
             raise FileNotFoundError("No latest scan found")
 
         images_dir = self.images_dir_for_scan(self.latest_scan_name)
-        stitch_path = os.path.join(images_dir, "stitched_from_stage.jpg")
+        stitch_path = os.path.join(images_dir, "preview.jpg")
         if not os.path.isfile(stitch_path):
             raise FileNotFoundError("Latest scan has no preview stitch")
         return stitch_path
@@ -980,7 +987,7 @@ class SmartScanThing(Thing):
                 [
                     STITCHING_CMD,
                     "--stitching_mode",
-                    "only_stage_stitch",
+                    "preview_stitch",
                     "--minimum_overlap",
                     f"{min_overlap}",
                     self._ongoing_scan_images_dir,
@@ -1096,6 +1103,7 @@ class SmartScanThing(Thing):
                 "--stitching_mode",
                 "all",
                 f"{tiff_arg}",
+                "--stitch_dzi",
                 "--minimum_overlap",
                 f"{round(overlap * 0.9, 2)}",
                 images_folder,
@@ -1158,6 +1166,7 @@ class SmartScanThing(Thing):
             "stitched_from",
             "stitched.om",
             "stitching_correlations",
+            "preview.jp",
         ]
 
         with zipfile.ZipFile(zip_fname, mode="a") as scan_zip:
