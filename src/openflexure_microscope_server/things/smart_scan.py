@@ -40,7 +40,7 @@ BackgroundDep = direct_thing_client_dependency(
     BackgroundDetectThing, "/background_detect/"
 )
 
-IMAGE_REGEX = re.compile(r"-?[0-9]+_-?[0-9]+\.jpeg$")
+IMAGE_REGEX = re.compile(r"-?[0-9]+_-?[0-9]+\.jpe?g$")
 
 
 class NotEnoughFreeSpaceError(IOError):

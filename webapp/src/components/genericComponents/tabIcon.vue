@@ -103,6 +103,7 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 85%;
+  text-transform: capitalize;
 }
 
 a:hover,
