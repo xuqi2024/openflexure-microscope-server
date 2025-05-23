@@ -1212,12 +1212,15 @@ class SmartScanThing(Thing):
         for scan in scan_list:
             scan_folder = os.path.join(self.base_scan_dir, scan.name, IMG_DIR_NAME)
             images_found = False
-            for fname in os.listdir(scan_folder):
-                fpath = os.path.join(scan_folder, fname)
-                if os.path.isfile(fpath) and IMAGE_REGEX.search(fname):
-                    images_found = True
-                    # break as soon as an image is found.
-                    break
+            # Check the scan directory exists, and if it does loop through each file
+            # to check if they are scan captures.
+            if os.path.isdir(scan_folder):
+                for fname in os.listdir(scan_folder):
+                    fpath = os.path.join(scan_folder, fname)
+                    if os.path.isfile(fpath) and IMAGE_REGEX.search(fname):
+                        images_found = True
+                        # break as soon as an image is found.
+                        break
 
             if not images_found:
                 path = os.path.join(self.base_scan_dir, scan.name)
