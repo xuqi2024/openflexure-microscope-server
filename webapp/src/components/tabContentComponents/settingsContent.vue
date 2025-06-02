@@ -19,8 +19,8 @@
         </li>
         <li class="uk-nav-header">Microscope Settings</li>
         <action-button
-        thing="RangeofMotionThing"
-        action="measure_rom"
+        thing=""
+        action=""
         submit-label="Launch Calibration Wizard"
         class="uk-margin"
       />
@@ -79,7 +79,7 @@
       </ul>
       <action-button
         thing="settings"
-        action="save_all_thing_settings"
+        action=""
         submit-label="Download Calibration Data"
       />
     </div>
@@ -134,6 +134,16 @@
           <CSMSettings />
         </div>
       </tabContent>
+
+      <tabContent
+        tab-i-d="resolution"
+        :require-connection="true"
+        :current-tab="currentTab"
+      >
+        <div class="settings-pane uk-padding-small">
+          <ResolutionSettings />
+        </div>
+      </tabContent>
     </div>
   </div>
 </template>
@@ -148,6 +158,7 @@ import stageSettings from "./settingsComponents/stageSettings.vue";
 import tabIcon from "../genericComponents/tabIcon";
 import tabContent from "../genericComponents/tabContent";
 import ActionButton from "../labThingsComponents/actionButton.vue";
+import ResolutionSettings from "./settingsComponents/resolutionSettings.vue";
 
 // Export main app
 export default {
@@ -161,7 +172,8 @@ export default {
     appSettings,
     tabIcon,
     tabContent,
-    ActionButton
+    ActionButton,
+    ResolutionSettings
   },
 
   data: function() {

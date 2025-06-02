@@ -20,20 +20,6 @@
           @response="alertROMMeasured"
         />
       </div>
-      <div class="uk-margin">
-        <action-button
-          thing="auto_recentre_stage"
-              action="recentre"
-              submit-label="Re-centre Stage"
-              :can-terminate="true"
-              :requires-confirmation="true"
-              :modal-progress="true"
-              :confirmation-message="
-                'The stage will now move, and autofocus will be used to find the centre of motion. This requires a sample to be visible in the microscope. OK to proceed?'
-              "
-          :submit-data="{max_steps: 15,  lateral_distance: 2500}"
-        />
-      </div>
       <button
       type="button"
       class="uk-button uk-button-default uk-width-1-1"
@@ -41,21 +27,6 @@
     >
       Download calibration data
     </button>
-    <div class="uk-margin">
-        <action-button
-          thing="autofocus"
-              action="autofocus_report"
-              submit-label="Test autofocus"
-              :can-terminate="true"
-              :requires-confirmation="true"
-              :modal-progress="true"
-              :modal-response="true"
-              :confirmation-message="
-                'A series of autofocuses will now run, and the success of each will be measured. The resulting plots can be downloaded from the logs folder. OK to proceed?'
-              "
-          :submit-data="{repeats: 20,  plots: 'true'}"
-        />
-      </div>
     </div>
   </div>
 </template>
