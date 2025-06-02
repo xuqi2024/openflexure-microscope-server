@@ -18,6 +18,12 @@
           </tabIcon>
         </li>
         <li class="uk-nav-header">Microscope Settings</li>
+        <action-button
+        thing="RangeofMotionThing"
+        action="measure_rom"
+        submit-label="Launch Calibration Wizard"
+        class="uk-margin"
+      />
         <li>
           <tabIcon
             id="settings-camera-icon"
@@ -28,20 +34,7 @@
             :current-tab="currentTab"
             @set-tab="setTab"
           >
-            Camera
-          </tabIcon>
-        </li>
-        <li>
-          <tabIcon
-            id="settings-stage-icon"
-            tab-i-d="stage"
-            :show-title="false"
-            :show-tooltip="false"
-            :require-connection="true"
-            :current-tab="currentTab"
-            @set-tab="setTab"
-          >
-            Stage
+            Camera Calibration
           </tabIcon>
         </li>
         <li>
@@ -59,28 +52,35 @@
         </li>
         <li>
           <tabIcon
+            id="settings-stage-icon"
+            tab-i-d="range-of-motion"
+            :show-title="false"
+            :show-tooltip="false"
+            :require-connection="true"
+            :current-tab="currentTab"
+            @set-tab="setTab"
+          >
+            Range of Motion
+          </tabIcon>
+        </li>
+        <li>
+          <tabIcon
             id="settings-features-icon"
-            tab-i-d="calibration"
+            tab-i-d="resolution"
             :show-title="false"
             :show-tooltip="false"
             :require-connection="false"
             :current-tab="currentTab"
             @set-tab="setTab"
           >
-            Calibration
+            Resolution
           </tabIcon>
         </li>
       </ul>
       <action-button
         thing="settings"
         action="save_all_thing_settings"
-        submit-label="Save All Settings"
-      />
-      <action-button
-        thing="RangeofMotionThing"
-        action="measure_rom"
-        submit-label="Launch Calibration Wizard"
-        class="uk-margin"
+        submit-label="Download Calibration Data"
       />
     </div>
     <div class="view-component uk-width-expand uk-padding-small">
@@ -116,7 +116,7 @@
       </tabContent>
 
       <tabContent
-        tab-i-d="stage"
+        tab-i-d="range-of-motion"
         :require-connection="true"
         :current-tab="currentTab"
       >
@@ -144,7 +144,6 @@ import cameraSettings from "./settingsComponents/cameraSettings.vue";
 import appSettings from "./settingsComponents/appSettings.vue";
 import CSMSettings from "./settingsComponents/CSMSettings.vue";
 import stageSettings from "./settingsComponents/stageSettings.vue";
-import Calibration from "./settingsComponents/calibrationSuite.vue"
 // Import generic components
 import tabIcon from "../genericComponents/tabIcon";
 import tabContent from "../genericComponents/tabContent";
@@ -162,8 +161,7 @@ export default {
     appSettings,
     tabIcon,
     tabContent,
-    ActionButton,
-    Calibration
+    ActionButton
   },
 
   data: function() {
