@@ -28,6 +28,37 @@ AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
 def quadratic(x, a, b, c):  
     return a * x**2 + b * x + c
 
+def straight_line(x,m,c):
+    return m*x + c
+
+#This function is used in the range of motion analysis.
+def pattern_gen(max_index, first_index):
+    '''
+    Generates a list of integers with the required pattern for the stage postitions we are interested in analysing.
+    Input - Max_index: the maximum integer in the array, typically the shape of the data set.
+    first_index - whether the list starts from 0 or 1.
+    '''
+    max_index = max_index - 1
+    index = np.arange(first_index, first_index + 4, 1)
+    index = np.ndarray.tolist(index)
+    index_reached = False
+    while np.max(index) < max_index:
+        index.append(np.max(index) + 2)
+        if np.max(index) >= max_index:
+            if np.max(index) > max_index:
+                index = index[:len(index)-1]
+            break
+        for loop in range(2):
+            index.append(np.max(index) + 1)
+            if np.max(index) >= max_index:
+                index_reached = True
+                break
+        
+        if index_reached == True:
+            break
+
+    return index
+
 class RangeofMotionThing(Thing):
     @thing_action
     def measure_rom(
@@ -410,7 +441,50 @@ class RangeofMotionThing(Thing):
         """
         return self.thing_settings.get("rom_data", None)
 
+    def rom_analysis(self):
+        filename = "/var/openflexure/ROM_Test_Results.json"
 
+        with open(filename, 'r') as file:
+            data = json.load(file)
+        
+        csm_con = data['pixels/step'] * 2 #Number of pixels per step calculated by camera stage mapping calibration
+
+        x_pos_final = data['x']['1']['final_position']['x']
+        x_neg_final = data['x']['-1']['final_position']['x']
+        y_pos_final = data['y']['1']['final_position']['y']
+        y_neg_final = data['y']['-1']['final_position']['y']
+
+        #Estimated centre
+        x_middle = (x_pos_final + x_neg_final)/2
+        y_middle = (y_pos_final + y_neg_final)/2
+        center = [x_middle, y_middle]
+
+        #Polarity of z-motor
+        z_pos = []
+        x_pos = []
+
+        for dir in ['1', '-1']:
+            for loop in range(np.shape(data['x'][dir]['stage_positions'])[0]):
+                z_pos.append(data['x'][dir]['stage_positions'][loop]['z'])
+                x_pos.append(data['x'][dir]['stage_positions'][loop]['x'])
+
+        params, extra = curve_fit(parabola, x_pos, z_pos)
+
+        polarity_value = 2 * params[0] #This is the coeficient of the x^2 term in the quadratic
+
+        if polarity_value > 0:
+            curvature = 'positive'
+        elif polarity_value < 0:
+            curvature = 'negative'
+        elif polarity_value == 0:
+            curvature = 'ERROR'
+
+        #Range of Motion
+        rom_x = round(((x_pos_final - x_neg_final) * pixel_um * csm_con /1000), 2)
+        rom_y = round(((y_pos_final - y_neg_final) * pixel_um * csm_con /1000), 2)
+
+        rom_x_steps = x_pos_final - x_neg_final
+        rom_y_steps = y_pos_final - y_neg_final
 
 class RecentringThing(Thing):
     @thing_action
