@@ -4,17 +4,19 @@ import os
 
 from fastapi.responses import PlainTextResponse
 
-OFM_LOG_FOLDER = "/var/openflexure/logs/"
-OFM_LOG_FILE = os.path.join(OFM_LOG_FOLDER, "openflexure_microscope.log")
+OFM_LOG_FILE = None
 
 
-def configure_logging():
+def configure_logging(log_folder):
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
+    # Explictly make OFM_LOG_FILE a global so it can be updated based on log settings
+    global OFM_LOG_FILE
+    OFM_LOG_FILE = os.path.join(log_folder, "openflexure_microscope.log")
 
     try:
-        if not os.path.exists(OFM_LOG_FOLDER):
-            os.makedirs(OFM_LOG_FOLDER)
+        if not os.path.exists(log_folder):
+            os.makedirs(log_folder)
         handler = RotatingFileHandler(
             filename=OFM_LOG_FILE,
             mode="a",
@@ -38,7 +40,7 @@ def configure_logging():
 
 def retrieve_log() -> PlainTextResponse:
     """
-    Returns logs since we started running the server, up to a maxiumum of
+    Returns logs since we started running the server, up to a maximum of
     250 messages. This log is the one shown in the UI and on the logging page.
 
     It does not include any of the `uvicorn.access` logs as these are emmitted
@@ -57,6 +59,10 @@ def retrieve_log_from_file() -> PlainTextResponse:
     Note this is read and then sent as otherwise it causes a RuntimeError if it
     is written to while sending through FileResponse
     """
+    if OFM_LOG_FILE is None:
+        raise RuntimeError(
+            "Cannot retrieve log file as logging directory hasn't been configured"
+        )
     with open(OFM_LOG_FILE, "r", encoding="utf-8") as logfile:
         full_log = logfile.read()
     return PlainTextResponse(full_log)
@@ -86,7 +92,6 @@ class OFMHandler(logging.Handler):
         """
         Emit will save the logged record to the log
         """
-
         # Basic filter for now that simply stops uvicorn.access logs
         # These are the logs each time an API endpoint is accessed
         # This is only the log for the UI.

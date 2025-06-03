@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional
+from copy import copy
 
 from labthings_fastapi.server import cli, ThingServer
 import uvicorn
@@ -9,14 +10,11 @@ from .legacy_api import add_v2_endpoints
 from ..logging import configure_logging, retrieve_log, retrieve_log_from_file
 
 
-def customise_server(server: ThingServer):
+def customise_server(server: ThingServer, log_folder: str):
     """Customise the server with additional endpoints, etc."""
-    configure_logging()
+    configure_logging(log_folder)
     add_v2_endpoints(server)
-    try:
-        add_static_files(server.app)
-    except RuntimeError:
-        print("Failed to add static files - you will have to do without them!")
+    add_static_files(server.app)
 
     # Add an endpoint to get the logs - (directly calling the FastAPI decorator)
     server.app.get("/log/")(retrieve_log)
@@ -26,19 +24,21 @@ def customise_server(server: ThingServer):
 def serve_from_cli(argv: Optional[list[str]] = None):
     """Start the server from the command line"""
     args = cli.parse_args(argv)
+
+    log_config = copy(uvicorn.config.LOGGING_CONFIG)
+    log_config["loggers"]["uvicorn"]["propagate"] = True
+    log_config["loggers"]["uvicorn.access"]["propagate"] = True
+
     try:
-        config, server = None, None
         config = cli.config_from_args(args)
+        log_folder = config.get("log_folder", "./openflexure/logs")
         server = cli.server_from_config(config)
-        customise_server(server)
+        customise_server(server, log_folder)
         uvicorn.run(
             server.app,
             host=args.host,
             port=args.port,
-            log_config={
-                "version": 1,
-                "disable_existing_loggers": False,
-            },
+            log_config=log_config,
         )
 
     except BaseException as e:
@@ -54,10 +54,7 @@ def serve_from_cli(argv: Optional[list[str]] = None):
                 app,
                 host=args.host,
                 port=args.port,
-                log_config={
-                    "version": 1,
-                    "disable_existing_loggers": False,
-                },
+                log_config=log_config,
             )
         else:
             raise e
