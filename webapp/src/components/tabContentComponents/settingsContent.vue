@@ -1,6 +1,7 @@
 <template>
   <!-- Grid managing tab content -->
   <div uk-grid class="uk-height-1-1 uk-margin-remove uk-padding-remove">
+
     <div class="settings-nav">
       <ul class="uk-nav uk-nav-default">
         <li class="uk-nav-header">Application Settings</li>
@@ -19,11 +20,9 @@
         </li>
         <li class="uk-nav-header">Microscope Settings</li>
         <action-button
-        thing=""
-        action=""
         submit-label="Launch Calibration Wizard"
         class="uk-margin"
-      />
+        />
         <li>
           <tabIcon
             id="settings-camera-icon"
@@ -102,16 +101,6 @@
       >
         <div class="settings-pane uk-padding-small">
           <cameraSettings />
-        </div>
-      </tabContent>
-
-      <tabContent
-        tab-i-d="calibration"
-        :require-connection="true"
-        :current-tab="currentTab"
-      >
-        <div class="settings-pane uk-padding-small">
-          <Calibration />
         </div>
       </tabContent>
 
