@@ -1,8 +1,11 @@
 import numpy as np
 import logging
+import os
 import cv2
 import json
 from PIL import Image
+from matplotlib import pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 import time
 from typing import Annotated, Any, Callable, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 from scipy.optimize import curve_fit
@@ -485,6 +488,185 @@ class RangeofMotionThing(Thing):
 
         rom_x_steps = x_pos_final - x_neg_final
         rom_y_steps = y_pos_final - y_neg_final
+
+        #camera Stage Mapping
+        dif_dic = {} #stores the difference between consecutive x and y points
+        stage_dic = {} #This is a subset of dif_dic but only contains the differences where we also have a correlation
+        pos_dic = {} #stores all the x and y positions with correlations
+        cor_dic = {} #stores all correlations and separates x and y
+
+        #Loop finds the difference between consecutive x and y coordinates
+        for axs in ['x','y']:
+            dif_dic[axs] = {}
+            for dir in ['1', '-1']:
+                dif_array = [data[axs][dir]['stage_positions'][i + 1][axs] - data[axs][dir]['stage_positions'][i][axs] for i in range(len(data[axs][dir]['stage_positions']) - 1)]
+                dif_dic[axs][dir] = dif_array
+
+        #This loop extracts every difference in dif_dic where we have a correlation associated with it and saves it in stage_dic.
+        for axs in ['x', 'y']:
+            stage_dic[axs] = {}
+            for dir in ['1', '-1']:
+                temp_array = []
+                max_index = np.shape(dif_dic[axs][dir])[0]
+                cor_index = pattern_gen(max_index, 0)
+                for i in cor_index:
+                    temp_array.append(dif_dic[axs][dir][i])
+                stage_dic[axs][dir] = temp_array
+        
+        x_full_stage_dic_fit = np.concatenate((np.array(stage_dic['x']['1'][:-1]), np.array(stage_dic['x']['-1'][:-1])))
+        y_full_stage_dic_fit = np.concatenate((np.array(stage_dic['y']['1'][:-1]), np.array(stage_dic['y']['-1'][:-1])))
+        x_full_stage_dic = np.concatenate((np.array(stage_dic['x']['1']), np.array(stage_dic['x']['-1'])))
+        y_full_stage_dic = np.concatenate((np.array(stage_dic['y']['1']), np.array(stage_dic['y']['-1'])))
+
+        #This extracts all the positions where we have a correlation and stores them in pos_dic.
+        for axs in ['x', 'y']:
+            pos_dic[axs] = {}
+            for dir in ['1', '-1']:
+                temp_array = []
+                max_index = np.shape(data[axs][dir]['stage_positions'])[0]
+                cor_index = pattern_gen(max_index, 1)
+                for i in cor_index:
+                    temp_array.append(data[axs][dir]['stage_positions'][i][axs])
+                pos_dic[axs][dir] = temp_array
+
+        x_stage_coord_fit = np.concatenate((np.array(pos_dic['x']['-1'][:-1]),np.array(pos_dic['x']['1'][:-1])))
+        y_stage_coord_fit = np.concatenate((np.array(pos_dic['y']['-1'][:-1]),np.array(pos_dic['y']['1'][:-1])))
+        x_stage_coord = np.concatenate((np.array(pos_dic['x']['1']),np.array(pos_dic['x']['-1'])))
+        y_stage_coord = np.concatenate((np.array(pos_dic['y']['1']),np.array(pos_dic['y']['-1'])))
+
+        #This loop separates the x and y value of all correlations.
+
+        for axs in ['x', 'y']:
+            cor_dic[axs] = {}
+            for dir in ['1', '-1']:
+                temp_array = []
+                if axs == 'x':
+                    axis = 1
+                elif axs == 'y':
+                    axis = 0
+                for i in data[axs][dir]['correlation_lateral_steps']:
+                    temp_array.append(i[axis])
+                cor_dic[axs][dir] = temp_array
+
+        x_full_cor_dic_fit = np.concatenate((np.array(cor_dic['x']['1'][:-1]), np.array(cor_dic['x']['-1'][:-1])))
+        y_full_cor_dic_fit = np.concatenate((np.array(cor_dic['y']['1'][:-1]), np.array(cor_dic['y']['-1'][:-1])))
+        x_full_cor_dic = np.concatenate((np.array(cor_dic['x']['1']), np.array(cor_dic['x']['-1'])))
+        y_full_cor_dic = np.concatenate((np.array(cor_dic['y']['1']), np.array(cor_dic['y']['-1'])))
+
+        #For each loop, we have a version of the array without the last points of each axis that we use for fitting. This is because the last point is always going to fail and
+        #will affect the fit. We keep a version of the array with every point for plotting.
+
+        #Calculating the number of pixels per step in x and y at every point we can. Again, we have one for fitting and one for plotting.
+        x_full_pixel_step_fit = x_full_cor_dic_fit/x_full_stage_dic_fit
+        y_full_pixel_step_fit = y_full_cor_dic_fit/y_full_stage_dic_fit
+
+        x_full_pixel_step = x_full_cor_dic/x_full_stage_dic
+        y_full_pixel_step = y_full_cor_dic/y_full_stage_dic
+
+        #Best fit for x_axis
+
+        params_csm_x, extra_csm_x = curve_fit(straight_line, x_stage_coord_fit, np.abs(x_full_pixel_step_fit))
+
+        xaxis_coord = np.arange(np.min(x_stage_coord_fit), np.max(x_stage_coord_fit), 1)
+        xaxis_pixel_step = straight_line(xaxis_coord, params_csm_x[0], params_csm_x[1])
+
+        #Best fit for y_axis
+
+        params_csm_y, extra_csm_y = curve_fit(straight_line, y_stage_coord_fit, np.abs(y_full_pixel_step_fit))
+
+        yaxis_coord = np.arange(np.min(y_stage_coord_fit), np.max(y_stage_coord_fit), 1)
+        yaxis_pixel_step = straight_line(yaxis_coord, params_csm_y[0], params_csm_y[1])
+
+        #Error Analysis
+        #For ROM, take standard deviation of all correlations in x and all correlations in y separately exluding the first 4 correlations
+
+        x_cor_small_movements = np.concatenate((np.array(cor_dic['x']['1'][4:]), np.array(cor_dic['x']['-1'][4:]))) #all small correlations in x
+        y_cor_small_movements = np.concatenate((np.array(cor_dic['y']['1'][4:]), np.array(cor_dic['y']['-1'][4:]))) #all small correlations in y
+
+        rom_err_x = np.std(x_cor_small_movements) #in pixel units
+        rom_err_y = np.std(y_cor_small_movements) #in pixel units
+
+        rom_err_x_mm = rom_err_x * pixel_um/1000
+        rom_err_y_mm = rom_err_y * pixel_um/1000
+
+        #Check for and create if necessary, a folder called Graphs where all the graphs created here will be saved.
+
+        graph_path = "/home/Graphs"
+        isExist = os.path.exists(graph_path)
+
+        if not isExist
+            os.makedirs(graph_path)
+
+        #Final plot of CSM graph
+
+        if np.max(np.abs(x_stage_coord)) > np.min(np.abs(x_stage_coord)):
+            xlim = np.max(np.abs(x_stage_coord)) + 5000
+        else:
+            xlim = np.min(np.abs(x_stage_coord)) + 5000
+
+        plt.scatter(x_stage_coord, np.abs(x_full_pixel_step), label = 'X axis', color = '#C5247F')
+        plt.scatter(y_stage_coord, np.abs(y_full_pixel_step), label = 'Y axis', color = '#24c5bb')
+        plt.plot(xaxis_coord, xaxis_pixel_step, label = f'X Axis Best Fit, m = {np.format_float_scientific(params_csm_x[0], 2)}', color = 'green', linewidth = 2)
+        plt.plot(yaxis_coord, yaxis_pixel_step, label = f'Y Axis Best Fit, m = {np.format_float_scientific(params_csm_y[0], 2)}', color = 'red', linewidth = 2)
+        plt.xlim(-xlim, xlim)
+        plt.title("CSM across ROM")
+        plt.xlabel("Stage Coordinate")
+        plt.ylabel("Pixel/Step")
+        plt.tight_layout()
+        plt.legend()
+        plt.grid()
+        plt.savefig(graph_path)
+
+        #ROM plot
+
+        coord = []
+
+        for axs in ['x', 'y']:
+            for dir in ['1', '-1']:
+                for i in data[axs][dir]['stage_positions']:
+                    x = i['x']
+                    y = i['y']
+                    coord.append([x, y])
+
+        x_coord = []
+        y_coord = []
+
+        for loop in coord:
+            x_coord.append(loop[0] * csm_con * pixel_um/1000)
+            y_coord.append(loop[1] * csm_con * pixel_um/1000)
+
+        #These values set limits on the graphs to make them more readable
+        ROM_lim_x = abs(rom_x) - 2
+        ROM_lim_y = abs(rom_y) - 2
+
+        plt.scatter(x_coord, y_coord, color = '#C5247F')
+        plt.errorbar(x_coord, y_coord, xerr=rom_err_x_mm, yerr=rom_err_y_mm, fmt="None")
+        plt.title('Stage Position')
+        plt.xlim(-ROM_lim_x, ROM_lim_x)
+        plt.ylim(-ROM_lim_y, ROM_lim_y)
+        plt.xlabel('X-Position\n(mm)')
+        plt.ylabel('Y-Position\n(mm)')
+        plt.tight_layout()
+        plt.grid()
+        plt.savefig(graph_path)
+
+        #Polarity plot
+
+        x_fit = np.arange(np.min(x_pos), np.max(x_pos), 1)
+        y_fit = parabola(x_fit, params[0], params[1], params[2])
+
+        plt.title(f'Polarity - {curvature}')
+        plt.scatter(x_pos,z_pos, color = '#C5247F')
+        plt.plot(x_fit, y_fit, color = 'green')
+        plt.xlim(-xlim, xlim)
+        plt.xlabel('X Position')
+        plt.ylabel('Z Position')
+        plt.tight_layout()
+        plt.grid()
+        plt.savefig(graph_path)
+
+    def pdf_generator(self):
+        with PdfPages('Calibration_Results.pdf') as pdf:
 
 class RecentringThing(Thing):
     @thing_action

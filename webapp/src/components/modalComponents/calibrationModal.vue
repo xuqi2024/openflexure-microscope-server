@@ -1,6 +1,6 @@
 <template>
   <div id="modal-example" ref="calibrationModalEl" uk-modal="bg-close: false;">
-    <div v-if="ready" class="uk-modal-dialog uk-modal-body">
+    <div v-if="ready || button" class="uk-modal-dialog uk-modal-body">
       <h2 class="uk-modal-title">Microscope Calibration</h2>
       <div v-show="stepValue == 0">
         <p>
@@ -163,6 +163,7 @@ export default {
   data: function() {
     return {
       ready: false,
+      button: false,
       stepValue: 0,
       isCSMCalibrated: undefined,
       isLSTCalibrated: undefined
@@ -247,6 +248,12 @@ export default {
         this.stepValue = this.stepValue + 1;
         return true;
       }
+    },
+    buttonPress: function() {
+      this.button = true;
+    },
+    buttonRelease: function() {
+      this.button = false;
     }
   }
 };

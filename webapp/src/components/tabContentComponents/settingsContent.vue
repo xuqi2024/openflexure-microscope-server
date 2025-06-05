@@ -1,7 +1,6 @@
 <template>
   <!-- Grid managing tab content -->
   <div uk-grid class="uk-height-1-1 uk-margin-remove uk-padding-remove">
-
     <div class="settings-nav">
       <ul class="uk-nav uk-nav-default">
         <li class="uk-nav-header">Application Settings</li>
@@ -22,6 +21,11 @@
         <action-button
         submit-label="Launch Calibration Wizard"
         class="uk-margin"
+        @click="
+          setTrue; 
+          startModals; 
+          setFalse;
+        "
         />
         <li>
           <tabIcon
@@ -133,12 +137,18 @@
           <ResolutionSettings />
         </div>
       </tabContent>
+      <b-modal id = "cali_modal">
+        <calibrationModal>
+          ref="calibrationModal"
+        </calibrationModal>
+      </b-modal>
     </div>
   </div>
 </template>
 
 <script>
 import streamSettings from "./settingsComponents/streamSettings.vue";
+import calibrationModal from "../modalComponents/calibrationModal.vue";
 import cameraSettings from "./settingsComponents/cameraSettings.vue";
 import appSettings from "./settingsComponents/appSettings.vue";
 import CSMSettings from "./settingsComponents/CSMSettings.vue";
@@ -162,7 +172,8 @@ export default {
     tabIcon,
     tabContent,
     ActionButton,
-    ResolutionSettings
+    ResolutionSettings,
+    calibrationModal
   },
 
   data: function() {
@@ -177,7 +188,16 @@ export default {
       if (!(this.currentTab == tab)) {
         this.currentTab = tab;
       }
-    }
+    },
+    setTrue: function() {
+      this.calibrationModal.buttonPress();
+    },
+    setFalse: function() {
+      this.calibrationModal.buttonRelease();
+    },
+    startModals: function() {
+      this.$refs.calibrationModal.show();
+    },
   }
 };
 </script>
