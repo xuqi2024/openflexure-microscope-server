@@ -44,7 +44,7 @@ meta-build-image:
     - web
 
 .javascript:
-  image: node:15
+  image: node:18
   before_script:
     - cd webapp
     - npm install
@@ -145,6 +145,7 @@ build:
   stage: build
   extends: .javascript
   script:
+    - export NODE_OPTIONS=--openssl-legacy-provider
     # Build JS application for production
     - npm run build
   artifacts:

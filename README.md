@@ -97,19 +97,11 @@ sudo -u openflexure-ws PATH="/var/openflexure/application/openflexure-microscope
 
 
 ### Set up the Javascript environment and build
-* The Flask web application, written in Python, serves a web application written in `Vue.js`.  This is distributed as part of the built version of the server, hosted on our [build server](https://build.openflexure.org/openflexure-microscope-server/).
-* You could extract the pre-built web app from this tarball, which saves you having to set up Node.js.  However, it also means you're not able to change the interface, and it's possible your interface will get out of sync with your server.
-* Building the web interface will require a valid Node.js installation.  If you don't have Node.js (including `npm`) the [Node.js website](https://nodejs.org/en/) offers downloads for all platforms, though see the instructions below for Raspberry Pi.
-  * To install Node.js on a Raspberry Pi:
-    * `curl -sL https://deb.nodesource.com/setup_14.x | sudo bash -`
-    * `sudo apt install nodejs`
-* To build the web application (this produces a set of static files, that are served by the Flask webserver)
-  * `cd webapp`
-  * `npm install`
-  * `npm run build`
-* To create a Node.js development server (this will help various development tools to display more information, and auto-rebuilds when you change the source files)
-  * `npm run serve`
-  * You access the development server on a different port (it's printed on the command line when you run the above command).  This means that when it starts up you will need to tell it where the microscope server is, using the "override API origin" field in the page that pops up.  If you are running a test server on your computer, this is most likely `http://localhost:5000/`.
+
+The Labthings-FastAPI server, written in Python, serves a web application written in `Vue.js` (Vue2).  This is distributed with the SD card image for the microscope.
+
+For more details on the web app see the ReadMe in the [webapp](./webapp) directory.
+
 
 ## Formatting, linting, and tests
 All of the commands below assume that you are running in the OFM virtual environment, i.e. you have run `ofm activate` on an OpenFlexure SD card, or `source .venv/bin/activate` on Linux, or `.venv/Scripts/activate`on Windows.
