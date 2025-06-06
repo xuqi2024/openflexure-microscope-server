@@ -28,6 +28,8 @@ CamDep = direct_thing_client_dependency(StreamingPiCamera2, "/camera/")
 CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
 AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
 
+graph_path = "/home/Graphs"
+
 def quadratic(x, a, b, c):  
     return a * x**2 + b * x + c
 
@@ -445,6 +447,9 @@ class RangeofMotionThing(Thing):
         return self.thing_settings.get("rom_data", None)
 
     def rom_analysis(self):
+        '''
+        Opens the data saved by the measure_rom thing and carries out all necessary analysis.
+        '''
         filename = "/var/openflexure/ROM_Test_Results.json"
 
         with open(filename, 'r') as file:
@@ -591,7 +596,6 @@ class RangeofMotionThing(Thing):
 
         #Check for and create if necessary, a folder called Graphs where all the graphs created here will be saved.
 
-        graph_path = "/home/Graphs"
         isExist = os.path.exists(graph_path)
 
         if not isExist
@@ -615,7 +619,7 @@ class RangeofMotionThing(Thing):
         plt.tight_layout()
         plt.legend()
         plt.grid()
-        plt.savefig(graph_path)
+        plt.savefig(f"{graph_path}/csm_graph.jpg")
 
         #ROM plot
 
@@ -648,7 +652,7 @@ class RangeofMotionThing(Thing):
         plt.ylabel('Y-Position\n(mm)')
         plt.tight_layout()
         plt.grid()
-        plt.savefig(graph_path)
+        plt.savefig(f"{graph_path}/rom_graph.jpg")
 
         #Polarity plot
 
@@ -663,10 +667,24 @@ class RangeofMotionThing(Thing):
         plt.ylabel('Z Position')
         plt.tight_layout()
         plt.grid()
-        plt.savefig(graph_path)
+        plt.savefig(f"{graph_path}/pol_graph.jpg")
+
+    def json_generator(self):
+        '''
+        Creates a json file with all the useful calibration data.
+        '''
 
     def pdf_generator(self):
-        with PdfPages('Calibration_Results.pdf') as pdf:
+        '''
+        Creates a pdf containing all the useful calibration data a user would need.
+        '''
+        graph_imgs = [
+            Image.open(f"{graph_path}/{f}") for f in ["csm_graph.jpg", "rom_graph.jpg", "pol_graph.jpg"]
+        ]
+
+        pdf_path = f"{graph_path}/calibration_summary.pdf"
+
+        graph_imgs[0].save(pdf_path, "PDF", resoultion=100, save_all=True, append_images=graph_imgs[1:])
 
 class RecentringThing(Thing):
     @thing_action
