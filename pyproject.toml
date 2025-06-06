@@ -1,6 +1,6 @@
 [project]
 name = "openflexure-microscope-server"
-version = "3.0.0.dev0"
+version = "3.0.0.alpha1"
 authors = [
   { name="Richard Bowman", email="richard.bowman@cantab.net" },
   { name="Joel Collins" },
@@ -15,7 +15,7 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 dependencies = [
-  "labthings-fastapi[server] == 0.0.7",
+  "labthings-fastapi[server] == 0.0.8",
   "labthings-sangaboard",
   "camera-stage-mapping ~= 0.1.10",
   "opencv-python ~= 4.11.0",
