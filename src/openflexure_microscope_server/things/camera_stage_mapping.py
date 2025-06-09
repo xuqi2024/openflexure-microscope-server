@@ -228,7 +228,8 @@ class CameraStageMapper(Thing):
 
         This performs two 1d calibrations in x and y, then combines their results.
         """
-        # Y is more likely to fail so calibrates that axis first
+        # Calibrate y-axis first as it is more likely to fail.
+        # The x-y difference is due to the camera aspect ratio, not the stage hardware.
         logger.info("Calibrating Y axis:")
         cal_y: dict = self.calibrate_1d(hw, stage, logger, (0, 1, 0))
         logger.info("Calibrating X axis:")
