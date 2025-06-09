@@ -1,3 +1,90 @@
+# [v3.0.0-beta1](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.11.0...v3.0.0-alpha1) (2025-06-09)
+
+This is the first alpha release of an almost total overhaul of the server, and the underlying LabThings framework. Some highlights are:
+
+* Moved to underlying architecture based on [labthings-fastapi](https://github.com/labthings/labthings-fastapi). This allows each component of the microscope to be a "Thing", which can interact with each other.
+* Current "Things" are camera, stage, autofocus, smart_scan background_detect, auto_recentre_stage, capture, settings_manager, system_control and test
+* Overhaul of scanning, removing the predetermined, rectangular area in favour of exploring the sample indefinitely by appending neighbouring xy sites after each capture
+* Background detect Thing optionally uses the colour distribution of a user-set "background" image to determine if the field of view is sample or background, and plan future scanning accordingly
+* Stitching from openflexure-stitching now part of the scanning protocol, displaying a live updating preview of the current scan, and optionally producing a high res stitched JPEG, DZI and/or TIFF at the end of the scan
+* A DZI viewer in the scan tab, allowing stitched images to be opened from within the GUI
+* Webapp updates - scan tab added showing thumbnail preview + image count + scan times, gallery removed, tour removed, power tab added,
+* Updated to numpy 2
+* Automatically delete empty scans
+
+V3 was started in a branch (MR !159)
+
+The following merge requests have been merged into v3:
+
+* !162 Scanning and recentring
+* !163 Web app compatibility with v3 API
+* !164 Modal progress dialog for TaskSubmitter
+* !166 Pseudo spiral scan path and fixed dx-dy inversion
+* !167 Restored old log path
+* !168 Refactor task submitter
+* !169 Run `openflexure-stitch` on the server
+* !170 custom scan name from gui
+* !171 Make it possible to manually save all settings to disk
+* !172 Updates based on feedback from Rwanda trip
+* !173 Autofocus efficiency
+* !174 Parallel acquisition and moves
+* !175 Improvements to autofocus and stitching in `smart_scan`.
+* !176 Replace tasksubmitter with action-button
+* !181 Add configurability to the server
+* !191 Migrate to new Blob type and update imports
+* !192 Formal Protocol for camera and stage interfaces
+* !194 Add more unit tests and fix CI
+* !226 Split up ruff format and lint
+* !225 Rename exposure (with limit)
+* !232 Purge all windows line endings and add check to formatter.
+* !231 Reorder tabs
+* !211 Use the UV channels only to determine if an area is background or sample
+* !228 Stop uvicorn.run disabling existing loggers
+* !227 CSM always returns to start on error
+* !236 Inverse colours
+* !239 Scanning cleanup
+* !240 Refactor scanning
+* !241 Add some extra rules to ruff, also add a more complete ruff config that fails
+* !242 Further scan refactor
+* !245 Add a scan path planner that prioritises shorter moves
+* !247 Looping autofocus at the start of the scan
+* !249 Remove focus_change_acceptable test
+* !244 Remove correlation only stitching, now covered by preview stitch
+* !250 Thumbnails and accurate durations in scan-list tab
+* !253 Regex to count captured images
+* !238 Disable tour
+* !246 z stacking Thing
+* !248 Cleanup zipping
+* !255 Remove autofocus test
+* !256 New comments on scanning
+* !259 Update scan data JSON at end of scan
+* !260 Scan tab updates
+* !258 Use NumPy v2 and new wheel for opencv
+* !230 Lazier regex for finding logs with square brackets
+* !263 Clean up of serve_static_files
+* !265 Update serve static files
+* !267 Update theme.less to prevent automatic changed colour of uk-alert-success
+* !268 GUI clean up - button cases, features tab and redo tour
+* !269 Action buttons raise an Error from the last message in the log for the Actio
+* !257 Added purge_empty_scans() method
+* !270 Import openflexure-stitching from pip
+* !272 Settling time as global, settle before taking first image in stack
+* !261 CSM info in webapp tab
+* !275 GUI shutdown clean up
+* !276 Ui fixes
+* !277 Fix error in purge_empty_scans if the `images` dir hadn't been created
+* !266 Gui dzi viewer
+* !278 update labthings-picamera to most recent release
+* !279 Simulation fixes
+* !281 Change from building with node 15 to node 18
+* !282 Defocus and realign simulation axes
+* !280 Custom `from_index()` function in webapp for backwards compatibility before javascrpt `at()`
+* !284 Update labthings-api dep and also the version number for alpha release
+* !286 Use same version number for server and webapp, add CI check
+* !285 Swapped the order of CSM so y axis is completed first 
+* !283 Add scan directory to json config 
+* !287 Update depedencies and changelog prior to v3.0.0-alpha1 release
+
 # [v2.11.0](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.10.1...v2.11.0) (2022-08-08)
 ## New features
 * Background detection can now be used in scans, if you have the background-detect extension. ([!153](https://gitlab.com/openflexure/openflexure-microscope-server/-/merge_requests/153))
