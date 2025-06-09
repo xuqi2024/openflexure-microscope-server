@@ -58,6 +58,19 @@ meta-build-image:
     - tags
     - web
 
+# Check webapp and server have matching version string
+version-check:
+  stage: analysis
+  #use a base python image as nothing needs to be installed
+  image: python:3.11
+  script:
+    - ./check_version_sync.py
+  only:
+    - branches
+    - merge_requests
+    - tags
+    - web
+
 # Python static analysis with ruff
 ruff-lint:
   stage: analysis

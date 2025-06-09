@@ -88,3 +88,6 @@ openflexure_settings/
 # Files created by test utilities
 /tests/utilities/*.pstats
 /tests/utilities/*.png
+
+# js version file
+/webapp/src/version.js

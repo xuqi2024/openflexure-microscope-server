@@ -1,6 +1,6 @@
 [project]
 name = "openflexure-microscope-server"
-version = "3.0.0.alpha1"
+version = "3.0.0-alpha1"
 authors = [
   { name="Richard Bowman", email="richard.bowman@cantab.net" },
   { name="Joel Collins" },

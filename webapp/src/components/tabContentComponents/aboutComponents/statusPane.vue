@@ -25,7 +25,7 @@
 
       <div>
         <b>Server Version:</b> <br />
-        V3 (pre-alpha)
+        v{{ app_version() }}
       </div>
 
       <hr />
