@@ -114,7 +114,8 @@ def _scan_running(method):
 
 
 class SmartScanThing(Thing):
-    def __init__(self):
+    def __init__(self, scans_folder):
+        self._scans_folder = scans_folder
         self._preview_stitch_popen = None
         self._preview_stitch_popen_lock = threading.Lock()
         self._scan_lock = threading.Lock()
@@ -270,11 +271,8 @@ class SmartScanThing(Thing):
 
     @property
     def base_scan_dir(self) -> str:
-        """This directory will hold all the scans we do."""
-        # TODO: This should be determined using sensible configuration.
-        # If the working directory is `/var/openflexure` this will result
-        # in scans being saved at `/var/openflexure/scans/`
-        return "scans"
+        """The path of the directory where the scans are saved."""
+        return self._scans_folder
 
     @thing_property
     def latest_scan_name(self) -> Optional[str]:

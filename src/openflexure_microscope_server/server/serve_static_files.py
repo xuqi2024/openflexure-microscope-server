@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -22,7 +23,7 @@ def add_static_file(app: FastAPI, fname: str, folder: str) -> None:
     )
 
 
-def add_static_files(app: FastAPI) -> None:
+def add_static_files(app: FastAPI, scans_folder: Optional[str]) -> None:
     """Add the static files responsible for the webapp app to the FastAPI app
 
     app: The FastAPI app to add to, in this case the OpenFlexure server
@@ -45,9 +46,13 @@ def add_static_files(app: FastAPI) -> None:
                 name=f"static_{fname}",
             )
 
-    # Mount the scan directory to .../scans/, to allow dzi viewing
-    app.mount(
-        "/scans/",
-        StaticFiles(directory="/var/openflexure/scans/"),
-        name="scans",
-    )
+    # If scans folder is None, there is not smart scan thing. So nothing to mount.
+    if scans_folder is not None:
+        # Mount the scan directory to .../scans/, to allow dzi viewing
+        if not os.path.isdir(scans_folder):
+            os.makedirs(scans_folder)
+        app.mount(
+            "/scans/",
+            StaticFiles(directory=scans_folder),
+            name="scans",
+        )
