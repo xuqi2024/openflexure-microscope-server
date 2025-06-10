@@ -18,6 +18,15 @@
           </tabIcon>
         </li>
         <li class="uk-nav-header">Microscope Settings</li>
+        <action-button
+        submit-label="Launch Calibration Wizard"
+        class="uk-margin"
+        @click="
+          setTrue; 
+          startModals; 
+          setFalse;
+        "
+        />
         <li>
           <tabIcon
             id="settings-camera-icon"
@@ -28,20 +37,7 @@
             :current-tab="currentTab"
             @set-tab="setTab"
           >
-            Camera
-          </tabIcon>
-        </li>
-        <li>
-          <tabIcon
-            id="settings-stage-icon"
-            tab-i-d="stage"
-            :show-title="false"
-            :show-tooltip="false"
-            :require-connection="true"
-            :current-tab="currentTab"
-            @set-tab="setTab"
-          >
-            Stage
+            Camera Calibration
           </tabIcon>
         </li>
         <li>
@@ -57,11 +53,37 @@
             Camera to Stage Mapping
           </tabIcon>
         </li>
+        <li>
+          <tabIcon
+            id="settings-stage-icon"
+            tab-i-d="range-of-motion"
+            :show-title="false"
+            :show-tooltip="false"
+            :require-connection="true"
+            :current-tab="currentTab"
+            @set-tab="setTab"
+          >
+            Range of Motion
+          </tabIcon>
+        </li>
+        <li>
+          <tabIcon
+            id="settings-features-icon"
+            tab-i-d="resolution"
+            :show-title="false"
+            :show-tooltip="false"
+            :require-connection="false"
+            :current-tab="currentTab"
+            @set-tab="setTab"
+          >
+            Resolution
+          </tabIcon>
+        </li>
       </ul>
       <action-button
         thing="settings"
-        action="save_all_thing_settings"
-        submit-label="Save All Settings"
+        action=""
+        submit-label="Download Calibration Data"
       />
     </div>
     <div class="view-component uk-width-expand uk-padding-small">
@@ -87,7 +109,7 @@
       </tabContent>
 
       <tabContent
-        tab-i-d="stage"
+        tab-i-d="range-of-motion"
         :require-connection="true"
         :current-tab="currentTab"
       >
@@ -105,12 +127,28 @@
           <CSMSettings />
         </div>
       </tabContent>
+
+      <tabContent
+        tab-i-d="resolution"
+        :require-connection="true"
+        :current-tab="currentTab"
+      >
+        <div class="settings-pane uk-padding-small">
+          <ResolutionSettings />
+        </div>
+      </tabContent>
+      <b-modal id = "cali_modal">
+        <calibrationModal>
+          ref="calibrationModal"
+        </calibrationModal>
+      </b-modal>
     </div>
   </div>
 </template>
 
 <script>
 import streamSettings from "./settingsComponents/streamSettings.vue";
+import calibrationModal from "../modalComponents/calibrationModal.vue";
 import cameraSettings from "./settingsComponents/cameraSettings.vue";
 import appSettings from "./settingsComponents/appSettings.vue";
 import CSMSettings from "./settingsComponents/CSMSettings.vue";
@@ -119,6 +157,7 @@ import stageSettings from "./settingsComponents/stageSettings.vue";
 import tabIcon from "../genericComponents/tabIcon";
 import tabContent from "../genericComponents/tabContent";
 import ActionButton from "../labThingsComponents/actionButton.vue";
+import ResolutionSettings from "./settingsComponents/resolutionSettings.vue";
 
 // Export main app
 export default {
@@ -132,7 +171,9 @@ export default {
     appSettings,
     tabIcon,
     tabContent,
-    ActionButton
+    ActionButton,
+    ResolutionSettings,
+    calibrationModal
   },
 
   data: function() {
@@ -147,7 +188,16 @@ export default {
       if (!(this.currentTab == tab)) {
         this.currentTab = tab;
       }
-    }
+    },
+    setTrue: function() {
+      this.calibrationModal.buttonPress();
+    },
+    setFalse: function() {
+      this.calibrationModal.buttonRelease();
+    },
+    startModals: function() {
+      this.$refs.calibrationModal.show();
+    },
   }
 };
 </script>

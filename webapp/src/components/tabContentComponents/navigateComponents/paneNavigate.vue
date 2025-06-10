@@ -76,19 +76,6 @@
               @finished="updatePosition"
               @error="modalError"
             />
-            <action-button
-              thing="auto_recentre_stage"
-              action="recentre"
-              submit-label="Re-centre Stage"
-              :can-terminate="true"
-              :requires-confirmation="true"
-              :modal-progress="true"
-              :confirmation-message="
-                'The stage will now move, and autofocus will be used to find the centre of motion. This requires a sample to be visible in the microscope. OK to proceed?'
-              "
-              @finished="updatePosition"
-              @error="modalError"
-            />
           </div>
         </li>
 
@@ -125,6 +112,18 @@
                     moveLock = false;
                   "
                   @error="modalError"
+                />
+                <action-button
+                  thing="auto_recentre_stage"
+                      action="recentre"
+                      submit-label="Re-centre Stage"
+                      :can-terminate="true"
+                      :requires-confirmation="true"
+                      :modal-progress="true"
+                      :confirmation-message="
+                        'The stage will now move, and autofocus will be used to find the centre of motion. This requires a sample to be visible in the microscope. OK to proceed?'
+                      "
+                  :submit-data="{max_steps: 15,  lateral_distance: 2500}"
                 />
               </p>
             </form>

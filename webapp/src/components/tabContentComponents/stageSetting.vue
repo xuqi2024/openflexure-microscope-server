@@ -1,6 +1,5 @@
 <template>
 <div>
-  <h3>Range of Motion</h3>
   <div id="stageSettings" class="uk-width-large">
     The microscope stage is a <b>{{ stageType }}</b
     >. There are no settings to adjust here: to set the geometry of your stage
