@@ -70,11 +70,9 @@ def ensure_free_disk_space(path: str, min_space: int = 500000000) -> None:
 class ScanInfo(BaseModel):
     """Summary information about a scan folder"""
 
-    """Summary information about a scan folder"""
-
     name: str
-    created: datetime
-    modified: datetime
+    created: float
+    modified: float
     number_of_images: int
     stitch_available: bool
     dzi: Optional[str]
@@ -92,6 +90,77 @@ SCAN_DATA_FILENAME = "scan_data.json"
 STITCHING_CMD = "openflexure-stitch"
 
 SCAN_ZERO_PAD_DIGITS = 4
+
+
+class ScanDirectory:
+    """A class for handling interactions with scan directories
+
+    Initalisation parameters:
+      dir_path: the directory of the outer scan directory
+    """
+
+    dir_path: str
+
+    def __init__(self, dir_path: str):
+        if not os.path.isdir(dir_path):
+            raise FileNotFoundError(f"The scan directory {dir_path} cannot be found")
+        self.dir_path = dir_path
+
+    @property
+    def images_dir(self) -> Optional[str]:
+        """
+        The path to the images directory. None is returned is no images directory
+        was created
+        """
+        im_path = os.path.join(self.dir_path, IMG_DIR_NAME)
+        if os.path.isdir(im_path):
+            return im_path
+        return None
+
+    @property
+    def created_time(self) -> float:
+        """The time the directory was created on disk"""
+        return os.path.getctime(self.dir_path)
+
+    @property
+    def name(self) -> str:
+        """The name of the scan directory"""
+        return os.path.basename(self.dir_path)
+
+    def get_scan_files(self):
+        """Return a list of the files in the images dir"""
+        if self.images_dir is None:
+            return []
+        return os.listdir(self.images_dir)
+
+    def get_modified_time(self) -> float:
+        """Return the modified time of the directory"""
+        return max(os.stat(root).st_mtime for root, _, _ in os.walk(self.dir_path))
+
+    def get_scan_info(self):
+        """Return the inforomation for the scan directory as a ScanInfo object"""
+        folder_contents = self.get_scan_files()
+        if folder_contents:
+            scan_images = [i for i in folder_contents if IMAGE_REGEX.search(i)]
+            stitches = [i for i in folder_contents if i.endswith("_stitched.jpg")]
+            dzi_files = [i for i in folder_contents if i.endswith("dzi")]
+
+            number_of_images = len(scan_images)
+            stitch_available = len(stitches) > 0
+            dzi = None if not dzi_files else str(dzi_files[0])
+        else:
+            number_of_images = 0
+            stitch_available = False
+            dzi = None
+
+        return ScanInfo(
+            name=self.name,
+            created=self.created_time,
+            modified=self.get_modified_time(),
+            number_of_images=number_of_images,
+            stitch_available=stitch_available,
+            dzi=dzi,
+        )
 
 
 def _scan_running(method):
@@ -806,38 +875,13 @@ class SmartScanThing(Thing):
         scans: list[ScanInfo] = []
         if not os.path.isdir(self.base_scan_dir):
             return scans
-        for f in os.listdir(self.base_scan_dir):
-            path = os.path.join(self.base_scan_dir, f)
-            if os.path.isdir(path):
-                images_folder = os.path.join(path, IMG_DIR_NAME)
-                if os.path.isdir(images_folder):
-                    folder_contents = os.listdir(images_folder)
-                    scan_images = [i for i in folder_contents if IMAGE_REGEX.search(i)]
-                    stitches = [
-                        i for i in folder_contents if i.endswith("_stitched.jpg")
-                    ]
-                    number_of_images = len(scan_images)
-                    stitch_available = len(stitches) > 0
-                    dzi = [i for i in folder_contents if i.endswith("dzi")]
-                    if len(dzi) > 0:
-                        dzi = str(dzi[0])
-                    else:
-                        dzi = None
-                else:
-                    number_of_images = 0
-                    stitch_available = False
-                modified = max(os.stat(root).st_mtime for root, _, _ in os.walk(path))
 
-                scans.append(
-                    ScanInfo(
-                        name=f,
-                        created=os.path.getctime(path),
-                        modified=modified,
-                        number_of_images=number_of_images,
-                        stitch_available=stitch_available,
-                        dzi=dzi,
-                    )
-                )
+        for scan_dirname in os.listdir(self.base_scan_dir):
+            scan_path = os.path.join(self.base_scan_dir, scan_dirname)
+            if os.path.isdir(scan_path):
+                scan_dir = ScanDirectory(scan_path)
+                scans.append(scan_dir.get_scan_info())
+
         return scans
 
     @fastapi_endpoint(
