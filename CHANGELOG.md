@@ -1,4 +1,4 @@
-# [v3.0.0-beta1](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.11.0...v3.0.0-alpha1) (2025-06-09)
+# [v3.0.0-alpha1](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.11.0...v3.0.0-alpha1) (2025-06-09)
 
 This is the first alpha release of an almost total overhaul of the server, and the underlying LabThings framework. Some highlights are:
 
