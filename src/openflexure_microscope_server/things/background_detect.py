@@ -1,5 +1,5 @@
 from typing import Mapping, Optional
-import cv2
+
 import numpy as np
 from PIL import Image
 from pydantic import BaseModel
@@ -8,6 +8,7 @@ from scipy.stats import norm
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.decorators import thing_action, thing_property
 from .camera import CameraDependency as CamDep
+from ..colour_utils import rgb2luv
 
 
 class ChannelDistributions(BaseModel):
@@ -85,7 +86,7 @@ class BackgroundDetectThing(Thing):
         current_image = np.array(Image.open(current_image.open()))
 
         # we're working in the LUV colourspace as it collect colours together in a human-intuitive way
-        current_image_luv = cv2.cvtColor(current_image, cv2.COLOR_RGB2LUV)
+        current_image_luv = rgb2luv(current_image)
         mask = self.background_mask(current_image_luv)
         return np.count_nonzero(mask) / np.prod(mask.shape) * 100
 
@@ -111,7 +112,7 @@ class BackgroundDetectThing(Thing):
         background = np.array(Image.open(background.open()))
 
         # we're working in the LUV colourspace as it collect colours together in a human-intuitive way
-        background_luv = cv2.cvtColor(background, cv2.COLOR_RGB2LUV)
+        background_luv = rgb2luv(background)
 
         ch1 = (background_luv.T[0]).flatten()
         ch2 = (background_luv.T[1]).flatten()
