@@ -1,5 +1,4 @@
 from typing import Mapping, Optional
-import cv2
 import numpy as np
 from PIL import Image
 from pydantic import BaseModel
@@ -13,7 +12,7 @@ from .camera import CameraDependency as CamDep
 class ChannelDistributions(BaseModel):
     means: list[float]
     standard_deviations: list[float]
-    colorspace: str = "LUV"
+    colorspace: str = "LAB"
 
 
 class BackgroundDetectThing(Thing):
@@ -53,7 +52,7 @@ class BackgroundDetectThing(Thing):
     def background_mask(self, image: np.ndarray) -> np.ndarray:
         """Calculate a binary image, showing whether each pixel is background
 
-        The image should be in LUV format, the ouput will be binary with the
+        The image should be in LAB format, the ouput will be binary with the
         same shape in the first two dimensions.
         """
         d = self.background_distributions
@@ -61,15 +60,15 @@ class BackgroundDetectThing(Thing):
             raise RuntimeError(
                 "Background is not set: you need to calibrate background detection."
             )
-        # This image is in LUV space. But the brightness (L) often changes as the
+
+        # The image is in LAB space. But the brightness (L) often changes as the
         # height of the sample changes. Hence in the line below we are only using
-        # the UV (colour) channels.
-        return np.all(
-            np.abs(image[:, :, 1:] - np.array(d.means[1:])[np.newaxis, np.newaxis, :])
-            < np.array(d.standard_deviations[1:])[np.newaxis, np.newaxis, :]
-            * self.tolerance,
-            axis=2,
-        )
+        # the AB (colour) channels.
+        ab_means = np.array([[d.means[1:]]])
+        # The allowed range for each channel is the tolerance multiplied by the
+        # channel standard deviation
+        ab_ranges = np.array([[d.standard_deviations[1:]]]) * self.tolerance
+        return np.all(np.abs(image[:, :, 1:] - ab_means) < ab_ranges, axis=2)
 
     @thing_action
     def background_fraction(self, cam: CamDep) -> float:
@@ -82,11 +81,11 @@ class BackgroundDetectThing(Thing):
         that is background.
         """
         current_image = cam.grab_jpeg()
-        current_image = np.array(Image.open(current_image.open()))
+        # Work in the LAB colourspace as it collect colours together in a
+        # human-intuitive way
+        current_image_lab = np.array(Image.open(current_image.open()).convert("LAB"))
 
-        # we're working in the LUV colourspace as it collect colours together in a human-intuitive way
-        current_image_luv = cv2.cvtColor(current_image, cv2.COLOR_RGB2LUV)
-        mask = self.background_mask(current_image_luv)
+        mask = self.background_mask(current_image_lab)
         return np.count_nonzero(mask) / np.prod(mask.shape) * 100
 
     @thing_action
@@ -103,19 +102,18 @@ class BackgroundDetectThing(Thing):
 
         This should be run when the microscope is looking at an empty region,
         and will calculate the mean and standard deviation of the pixel values
-        in the LUV colourspace. These values will then be used to compare
+        in the LAB colourspace. These values will then be used to compare
         future images to the distribution, to determine if each pixel is
         foreground or background.
         """
         background = cam.grab_jpeg()
-        background = np.array(Image.open(background.open()))
+        # Work in the LAB colourspace as it collect colours together in a
+        # human-intuitive way
+        background_lab = np.array(Image.open(background.open()).convert("LAB"))
 
-        # we're working in the LUV colourspace as it collect colours together in a human-intuitive way
-        background_luv = cv2.cvtColor(background, cv2.COLOR_RGB2LUV)
-
-        ch1 = (background_luv.T[0]).flatten()
-        ch2 = (background_luv.T[1]).flatten()
-        ch3 = (background_luv.T[2]).flatten()
+        ch1 = (background_lab.T[0]).flatten()
+        ch2 = (background_lab.T[1]).flatten()
+        ch3 = (background_lab.T[2]).flatten()
 
         points = np.array([np.asarray(ch1), np.asarray(ch2), np.asarray(ch3)]).T
 
@@ -125,7 +123,7 @@ class BackgroundDetectThing(Thing):
         self.background_distributions = ChannelDistributions(
             means=mu.tolist(),
             standard_deviations=std.tolist(),
-            colorspace="LUV",
+            colorspace="LAB",
         )
 
     @property
