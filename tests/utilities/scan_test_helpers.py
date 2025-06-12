@@ -189,8 +189,7 @@ def get_expected_result_for_example_smart_spiral(
     """
     pkl_fname = os.path.join(THIS_DIR, f"example_smart_spiral_{sample_name}.pkl")
     with open(pkl_fname, "rb") as pkl_file_obj:
-        planner = pickle.load(pkl_file_obj)
-    return planner
+        return pickle.load(pkl_file_obj)
 
 
 def load_sample_points(sample_name: str):

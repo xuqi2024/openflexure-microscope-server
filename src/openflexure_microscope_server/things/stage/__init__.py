@@ -80,7 +80,7 @@ class BaseStage(Thing):
 
     position = PropertyDescriptor(
         Mapping[str, int],
-        {k: 0 for k in _axis_names},
+        dict.fromkeys(_axis_names, 0),
         description="Current position of the stage",
         readonly=True,
         observable=True,

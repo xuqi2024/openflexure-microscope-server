@@ -23,8 +23,7 @@ class BackgroundDetectThing(Thing):
         bd = self.thing_settings.get("background_distributions", None)
         if bd:
             return ChannelDistributions(**bd)
-        else:
-            return None
+        return None
 
     @background_distributions.setter
     def background_distributions(self, value: Optional[ChannelDistributions]) -> None:

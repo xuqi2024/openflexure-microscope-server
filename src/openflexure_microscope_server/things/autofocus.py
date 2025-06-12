@@ -105,11 +105,12 @@ class JPEGSharpnessMonitor:
             stop: int = int(np.argmax(jpeg_times > stage_times[1]))
         except ValueError as e:
             if np.sum(jpeg_times > stage_times[0]) == 0:
-                raise ValueError(
-                    "No images were captured during the move of the stage.  Perhaps the camera is not streaming images?"
-                ) from e
-            else:
-                raise e
+                errmsg = (
+                    "No images were captured during the move of the stage. "
+                    "Perhaps the camera is not streaming images?"
+                )
+                raise ValueError(errmsg) from e
+            raise e
         if stop < 1:
             stop = len(jpeg_times)
             logging.debug("changing stop to %s", (stop))

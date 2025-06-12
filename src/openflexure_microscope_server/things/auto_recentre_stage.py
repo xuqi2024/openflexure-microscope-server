@@ -118,20 +118,12 @@ class RecentringThing(Thing):
                         logging.info(
                             f"Breaking because the highest point is at {np.argmax(sorted_all_heights)} in the list"
                         )
-                        # plt.plot(sorted_lateral, sorted_all_heights,'.')
-                        # plt.plot(sorted_lateral, quad_fit_func(sorted_lateral))
-                        # plt.show()
+
                         break
-                    else:
-                        if turning_loc < np.min(sorted_lateral):
-                            moves = -1
-                        elif turning_loc > np.max(sorted_lateral):
-                            moves = 1
-                        else:
-                            # plt.plot(sorted_lateral, sorted_all_heights,'.')
-                            # plt.plot(sorted_lateral, quad_fit_func(sorted_lateral))
-                            # plt.show()
-                            pass
+                    if turning_loc < np.min(sorted_lateral):
+                        moves = -1
+                    elif turning_loc > np.max(sorted_lateral):
+                        moves = 1
 
             # Centre value is replaced by the maximum value recorded in that axis
             centre[direction] = focused_pos[direction][np.argmax(all_heights)][

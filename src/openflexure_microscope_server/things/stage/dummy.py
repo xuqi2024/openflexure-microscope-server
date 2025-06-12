@@ -91,5 +91,5 @@ class DummyStage(BaseStage):
         It is intended for use after manually or automatically recentring the
         stage.
         """
-        self.position = {k: 0 for k in self.axis_names}
+        self.position = dict.fromkeys(self.axis_names, 0)
         self.instantaneous_position = self.position

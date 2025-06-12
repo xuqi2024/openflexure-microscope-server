@@ -87,7 +87,7 @@ def make_hardware_interface(
     axes = stage.axis_names
 
     def pos2dict(pos: Sequence[float]) -> Mapping[str, float]:
-        return {k: p for k, p in zip(axes, pos)}
+        return dict(zip(axes, pos))
 
     def dict2pos(posd: Mapping[str, float]) -> Sequence[float]:
         return tuple(posd[k] for k in axes if k in posd)
