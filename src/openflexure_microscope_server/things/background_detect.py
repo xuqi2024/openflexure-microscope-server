@@ -34,7 +34,7 @@ class BackgroundDetectThing(Thing):
     @thing_property
     def tolerance(self) -> float:
         """How many standard deviations to allow for the background"""
-        return self.thing_settings.get("tolerance", 7)
+        return self.thing_settings.get("tolerance", 20)
 
     @tolerance.setter
     def tolerance(self, value: float) -> None:
@@ -43,7 +43,7 @@ class BackgroundDetectThing(Thing):
     @thing_property
     def fraction(self) -> float:
         """How much of the image needs to be not background to label as sample"""
-        return self.thing_settings.get("fraction", 25)
+        return self.thing_settings.get("fraction", 0.2)
 
     @fraction.setter
     def fraction(self, value: float) -> None:
@@ -64,11 +64,11 @@ class BackgroundDetectThing(Thing):
         # The image is in LAB space. But the brightness (L) often changes as the
         # height of the sample changes. Hence in the line below we are only using
         # the AB (colour) channels.
-        ab_means = np.array([[d.means[1:]]])
+        ab_means = np.array([[d.means]])
         # The allowed range for each channel is the tolerance multiplied by the
         # channel standard deviation
-        ab_ranges = np.array([[d.standard_deviations[1:]]]) * self.tolerance
-        return np.all(np.abs(image[:, :, 1:] - ab_means) < ab_ranges, axis=2)
+        ab_ranges = np.array([[d.standard_deviations]]) * self.tolerance
+        return np.all(np.abs(image - ab_means) < ab_ranges, axis=2)
 
     @thing_action
     def background_fraction(self, cam: CamDep) -> float:
@@ -83,7 +83,7 @@ class BackgroundDetectThing(Thing):
         current_image = cam.grab_jpeg()
         # Work in the LAB colourspace as it collect colours together in a
         # human-intuitive way
-        current_image_lab = np.array(Image.open(current_image.open()).convert("LAB"))
+        current_image_lab = np.array(Image.open(current_image.open()).convert("YCbCr"))
 
         mask = self.background_mask(current_image_lab)
         return np.count_nonzero(mask) / np.prod(mask.shape) * 100
@@ -109,7 +109,7 @@ class BackgroundDetectThing(Thing):
         background = cam.grab_jpeg()
         # Work in the LAB colourspace as it collect colours together in a
         # human-intuitive way
-        background_lab = np.array(Image.open(background.open()).convert("LAB"))
+        background_lab = np.array(Image.open(background.open()).convert("YCbCr"))
 
         ch1 = (background_lab.T[0]).flatten()
         ch2 = (background_lab.T[1]).flatten()
