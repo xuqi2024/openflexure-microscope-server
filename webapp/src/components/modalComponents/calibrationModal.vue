@@ -1,6 +1,6 @@
 <template>
   <div id="modal-example" ref="calibrationModalEl" uk-modal="bg-close: false;">
-    <div v-if="ready || button" class="uk-modal-dialog uk-modal-body">
+    <div v-if="ready" class="uk-modal-dialog uk-modal-body">
       <h2 class="uk-modal-title">Microscope Calibration</h2>
       <div v-show="stepValue == 0">
         <p>
@@ -100,6 +100,41 @@
       </div>
 
       <div v-show="stepValue == 3">
+        <h3>Range of Motion</h3>
+          <p>
+            <b
+              >Follow the important steps below before starting range of motion 
+              calibration!</b
+            >
+          </p>
+          <ul class="uk-list uk-list-bullet">
+            <li>Insert a clearly visible sample to the microscope</li>
+            <li>
+              Ensure the sample is reasonably well centered on the microscope
+              camera
+            </li>
+            <li>Ensure the sample is densely featured.</li>
+            <li>Ensure the sample is large enough to fully test the range of motion.
+              <ul class="uk-list uk-list-bullet">
+                <li>If you have printed a standard stage, the sample needs to be at least 12mm in diameter.</li>
+                <li>Otherwise, the sample needs to have a diameter of the range of motion you specified.</li>
+              </ul>
+            </li>
+          </ul>
+
+          <miniStreamDisplay
+            v-if="stepValue == 3"
+            class="mini-preview"
+          ></miniStreamDisplay>
+
+          <p>Once you're ready, click auto-calibrate.</p>
+
+          <ROMsettings
+            :show-extra-settings="false"
+          ></ROMsettings>
+        </div>
+
+      <div v-show="stepValue == 4">
         <p>
           <b>Calibration complete</b>
         </p>
@@ -143,13 +178,14 @@
         </button>
       </p>
     </div>
-  </div>
+  </div>  
 </template>
 
 <script>
 import cameraCalibrationSettings from "../tabContentComponents/settingsComponents/cameraSettingsComponents/cameraCalibrationSettings.vue";
 import CSMCalibrationSettings from "../tabContentComponents/settingsComponents/CSMSettingsComponents/CSMCalibrationSettings.vue";
 import miniStreamDisplay from "../genericComponents/miniStreamDisplay.vue";
+import ROMsettings from "../tabContentComponents/stageComponents/paneStage.vue"
 
 export default {
   name: "CalibrationModal",
@@ -157,13 +193,13 @@ export default {
   components: {
     cameraCalibrationSettings,
     CSMCalibrationSettings,
-    miniStreamDisplay
+    miniStreamDisplay,
+    ROMsettings
   },
 
   data: function() {
     return {
       ready: false,
-      button: false,
       stepValue: 0,
       isCSMCalibrated: undefined,
       isLSTCalibrated: undefined
@@ -224,6 +260,14 @@ export default {
         this.onHide();
       }
     },
+    // Forces modal to show on button press
+    force_show: function() {
+      this.ready = true;
+      this.stepValue = 0;
+        // Show the modal
+        var el = this.$refs["calibrationModalEl"];
+        this.showModalElement(el); // Calls the mixin
+    },
 
     hide: function() {
       // Show the modal
@@ -248,12 +292,6 @@ export default {
         this.stepValue = this.stepValue + 1;
         return true;
       }
-    },
-    buttonPress: function() {
-      this.button = true;
-    },
-    buttonRelease: function() {
-      this.button = false;
     }
   }
 };

@@ -1,6 +1,10 @@
 <template>
   <!-- Grid managing tab content -->
   <div uk-grid class="uk-height-1-1 uk-margin-remove uk-padding-remove">
+    <calibrationModal
+      ref="calibrationModal"
+      @onClose="enterApp()"
+    ></calibrationModal>
     <div class="settings-nav">
       <ul class="uk-nav uk-nav-default">
         <li class="uk-nav-header">Application Settings</li>
@@ -18,15 +22,12 @@
           </tabIcon>
         </li>
         <li class="uk-nav-header">Microscope Settings</li>
-        <action-button
+        <button
         submit-label="Launch Calibration Wizard"
-        class="uk-margin"
-        @click="
-          setTrue; 
-          startModals; 
-          setFalse;
-        "
-        />
+        type="button"
+        class="uk-button uk-button-default uk-width-1-1"
+        @click="startModals"
+        >Launch Calibration Wizard</button>
         <li>
           <tabIcon
             id="settings-camera-icon"
@@ -137,11 +138,6 @@
           <ResolutionSettings />
         </div>
       </tabContent>
-      <b-modal id = "cali_modal">
-        <calibrationModal>
-          ref="calibrationModal"
-        </calibrationModal>
-      </b-modal>
     </div>
   </div>
 </template>
@@ -179,7 +175,7 @@ export default {
   data: function() {
     return {
       selected: "display",
-      currentTab: "display"
+      currentTab: "display",
     };
   },
 
@@ -189,14 +185,8 @@ export default {
         this.currentTab = tab;
       }
     },
-    setTrue: function() {
-      this.calibrationModal.buttonPress();
-    },
-    setFalse: function() {
-      this.calibrationModal.buttonRelease();
-    },
     startModals: function() {
-      this.$refs.calibrationModal.show();
+      this.$refs.calibrationModal.force_show();
     },
   }
 };

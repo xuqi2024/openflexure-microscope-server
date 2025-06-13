@@ -598,7 +598,7 @@ class RangeofMotionThing(Thing):
 
         isExist = os.path.exists(graph_path)
 
-        if not isExist
+        if not isExist:
             os.makedirs(graph_path)
 
         #Final plot of CSM graph
@@ -673,6 +673,7 @@ class RangeofMotionThing(Thing):
         '''
         Creates a json file with all the useful calibration data.
         '''
+        return
 
     def pdf_generator(self):
         '''
@@ -685,6 +686,7 @@ class RangeofMotionThing(Thing):
         pdf_path = f"{graph_path}/calibration_summary.pdf"
 
         graph_imgs[0].save(pdf_path, "PDF", resoultion=100, save_all=True, append_images=graph_imgs[1:])
+        return
 
 class RecentringThing(Thing):
     @thing_action
