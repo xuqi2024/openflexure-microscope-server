@@ -386,6 +386,9 @@ export default {
   margin-left: 5px;
   margin-right: 5px;
   width: 3em;
+  /* Stop Firefox showing input spinners, other
+  browsers set with block below */
+  -moz-appearance: textfield;
 }
 /* Chrome, Safari, Edge, Opera */
 .numeric-setting-line-input::-webkit-outer-spin-button,
