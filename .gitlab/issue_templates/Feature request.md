@@ -2,18 +2,18 @@
 
 ## Summary
 
-(Summarize the bug encountered concisely)
+<!-- Summarise the feature concisely -->
 
-## Configuration
-
-I'm using:
-
-**Camera:** (E.g. Raspberry Pi camera v2)
-
-**Motor controller:** (E.g. Sangaboard, or Arduino Nano)
 
 ## Additional details
 
-(Anything else you think might be relevant to mention)
+<!--Anything else you think might be relevant to mention, such as who would benefit from the change,
 
-/label ~feature
+This could include sections such as:
+
+## Implementation strategy
+
+-->
+
+
+/label ~feature <!-- ~"Severity::Medium" ~"sever version::v3"   -->
