@@ -98,7 +98,7 @@ export default {
         const url = window.URL.createObjectURL(new Blob([dataStr]));
         const link = document.createElement("a");
         link.href = url;
-        link.setAttribute("download", "csm_calibration.json");
+        link.setAttribute("download", "csm_calibration1.json");
         document.body.appendChild(link);
         link.click();
       } catch (error) {

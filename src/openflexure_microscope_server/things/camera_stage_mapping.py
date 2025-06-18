@@ -12,6 +12,7 @@ server, and depends on that server and its underlying LabThings library.
 """
 
 import time
+import json
 from typing import (
     Annotated,
     Any,
@@ -302,8 +303,15 @@ class CameraStageMapper(Thing):
 
     @thing_property
     def last_calibration(self) -> Optional[Dict]:
-        """The results of the last calibration that was run"""
-        return self.thing_settings.get("last_calibration", None)
+        """
+        The results of the last calibration that was run
+        """
+
+        filename = '/var/openflexure/settings/camera_stage_mapping/settings.json'
+        with open(filename) as f:
+            csm_object = json.load(f)
+
+        return csm_object
 
     @thing_action
     def move_in_image_coordinates(

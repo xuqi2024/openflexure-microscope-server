@@ -23,7 +23,7 @@
       <button
       type="button"
       class="uk-button uk-button-default uk-width-1-1"
-      @click="getStageData()"
+      @click="getROMData()"
     >
       Download calibration data
     </button>
@@ -52,20 +52,16 @@ export default {
       this.modalNotify(`Range of motion has been measured`);
     },
 
-    getStageData: async function() {
+    getROMData: async function() {
       try {
-        let recentre_data = await this.readThingProperty(
-          "auto_recentre_stage",
-          "recentring_data")
         let rom_data = await this.readThingProperty(
           "range_of_motion",
           "rom_data"
         );
-        var data = Object.assign({}, rom_data, recentre_data)
-        if (data == {}) {
+        if (rom_data == {}) {
           throw "No calibration data available.";
         }
-        const dataStr = JSON.stringify(data);
+        const dataStr = JSON.stringify(rom_data);
         const url = window.URL.createObjectURL(new Blob([dataStr]));
         const link = document.createElement("a");
         link.href = url;

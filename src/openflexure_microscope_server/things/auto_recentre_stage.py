@@ -28,7 +28,19 @@ CamDep = direct_thing_client_dependency(StreamingPiCamera2, "/camera/")
 CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
 AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
 
-graph_path = "/home/Graphs"
+graph_path = "/var/openflexure/"
+
+def get_pixel_step():
+    '''
+    Opens the CSM settings json so that the pixel per step value can be read and saved
+    '''
+    with open('/var/openflexure/settings/camera_stage_mapping/settings.json') as f:
+        csm_settings = json.load(f)
+
+    #Should extract x and y separately because this assumes x and y are the same but for now it just averages between the two.
+    pixel_per_step = ((1/abs(csm_settings['image_to_stage_displacement'][0][1])) + (1/abs(csm_settings['image_to_stage_displacement'][1][0])))/4
+
+    return pixel_per_step
 
 def quadratic(x, a, b, c):  
     return a * x**2 + b * x + c
@@ -176,12 +188,7 @@ class RangeofMotionThing(Thing):
             #Generates all the required dictionaries for all the different step sizes it will need to complete the ROM test
             step_sizes_small, minimum_offset_small, z_steps, minimum_offset_z, step_sizes_big = dict_generate(20, 50, 200)
 
-            #Opens the CSM settings json so that the pixel per step value can be read and saved
-            with open('/var/openflexure/settings/camera_stage_mapping/settings.json') as f:
-                csm_settings = json.load(f)
-
-            #Should extract x and y separately because this assumes x and y are the same but for now it just averages between the two.
-            pixel_per_step = ((1/abs(csm.image_to_stage_displacement_matrix[0][1])) + (1/abs(csm.image_to_stage_displacement_matrix[1][0])))/4
+            pixel_per_step = get_pixel_step()
 
             this_big_step_size = {}
             this_small_step_size = {}
@@ -421,10 +428,10 @@ class RangeofMotionThing(Thing):
             results['Time(minutes)'] = total_time
 
             results['csm'] = csm.image_to_stage_displacement_matrix #This doesn't change on each run, it is data intrinsic to the microscope
-            
-            self.thing_settings["rom_data"] = DenumpifyingDict(results).model_dump()
 
             results['pixels/step'] = pixel_per_step
+
+            self.thing_settings["rom_data"] = DenumpifyingDict(results).model_dump()
 
             with open("/var/openflexure/ROM_Test_Results.json", 'w') as file_object:
                 json.dump(results, file_object, indent = 3)
@@ -442,20 +449,25 @@ class RangeofMotionThing(Thing):
 
     @thing_property
     def rom_data(self) -> Optional[Dict]:
-        """The results of the last calibration that was run
         """
-        return self.thing_settings.get("rom_data", None)
+        The results of the last range of motion calibration that was run.
+        """
+        filename = '/var/openflexure/settings/range_of_motion/settings.json'
+        with open(filename) as f:
+            rom_object = json.load(f)
+
+        return rom_object
 
     def rom_analysis(self):
         '''
         Opens the data saved by the measure_rom thing and carries out all necessary analysis.
         '''
-        filename = "/var/openflexure/ROM_Test_Results.json"
+        filename = '/var/openflexure/settings/range_of_motion/settings.json'
 
         with open(filename, 'r') as file:
             data = json.load(file)
         
-        csm_con = data['pixels/step'] * 2 #Number of pixels per step calculated by camera stage mapping calibration
+        pixel_per_step = get_pixel_step()
 
         x_pos_final = data['x']['1']['final_position']['x']
         x_neg_final = data['x']['-1']['final_position']['x']
@@ -669,24 +681,81 @@ class RangeofMotionThing(Thing):
         plt.grid()
         plt.savefig(f"{graph_path}/pol_graph.jpg")
 
+        rom_dict = {
+            'x_rom(steps)':rom_x_steps,
+            'y_rom(steps)':rom_y_steps,
+            'x_rom(mm)':rom_x,
+            'y_rom(mm)':rom_y
+        }
+
+        return rom_dict
+
     def json_generator(self):
         '''
         Creates a json file with all the useful calibration data.
+        This pulls together all of the settings.json files for each calibration step.
         '''
-        return
+        csm_file = '/var/openflexure/settings/camera_stage_mapping/settings.json'
+        with open(csm_file) as f:
+            csm_object = json.load(f)
 
-    def pdf_generator(self):
+        rom_file = '/var/openflexure/settings/range_of_motion/settings.json'
+        with open(rom_file) as f:
+            rom_object = json.load(f)
+
+        full_calibration = {}
+        full_calibration['CSM'] = csm_object
+        full_calibration['ROM'] = rom_object
+
+        return full_calibration
+
+    @thing_action
+    def calibration_data_generate(self):
         '''
         Creates a pdf containing all the useful calibration data a user would need.
         '''
+        rom_dict = self.rom_analysis()
+        calibration_data = self.json_generator()
+
+        pixel_per_step = get_pixel_step()
+
+        data_page = plt.figure(figsize=(11.69,8.27))
+        data_page.clf()
+        txt = (f'CSM Matrix:[[1,0],[0,1]]\n'
+            f'Pixel/Step:{pixel_per_step}\n'
+            f'Range of Motion(Steps):{rom_dict["x_rom(steps)"]} X {rom_dict["x_rom(steps)"]}\n'
+            f'Range of Motion(mm):{rom_dict["x_rom(mm)"]} X {rom_dict["y_rom(mm)"]}'
+            )
+        data_page.text(0.5,0.5,txt, transform=data_page.transFigure, size=24, ha="center")
+        data_page.savefig('graphs/data_page.jpg')
+
         graph_imgs = [
-            Image.open(f"{graph_path}/{f}") for f in ["csm_graph.jpg", "rom_graph.jpg", "pol_graph.jpg"]
+            Image.open(f"{graph_path}/{f}") for f in ["data_page.jpg", "csm_graph.jpg", "rom_graph.jpg", "pol_graph.jpg"]
         ]
 
         pdf_path = f"{graph_path}/calibration_summary.pdf"
 
         graph_imgs[0].save(pdf_path, "PDF", resoultion=100, save_all=True, append_images=graph_imgs[1:])
+
         return
+
+    # @thing_action
+    # def pdf_generator(self):
+    #     '''
+    #     Creates a pdf containing all the useful calibration data a user would need.
+    #     '''
+    #     # graph_imgs = [
+    #     #     Image.open(f"{graph_path}/{f}") for f in ["csm_graph.jpg", "rom_graph.jpg", "pol_graph.jpg"]
+    #     # ]
+
+    #     pdf_path = "/home/Graphs/calibration_summary.txt"
+
+    #     # graph_imgs[0].save(pdf_path, "PDF", resoultion=100, save_all=True, append_images=graph_imgs[1:])
+
+    #     with open("/var/openflexure/calibration_summary.txt", 'w') as file_object:
+    #         file_object.write("Did this work?")
+
+    #     return
 
 class RecentringThing(Thing):
     @thing_action

@@ -82,10 +82,17 @@
         </li>
       </ul>
       <action-button
-        thing="settings"
-        action=""
-        submit-label="Download Calibration Data"
+        thing="range_of_motion"
+        action="calibration_data_generate"
+        submit-label="Generate Calibration Data"
+        :confirmation-message="'Create a pdf of useful stuff?'"
+        @response="alertPDF"
       />
+      <button
+        submit-label="Download Calibration Data"
+        type="button"
+        class="uk-button uk-button-default uk-width-1-1"
+        >Download Calibration Data</button>
     </div>
     <div class="view-component uk-width-expand uk-padding-small">
       <tabContent
@@ -187,6 +194,9 @@ export default {
     },
     startModals: function() {
       this.$refs.calibrationModal.force_show();
+    },
+    alertPDF() {
+      this.modalNotify(`PDF has been created`);
     },
   }
 };

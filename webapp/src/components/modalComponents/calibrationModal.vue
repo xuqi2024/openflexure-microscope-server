@@ -153,7 +153,7 @@
           Cancel
         </button>
         <button
-          v-show="stepValue == 3"
+          v-show="stepValue == 4"
           class="uk-button uk-button-default"
           type="button"
           @click="stepValue = 0"
@@ -161,7 +161,7 @@
           Restart
         </button>
         <button
-          v-show="stepValue < 3"
+          v-show="stepValue < 4"
           class="uk-button uk-button-primary uk-margin-left"
           type="button"
           @click="increment()"
@@ -169,7 +169,7 @@
           Next
         </button>
         <button
-          v-show="stepValue == 3"
+          v-show="stepValue == 4"
           class="uk-button uk-button-primary uk-margin-left"
           type="button"
           @click="hide()"
@@ -288,7 +288,7 @@ export default {
 
     increment: function() {
       // Upper bound on section number
-      if (this.stepValue < 3) {
+      if (this.stepValue < 4) {
         this.stepValue = this.stepValue + 1;
         return true;
       }
