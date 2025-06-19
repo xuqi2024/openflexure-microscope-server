@@ -469,10 +469,10 @@ class RangeofMotionThing(Thing):
         
         pixel_per_step = get_pixel_step()
 
-        x_pos_final = data['x']['1']['final_position']['x']
-        x_neg_final = data['x']['-1']['final_position']['x']
-        y_pos_final = data['y']['1']['final_position']['y']
-        y_neg_final = data['y']['-1']['final_position']['y']
+        x_pos_final = data['rom_data']['x']['1']['final_position']['x']
+        x_neg_final = data['rom_data']['x']['-1']['final_position']['x']
+        y_pos_final = data['rom_data']['y']['1']['final_position']['y']
+        y_neg_final = data['rom_data']['y']['-1']['final_position']['y']
 
         #Estimated centre
         x_middle = (x_pos_final + x_neg_final)/2
@@ -484,11 +484,11 @@ class RangeofMotionThing(Thing):
         x_pos = []
 
         for dir in ['1', '-1']:
-            for loop in range(np.shape(data['x'][dir]['stage_positions'])[0]):
-                z_pos.append(data['x'][dir]['stage_positions'][loop]['z'])
-                x_pos.append(data['x'][dir]['stage_positions'][loop]['x'])
+            for loop in range(np.shape(data['rom_data']['x'][dir]['stage_positions'])[0]):
+                z_pos.append(data['rom_data']['x'][dir]['stage_positions'][loop]['z'])
+                x_pos.append(data['rom_data']['x'][dir]['stage_positions'][loop]['x'])
 
-        params, extra = curve_fit(parabola, x_pos, z_pos)
+        params, extra = curve_fit(quadratic, x_pos, z_pos)
 
         polarity_value = 2 * params[0] #This is the coeficient of the x^2 term in the quadratic
 
@@ -499,9 +499,11 @@ class RangeofMotionThing(Thing):
         elif polarity_value == 0:
             curvature = 'ERROR'
 
+        pixel_um = 0.921
+
         #Range of Motion
-        rom_x = round(((x_pos_final - x_neg_final) * pixel_um * csm_con /1000), 2)
-        rom_y = round(((y_pos_final - y_neg_final) * pixel_um * csm_con /1000), 2)
+        rom_x = round(((x_pos_final - x_neg_final) * pixel_um * pixel_per_step /1000), 2)
+        rom_y = round(((y_pos_final - y_neg_final) * pixel_um * pixel_per_step /1000), 2)
 
         rom_x_steps = x_pos_final - x_neg_final
         rom_y_steps = y_pos_final - y_neg_final
@@ -516,7 +518,7 @@ class RangeofMotionThing(Thing):
         for axs in ['x','y']:
             dif_dic[axs] = {}
             for dir in ['1', '-1']:
-                dif_array = [data[axs][dir]['stage_positions'][i + 1][axs] - data[axs][dir]['stage_positions'][i][axs] for i in range(len(data[axs][dir]['stage_positions']) - 1)]
+                dif_array = [data['rom_data'][axs][dir]['stage_positions'][i + 1][axs] - data['rom_data'][axs][dir]['stage_positions'][i][axs] for i in range(len(data['rom_data'][axs][dir]['stage_positions']) - 1)]
                 dif_dic[axs][dir] = dif_array
 
         #This loop extracts every difference in dif_dic where we have a correlation associated with it and saves it in stage_dic.
@@ -540,10 +542,10 @@ class RangeofMotionThing(Thing):
             pos_dic[axs] = {}
             for dir in ['1', '-1']:
                 temp_array = []
-                max_index = np.shape(data[axs][dir]['stage_positions'])[0]
+                max_index = np.shape(data['rom_data'][axs][dir]['stage_positions'])[0]
                 cor_index = pattern_gen(max_index, 1)
                 for i in cor_index:
-                    temp_array.append(data[axs][dir]['stage_positions'][i][axs])
+                    temp_array.append(data['rom_data'][axs][dir]['stage_positions'][i][axs])
                 pos_dic[axs][dir] = temp_array
 
         x_stage_coord_fit = np.concatenate((np.array(pos_dic['x']['-1'][:-1]),np.array(pos_dic['x']['1'][:-1])))
@@ -561,7 +563,7 @@ class RangeofMotionThing(Thing):
                     axis = 1
                 elif axs == 'y':
                     axis = 0
-                for i in data[axs][dir]['correlation_lateral_steps']:
+                for i in data['rom_data'][axs][dir]['correlation_lateral_steps']:
                     temp_array.append(i[axis])
                 cor_dic[axs][dir] = temp_array
 
@@ -639,7 +641,7 @@ class RangeofMotionThing(Thing):
 
         for axs in ['x', 'y']:
             for dir in ['1', '-1']:
-                for i in data[axs][dir]['stage_positions']:
+                for i in data['rom_data'][axs][dir]['stage_positions']:
                     x = i['x']
                     y = i['y']
                     coord.append([x, y])
@@ -648,8 +650,8 @@ class RangeofMotionThing(Thing):
         y_coord = []
 
         for loop in coord:
-            x_coord.append(loop[0] * csm_con * pixel_um/1000)
-            y_coord.append(loop[1] * csm_con * pixel_um/1000)
+            x_coord.append(loop[0] * pixel_per_step * pixel_um/1000)
+            y_coord.append(loop[1] * pixel_per_step * pixel_um/1000)
 
         #These values set limits on the graphs to make them more readable
         ROM_lim_x = abs(rom_x) - 2
@@ -669,7 +671,7 @@ class RangeofMotionThing(Thing):
         #Polarity plot
 
         x_fit = np.arange(np.min(x_pos), np.max(x_pos), 1)
-        y_fit = parabola(x_fit, params[0], params[1], params[2])
+        y_fit = quadratic(x_fit, params[0], params[1], params[2])
 
         plt.title(f'Polarity - {curvature}')
         plt.scatter(x_pos,z_pos, color = '#C5247F')
@@ -727,7 +729,7 @@ class RangeofMotionThing(Thing):
             f'Range of Motion(mm):{rom_dict["x_rom(mm)"]} X {rom_dict["y_rom(mm)"]}'
             )
         data_page.text(0.5,0.5,txt, transform=data_page.transFigure, size=24, ha="center")
-        data_page.savefig('graphs/data_page.jpg')
+        data_page.savefig(f'{graph_path}/data_page.jpg')
 
         graph_imgs = [
             Image.open(f"{graph_path}/{f}") for f in ["data_page.jpg", "csm_graph.jpg", "rom_graph.jpg", "pol_graph.jpg"]
