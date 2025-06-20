@@ -89,5 +89,8 @@ openflexure_settings/
 /tests/utilities/*.pstats
 /tests/utilities/*.png
 
+# Files created by simulator
+openflexure/
+
 # js version file
 /webapp/src/version.js
