@@ -85,13 +85,13 @@
         thing="range_of_motion"
         action="calibration_data_generate"
         submit-label="Generate Calibration Data"
-        :confirmation-message="'Create a pdf of useful stuff?'"
         @response="alertPDF"
       />
       <button
         submit-label="Download Calibration Data"
         type="button"
         class="uk-button uk-button-default uk-width-1-1"
+        @click="clickedDownload"
         >Download Calibration Data</button>
     </div>
     <div class="view-component uk-width-expand uk-padding-small">
@@ -196,10 +196,40 @@ export default {
       this.$refs.calibrationModal.force_show();
     },
     alertPDF() {
-      this.modalNotify(`PDF has been created`);
+      this.modalNotify(`PDF has been created. Ready for download.`);
     },
+    downloadItem: function() {
+      var filename = `calibration_summary.pdf`;
+      var url = `/var/openflexure/calibration_summary.pdf`;
+      var link = document.createElement("a");
+      link.setAttribute("download", filename);
+      link.href = url;
+      link.target = '_blank';
+      console.log(link);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    },
+    async clickedDownload(){
+        const fileName = 'var/openflexure/calibration_summary.txt';
+      
+      try {
+        const response = await fetch(fileName)
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob)
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "calibration_summary.txt";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch(err) {
+        console.log({ err })
+      }
+    } 
+    }
   }
-};
 </script>
 
 <style lang="less" scoped>
