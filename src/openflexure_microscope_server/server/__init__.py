@@ -60,6 +60,7 @@ def serve_from_cli(argv: Optional[list[str]] = None):
             host=args.host,
             port=args.port,
             log_config=log_config,
+            timeout_graceful_shutdown=2,
         )
 
     except BaseException as e:
