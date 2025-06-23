@@ -16,8 +16,132 @@
           <b>Click Next to begin microscope calibration.</b>
         </p>
       </div>
-
+      
+      <!--Section for gathering configuration information from user-->
       <div v-show="stepValue == 1">
+        <p>
+          <b
+            >Please provide the following information to improve calibration analysis</b
+          >
+        </p>
+        
+        <!--Gear-->
+        <div class="parent">
+          <div class="child">
+            <p>Gear Ratio</p>
+          </div>
+          <div class="child">
+            <select name="Gear Ratio" id="gear">
+              <option value="1:2(default)">1:2(default)</option>
+              <option value="1:1/2">1:1/2</option>
+              <option value="2:1">2:1</option>
+              <option value="1:1">1:1</option>
+              <option value="other">other</option>
+            </select>
+          </div>
+        </div>
+
+        <!--Stage-->
+        <div class="parent">
+          <div class="child">
+            <p>Stage Type</p>
+          </div>
+          <div class="child">
+            <select name="Stage Type" id="stage">
+              <option value="default">default</option>
+              <option value="Extended">Extended</option>
+              <option value="other">other</option>
+            </select>
+          </div>
+        </div>
+
+        <!--Camera-->
+        <div class="parent">
+          <div class="child">
+            <p>Camera Type</p>
+          </div>
+          <div class="child">
+            <select name="Camera Type" id="camera">
+              <option value="Raspberry Pi Camera V2 (default)">Raspberry Pi Camera V2 (default)</option>
+              <option value="other">other</option>
+            </select>
+          </div>
+        </div>
+
+        <!--Stage-->
+        <div class="parent">
+          <div class="child">
+            <p>Printer Used</p>
+          </div>
+          <div class="child">
+            <select name="Printer Used" id="printer">
+              <option value="Prusa">Prusa</option>
+              <option value="Bamboo">Bamboo</option>
+              <option value="other">other</option>
+            </select>
+          </div>
+        </div>
+
+        <!--Filament-->
+        <div class="parent">
+          <div class="child">
+            <p>Filament Used:</p>
+          </div>
+          <div class="child">
+            <select name="FilamentUsed" id="filament">
+              <option value="PLA">PLA (Recommended)</option>
+              <option value="PETG">PETG</option>
+              <option value="other">other</option>
+            </select>
+          </div>
+        </div>
+
+        <!--Magnification-->
+        <div class="parent">
+          <div class="child">
+            <p>Magnification</p>
+          </div>
+          <div class="child">
+            <select name="Magnification" id="magnification">
+              <option value="10x">10x</option>
+              <option value="20x">20x</option>
+              <option value="40x">40x</option>
+              <option value="60x">60x</option>
+              <option value="100x">100x</option>
+              <option value="other">other</option>
+            </select>
+          </div>
+        </div>
+
+        <!--Temperature-->
+        <div class="parent">
+          <div class="child">
+            <p>Temperature</p>
+          </div>
+          <div class="child">
+            <select name="Temperature" id="temperature">
+              <option value="Sub Zero">Sub Zero</option>
+              <option value="0-10">0-10</option>
+              <option value="10-20">10-20</option>
+              <option value="20-30">20-30</option>
+              <option value="30-40">30-40</option>
+              <option value="Greater than 40">Greater than 40</option>
+            </select>
+          </div>
+        </div>
+
+        <p>
+          <b>Click Next to continue microscope calibration.</b>
+        </p>
+
+        <button
+        class="uk-button uk-button-default"
+        @click="downloadTextFile()">
+            Submit
+        </button>
+      </div>
+
+      <div v-show="stepValue == 2">
         <h3>Lens-shading</h3>
         <div v-if="isLSTCalibrated">
           <p>
@@ -40,7 +164,7 @@
           </ul>
 
           <miniStreamDisplay
-            v-if="stepValue == 1"
+            v-if="stepValue == 2"
             class="mini-preview"
           ></miniStreamDisplay>
 
@@ -53,7 +177,7 @@
         </div>
       </div>
 
-      <div v-show="stepValue == 2">
+      <div v-show="stepValue == 3">
         <h3>Camera-stage mapping</h3>
         <div v-if="isCSMCalibrated">
           <p>
@@ -87,7 +211,7 @@
           </ul>
 
           <miniStreamDisplay
-            v-if="stepValue == 2"
+            v-if="stepValue == 3"
             class="mini-preview"
           ></miniStreamDisplay>
 
@@ -99,7 +223,7 @@
         </div>
       </div>
 
-      <div v-show="stepValue == 3">
+      <div v-show="stepValue == 4">
         <h3>Range of Motion</h3>
           <p>
             <b
@@ -123,7 +247,7 @@
           </ul>
 
           <miniStreamDisplay
-            v-if="stepValue == 3"
+            v-if="stepValue == 4"
             class="mini-preview"
           ></miniStreamDisplay>
 
@@ -134,7 +258,7 @@
           ></ROMsettings>
         </div>
 
-      <div v-show="stepValue == 4">
+      <div v-show="stepValue == 5">
         <p>
           <b>Calibration complete</b>
         </p>
@@ -153,7 +277,7 @@
           Cancel
         </button>
         <button
-          v-show="stepValue == 4"
+          v-show="stepValue == 5"
           class="uk-button uk-button-default"
           type="button"
           @click="stepValue = 0"
@@ -161,7 +285,7 @@
           Restart
         </button>
         <button
-          v-show="stepValue < 4"
+          v-show="stepValue < 5"
           class="uk-button uk-button-primary uk-margin-left"
           type="button"
           @click="increment()"
@@ -169,7 +293,7 @@
           Next
         </button>
         <button
-          v-show="stepValue == 4"
+          v-show="stepValue == 5"
           class="uk-button uk-button-primary uk-margin-left"
           type="button"
           @click="hide()"
@@ -288,10 +412,26 @@ export default {
 
     increment: function() {
       // Upper bound on section number
-      if (this.stepValue < 4) {
+      if (this.stepValue < 5) {
         this.stepValue = this.stepValue + 1;
         return true;
       }
+    },
+    downloadTextFile: function() {
+        var gear = document.getElementById("gear").value;
+        var stage = document.getElementById("stage").value;
+        var camera = document.getElementById("camera").value;
+        var printer = document.getElementById("printer").value;
+        var filament = document.getElementById("filament").value;
+        var magnification = document.getElementById("magnification").value;
+        var temperature = document.getElementById("temperature").value;
+        
+        var blob = new Blob([gear, ', ' , stage, ', ' , camera, ', ' , printer, ', ' , filament, ', ' , magnification, ', ' , temperature], { type: 'text/plain' });
+        var link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        
+        link.download = 'myTextFile.txt';
+        link.click();
     }
   }
 };
@@ -302,5 +442,15 @@ export default {
   width: 75%;
   margin-left: auto;
   margin-right: auto;
+}
+textarea {
+  resize: none;
+}
+.parent {
+  text-align: left;
+}
+.child {
+  display: inline-block;
+  padding: 1rem 1rem;
 }
 </style>

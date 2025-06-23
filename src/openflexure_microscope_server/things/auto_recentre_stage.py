@@ -711,6 +711,14 @@ class RangeofMotionThing(Thing):
 
         return full_calibration
 
+    def txt_sweeper(self):
+        txt_path = '/var/openflexure/assembly_config.txt'
+
+        with open(txt_path, 'r') as f:
+            txt_file = f.read().split(',')
+        
+        return txt_file
+
     @thing_action
     def calibration_data_generate(self):
         '''
@@ -723,16 +731,31 @@ class RangeofMotionThing(Thing):
 
         data_page = plt.figure(figsize=(11.69,8.27))
         data_page.clf()
-        txt = (f'CSM Matrix:[[1,0],[0,1]]\n'
+        data_txt = (f'CSM Matrix:[[1,0],[0,1]]\n'
             f'Pixel/Step:{pixel_per_step}\n'
             f'Range of Motion(Steps):{rom_dict["x_rom(steps)"]} X {rom_dict["x_rom(steps)"]}\n'
             f'Range of Motion(mm):{rom_dict["x_rom(mm)"]} X {rom_dict["y_rom(mm)"]}'
             )
-        data_page.text(0.5,0.5,txt, transform=data_page.transFigure, size=24, ha="center")
+        data_page.text(0.5,0.5,data_txt, transform=data_page.transFigure, size=24, ha="center")
         data_page.savefig(f'{graph_path}/data_page.jpg')
 
+        txt_file = self.txt_sweeper()
+
+        config_page = plt.figure(figsize=(11.69,8.27))
+        config_page.clf()
+        config_txt = (f'Gear Ratio: {txt_file[0]}\n'
+            f'Stage: {txt_file[1]}\n'
+            f'Camera: {txt_file[2]}\n'
+            f'Printer: {txt_file[3]}\n'
+            f'Filament: {txt_file[4]}\n'
+            f'Magnification: {txt_file[5]}\n'
+            f'Temperature: {txt_file[6]}'
+            )
+        config_page.text(0.5,0.5,config_txt, transform=config_page.transFigure, size=24, ha="center")
+        config_page.savefig(f'{graph_path}/config_page.jpg')
+
         graph_imgs = [
-            Image.open(f"{graph_path}/{f}") for f in ["data_page.jpg", "csm_graph.jpg", "rom_graph.jpg", "pol_graph.jpg"]
+            Image.open(f"{graph_path}/{f}") for f in ["config_page.jpg", "data_page.jpg", "csm_graph.jpg", "rom_graph.jpg", "pol_graph.jpg"]
         ]
 
         pdf_path = f"{graph_path}/calibration_summary.pdf"
@@ -740,24 +763,6 @@ class RangeofMotionThing(Thing):
         graph_imgs[0].save(pdf_path, "PDF", resoultion=100, save_all=True, append_images=graph_imgs[1:])
 
         return
-
-    # @thing_action
-    # def pdf_generator(self):
-    #     '''
-    #     Creates a pdf containing all the useful calibration data a user would need.
-    #     '''
-    #     # graph_imgs = [
-    #     #     Image.open(f"{graph_path}/{f}") for f in ["csm_graph.jpg", "rom_graph.jpg", "pol_graph.jpg"]
-    #     # ]
-
-    #     pdf_path = "/home/Graphs/calibration_summary.txt"
-
-    #     # graph_imgs[0].save(pdf_path, "PDF", resoultion=100, save_all=True, append_images=graph_imgs[1:])
-
-    #     with open("/var/openflexure/calibration_summary.txt", 'w') as file_object:
-    #         file_object.write("Did this work?")
-
-    #     return
 
 class RecentringThing(Thing):
     @thing_action
