@@ -79,6 +79,7 @@ addopts = [
     "--cov=openflexure_microscope_server",
     "--cov-report=term",
     "--cov-report=xml:coverage.xml",
+    "--cov-report=html:htmlcov",
     "--junitxml=report.xml",
 ]
 
