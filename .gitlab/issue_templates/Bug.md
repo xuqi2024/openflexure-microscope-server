@@ -11,7 +11,7 @@
 * **Release/Branch**: e.g. v3.0.0-alpha1
 * **Hardware Configuration:** 
   * Raspberry Pi Camera v2
-  * Sangabouard v0.5
+  * Sangaboard v0.5
 
 ## Steps to reproduce
 
