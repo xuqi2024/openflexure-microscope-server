@@ -19,6 +19,7 @@
       
       <!--Section for gathering configuration information from user-->
       <div v-show="stepValue == 1">
+        <h3>Assembly Configuration</h3>
         <p>
           <b
             >Please provide the following information to improve calibration analysis</b
@@ -429,8 +430,8 @@ export default {
         var blob = new Blob([gear, ', ' , stage, ', ' , camera, ', ' , printer, ', ' , filament, ', ' , magnification, ', ' , temperature], { type: 'text/plain' });
         var link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        
-        link.download = 'myTextFile.txt';
+        console.log(link.href)
+        link.download = 'assembly_config.txt';
         link.click();
     }
   }
