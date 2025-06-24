@@ -6,7 +6,6 @@ camera together to perform an autofocus routine.
 See repository root for licensing information.
 """
 
-from __future__ import annotations
 from contextlib import contextmanager
 import logging
 import time
@@ -37,9 +36,14 @@ CaptureDep = direct_thing_client_dependency(CaptureThing, "/capture/")
 SETTLING_TIME = 0.3
 
 
-class JPEGSharpnessMonitor:
-    __globals__ = globals()  # Required for FastAPI dependency
+class SharpnessDataArrays(BaseModel):
+    jpeg_times: NDArray
+    jpeg_sizes: NDArray
+    stage_times: NDArray
+    stage_positions: list[dict[str, int]]
 
+
+class JPEGSharpnessMonitor:
     def __init__(self, stage: Stage, camera: Camera, portal: BlockingPortal):
         self.camera = camera
         self.stage = stage
@@ -138,13 +142,6 @@ class JPEGSharpnessMonitor:
 
 
 SharpnessMonitorDep = Annotated[JPEGSharpnessMonitor, Depends()]
-
-
-class SharpnessDataArrays(BaseModel):
-    jpeg_times: NDArray
-    jpeg_sizes: NDArray
-    stage_times: NDArray
-    stage_positions: list[dict[str, int]]
 
 
 class AutofocusThing(Thing):
