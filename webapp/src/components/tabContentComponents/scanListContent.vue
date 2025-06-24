@@ -111,6 +111,7 @@
                 :submit-data="{ scan_name: item.name }"
                 :button-primary="false"
                 :modal-progress="true"
+                @response="updateScans"
                 @error="modalError"
               />
               <button
