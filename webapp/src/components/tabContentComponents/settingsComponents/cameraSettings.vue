@@ -32,56 +32,6 @@
                   />
                 </div>
               </li>
-              <li class="uk-open">
-                <a class="uk-accordion-title" href="#">Image Quality</a>
-                <div class="uk-accordion-content">
-                  <PropertyControl
-                    label="MJPEG Stream Bit Rate"
-                    property-name="mjpeg_bitrate"
-                    thing-name="camera"
-                    :read-back-delay="100"
-                  />
-                  <PropertyControl
-                    label="MJPEG Stream Resolution"
-                    property-name="stream_resolution"
-                    thing-name="camera"
-                    :read-back-delay="100"
-                  />
-                </div>
-              </li>
-              <!--
-              <li>
-                <a class="uk-accordion-title" href="#">Advanced</a>
-                <div class="uk-accordion-content">
-
-                  <div
-                    v-if="picamera.framerate !== undefined"
-                    class="uk-margin-top"
-                  >
-                    <label class="uk-form-label" for="form-stacked-text"
-                      >Camera framerate</label
-                    >
-                    <select
-                      v-model="picamera.framerate"
-                      class="uk-select uk-form-small"
-                    >
-                      <option
-                        v-for="option in framerateOptions"
-                        :key="option.value"
-                        :value="option.value"
-                      >
-                        {{ option.text }}
-                      </option>
-                    </select>
-                    <p class="uk-margin-remove">
-                      This option sets the framerate of the Pi Camera video
-                      encoder. The actual stream framerate is determined by
-                      network speed, and is limited by the encoder framerate.<br />
-                      <b>Lowering framerate may impact fast-autofocus accuracy.</b>
-                    </p>
-                  </div>
-                </div>
-              </li>-->
             </ul>
           </div>
         </form>

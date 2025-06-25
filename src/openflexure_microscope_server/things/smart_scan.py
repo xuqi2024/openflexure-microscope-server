@@ -59,11 +59,11 @@ def ensure_free_disk_space(path: str, min_space: int = 500000000) -> None:
     Raises:
         NotEnoughFreeSpaceError if the remaining storage is below min_space
     """
-    du = shutil.disk_usage(path)
-    if du.free < min_space:
+    disk_usage = shutil.disk_usage(path)
+    if disk_usage.free < min_space:
         raise NotEnoughFreeSpaceError(
             "There is not enough free disk space to continue. "
-            f"(Required: {min_space}, {du})."
+            f"(Required: {min_space >> 20}MB, free: {disk_usage.free >> 20}MB)."
         )
 
 
@@ -92,6 +92,7 @@ SCAN_DATA_FILENAME = "scan_data.json"
 STITCHING_CMD = "openflexure-stitch"
 
 SCAN_ZERO_PAD_DIGITS = 4
+STITCHING_RESOLUTION = (820, 616)
 
 
 def _scan_running(method):
@@ -376,28 +377,28 @@ class SmartScanThing(Thing):
         return (next_point[0], next_point[1], z_estimate)
 
     @_scan_running
-    def _take_test_image_to_calc_displacement(self, overlap):
+    def _calc_displacement_from_test_image(self, overlap: int) -> tuple[int, int]:
         """
         Take a test image and use camera stage mapping to calculate x and y displacement
+
+        :param overlap: The desired overlap as a fraction of the image. i.e. 0.5 means
+        that each image should overlap its nearest neighbour by 50%.
 
         Return (dx, dy) - the x and y displacments in steps
         """
         test_jpg = self._cam.grab_jpeg()
         test_image = np.array(Image.open(test_jpg.open()))
 
-        test_image_res = list(test_image.shape[:2])
+        test_image_res = list(test_image.shape)
         csm_image_res = [int(i) for i in self._csm.image_resolution]
 
-        if test_image_res != csm_image_res:
-            raise RuntimeError(
-                "Cannot start scan as it is set up to capture with a resolution that "
-                "has not been mapped.\n"
-                f"Scan resolution: {test_image_res}\n"
-                f"camera-stage-mapping resolution {csm_image_res}."
-            )
+        # If current stream width is different to csm calibration width,
+        # perform the conversion here
+        res_ratio = csm_image_res[0] / test_image_res[0]
 
         # get displacement matrix. note it is for (y, x) not (x, y) coordinates
-        csm_disp_matrix = self._csm.image_to_stage_displacement_matrix
+        csm_disp_matrix = np.array(self._csm.image_to_stage_displacement_matrix)
+        csm_disp_matrix *= res_ratio
 
         # Calculate displacements in image coordinates
         dx_img = test_image.shape[1] * (1 - overlap)
@@ -421,7 +422,13 @@ class SmartScanThing(Thing):
         dataclass.
         """
         overlap = self.overlap
-        dx, dy = self._take_test_image_to_calc_displacement(overlap)
+        dx, dy = self._calc_displacement_from_test_image(overlap)
+        stitch_resize = STITCHING_RESOLUTION[0] / self.capture_resolution[0]
+
+        self._scan_logger.debug(
+            f"Resizing images when stitching by a factor of {stitch_resize}"
+        )
+
         self._scan_logger.info(
             f"Based on an overlap of {overlap}, we will make steps of {dx}, {dy}"
         )
@@ -448,6 +455,8 @@ class SmartScanThing(Thing):
             "start_time": time.strftime("%H_%M_%S-%d_%m_%Y"),
             "skip_background": self.skip_background,
             "stitch_automatically": self.stitch_automatically,
+            "stitch_resize": stitch_resize,
+            "capture_resolution": self.capture_resolution,
         }
 
     @_scan_running
@@ -466,6 +475,7 @@ class SmartScanThing(Thing):
             "dy": self._scan_data["dy"],
             "start time": self._scan_data["start_time"],
             "skipping background": self._scan_data["skip_background"],
+            "capture resolution": self._scan_data["capture_resolution"],
         }
 
         scan_inputs_fname = os.path.join(
@@ -535,6 +545,7 @@ class SmartScanThing(Thing):
         scan_successful = True
 
         try:
+            self._cam.start_streaming(main_resolution=(3280, 2464))
             self._set_scan_data()
             self._save_scan_inputs_json()
             if self._scan_images_taken != 0:
@@ -566,6 +577,8 @@ class SmartScanThing(Thing):
             )
             raise e
         finally:
+            # Start streaming in the default resolution again as soon as possible
+            self._cam.start_streaming()
             if self._capture_thread:
                 # If the capture thread had an error, we capture it here
                 try:
@@ -668,6 +681,7 @@ class SmartScanThing(Thing):
             self._autofocus.run_z_stack(
                 images_dir=self._ongoing_scan_images_dir,
                 stack_dir=site_folder,
+                capture_resolution=self._scan_data["capture_resolution"],
             )
 
             # increment capure counter as thread has completed
@@ -707,6 +721,7 @@ class SmartScanThing(Thing):
                 self.stitch_scan(
                     logger=self._scan_logger,
                     scan_name=self._ongoing_scan_name,
+                    stitch_resize=self._scan_data["stitch_resize"],
                     overlap=self._scan_data["overlap"],
                 )
                 self.promote_stitch_files(self._scan_logger)
@@ -735,6 +750,16 @@ class SmartScanThing(Thing):
         if not os.path.isfile(path):
             raise HTTPException(404, "File not found")
         return FileResponse(path)
+
+    @thing_property
+    def capture_resolution(self) -> tuple[int, int]:
+        """A tuple of the image resolution to capture. Should be in a
+        4:3 aspect ratio"""
+        return self.thing_settings.get("capture_resolution", ((1640, 1232)))
+
+    @capture_resolution.setter
+    def capture_resolution(self, value: tuple[int, int]) -> None:
+        self.thing_settings["capture_resolution"] = value
 
     @thing_property
     def max_range(self) -> int:
@@ -988,6 +1013,8 @@ class SmartScanThing(Thing):
                     "preview_stitch",
                     "--minimum_overlap",
                     f"{min_overlap}",
+                    "--resize",
+                    f"{self._scan_data['stitch_resize']}",
                     self._ongoing_scan_images_dir,
                 ]
             )
@@ -1058,6 +1085,7 @@ class SmartScanThing(Thing):
         self,
         logger: InvocationLogger,
         scan_name: str,
+        stitch_resize: Optional[float] = None,
         overlap: float = 0.0,
     ) -> None:
         """Generate a stitched image based on stage position metadata
@@ -1077,7 +1105,6 @@ class SmartScanThing(Thing):
             try:
                 with open(json_fpath, "r", encoding="utf-8") as data_file:
                     data_loaded = json.load(data_file)
-                    logger.info(data_loaded)
                 overlap = data_loaded["overlap"]
             except (json.decoder.JSONDecodeError, FileNotFoundError, TypeError):
                 # As there is no schema or pydantic model this should handle
@@ -1094,6 +1121,29 @@ class SmartScanThing(Thing):
                     "Attempting stitch with overlap value of 0.1"
                 )
                 overlap = 0.1
+
+        if stitch_resize is None:
+            try:
+                with open(json_fpath, "r", encoding="utf-8") as data_file:
+                    data_loaded = json.load(data_file)
+                capture_resolution = data_loaded["capture resolution"]
+                stitch_resize = STITCHING_RESOLUTION[0] / capture_resolution[0]
+            except (json.decoder.JSONDecodeError, FileNotFoundError, TypeError):
+                # As there is no schema or pydantic model this should handle
+                # the file not being there, it not being json in the file,
+                # or the imported data not being indexable
+                logger.warning(
+                    f"Couldn't read scan data, is {SCAN_DATA_FILENAME} missing or corrupt? "
+                    "Attempting stitch with resize value of 0.5"
+                )
+                stitch_resize = 0.5
+            except KeyError:
+                logger.warning(
+                    "Value for capture resolution not found in scan data. "
+                    "Attempting stitch with resize value of 0.5"
+                )
+                stitch_resize = 0.5
+
         self.run_subprocess(
             logger,
             [
@@ -1104,6 +1154,8 @@ class SmartScanThing(Thing):
                 "--stitch_dzi",
                 "--minimum_overlap",
                 f"{round(overlap * 0.9, 2)}",
+                "--resize",
+                f"{stitch_resize}",
                 images_folder,
             ],
         )

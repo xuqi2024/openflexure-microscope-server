@@ -1,6 +1,6 @@
 {
     "things": {
-        "/camera/": "labthings_picamera2.thing:StreamingPiCamera2",
+        "/camera/": "openflexure_microscope_server.things.camera.picamera:StreamingPiCamera2",
         "/stage/": "labthings_sangaboard:SangaboardThing",
         "/auto_recentre_stage/": "openflexure_microscope_server.things.auto_recentre_stage:RecentringThing",
         "/autofocus/": "openflexure_microscope_server.things.autofocus:AutofocusThing",
@@ -13,8 +13,7 @@
                 "scans_folder": "/var/openflexure/scans/"
             }
         },
-        "/background_detect/": "openflexure_microscope_server.things.background_detect:BackgroundDetectThing",
-        "/capture/": "openflexure_microscope_server.things.capture:CaptureThing"
+        "/background_detect/": "openflexure_microscope_server.things.background_detect:BackgroundDetectThing"
     },
     "settings_folder": "/var/openflexure/settings/",
     "log_folder": "/var/openflexure/logs/"

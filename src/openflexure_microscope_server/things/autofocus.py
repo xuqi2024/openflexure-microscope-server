@@ -23,16 +23,14 @@ from labthings_fastapi.dependencies.blocking_portal import BlockingPortal
 from labthings_fastapi.decorators import thing_action, thing_property
 from labthings_fastapi.dependencies.metadata import GetThingStates
 from labthings_fastapi.types.numpy import NDArray
-from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
 from labthings_fastapi.dependencies.invocation import InvocationLogger
 
 from .camera import RawCameraDependency as Camera
 from .camera import CameraDependency as WrappedCamera
 from .stage import StageDependency as Stage
-from .capture import CaptureThing
 
-CaptureDep = direct_thing_client_dependency(CaptureThing, "/capture/")
 
+STACK_OVERSHOOT = 200
 SETTLING_TIME = 0.3
 
 
@@ -282,9 +280,9 @@ class AutofocusThing(Thing):
         stage: Stage,
         logger: InvocationLogger,
         metadata_getter: GetThingStates,
-        capture: CaptureDep,
         images_dir: str,
         stack_dir: str,
+        capture_resolution: tuple[int, int],
     ) -> None:
         """Run a z stack, saving all images to stack_dir and copying the
         central image to stack_dir"""
@@ -292,27 +290,41 @@ class AutofocusThing(Thing):
         images_to_capture = self.stack_images_to_capture
 
         stack_z_range = stack_dz * (images_to_capture - 1)
-        stage.move_relative(z=-stack_z_range / 2)
+        if stack_z_range > 0:
+            # Perform backlash corrected move. See issue #420
+            stage.move_relative(z=-(STACK_OVERSHOOT + stack_z_range / 2))
+            stage.move_relative(z=STACK_OVERSHOOT)
+        time.sleep(0.3)
 
         for capture_count in range(images_to_capture):
             time.sleep(SETTLING_TIME)
 
-            jpeg_path = os.path.join(
-                stack_dir,
-                f"{capture_count}.jpeg",
-            )
-            capture._capture_and_save(
-                jpeg_path=jpeg_path,
-                cam=cam,
-                logger=logger,
-                metadata_getter=metadata_getter,
-            )
+            jpeg_path = os.path.join(stack_dir, f"{capture_count}.jpeg")
+            start_time = time.time()
+            cam.capture_to_memory(logger=logger, metadata_getter=metadata_getter)
+            captured_time = time.time()
 
-            # If the stack isn't complete yet, move
             if capture_count + 1 < images_to_capture:
                 stage.move_relative(z=stack_dz)
+            moved_time = time.time()
 
-        self.copy_central_image_from_stack(images_dir, stack_dir)
+            cam.save_from_memory(
+                jpeg_path=jpeg_path,
+                logger=logger,
+                save_resolution=capture_resolution,
+            )
+            saved_time = time.time()
+            time_remaining = SETTLING_TIME - (saved_time - start_time)
+            if time_remaining > 0:
+                time.sleep(time_remaining)
+                logger.info(f"Settled for an extra {round(time_remaining, 3)} seconds")
+            logger.debug(f"Capturing took {round(captured_time - start_time, 2)} s")
+            logger.debug(f"Saving took {round(saved_time - moved_time, 2)} s")
+            logger.debug(
+                f"Effective settling time was {round(time.time() - moved_time, 2)} s"
+            )
+
+        self.copy_sharpest_image_from_stack(images_dir, stack_dir, logger)
 
     def copy_central_image_from_stack(
         self,
@@ -328,3 +340,19 @@ class AutofocusThing(Thing):
         xy_location = os.path.basename(stack_dir)
 
         shutil.copy(central_image, os.path.join(images_dir, f"{xy_location}.jpeg"))
+
+    def copy_sharpest_image_from_stack(
+        self,
+        images_dir: str,
+        stack_dir: str,
+        logger: InvocationLogger,
+    ) -> None:
+        """Gets a list of images in a folder (stack_dir), sorts them by filesize, and copies the sharpest
+        image to images dir."""
+        image_list = glob.glob(os.path.join(stack_dir, "*"))
+        image_list = sorted(image_list, key=os.path.getsize)
+        sharpest_image = image_list[-1]
+        xy_location = os.path.basename(stack_dir)
+
+        logger.info(sharpest_image)
+        shutil.copy(sharpest_image, os.path.join(images_dir, f"{xy_location}.jpeg"))

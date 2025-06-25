@@ -22,23 +22,14 @@ from scipy.ndimage import gaussian_filter
 from labthings_fastapi.utilities import get_blocking_portal
 from labthings_fastapi.decorators import thing_action, thing_property
 from labthings_fastapi.dependencies.metadata import GetThingStates
-from labthings_fastapi.outputs.mjpeg_stream import MJPEGStreamDescriptor
-from labthings_fastapi.types.numpy import NDArray
 from labthings_fastapi.server import ThingServer
-from pydantic import RootModel
 
-from . import BaseCamera, JPEGBlob
+from . import BaseCamera, JPEGBlob, ArrayModel
 from ..stage import StageProtocol as Stage
 
 # The ratio between "motor" steps and pixels
 # higher related to a faster movement
 RATIO = 0.2
-
-
-class ArrayModel(RootModel):
-    """A model for an array"""
-
-    root: NDArray
 
 
 class SimulatedCamera(BaseCamera):
@@ -159,9 +150,6 @@ class SimulatedCamera(BaseCamera):
         if self._capture_enabled and self._capture_thread:
             return self._capture_thread.is_alive()
         return False
-
-    mjpeg_stream = MJPEGStreamDescriptor()
-    lores_mjpeg_stream = MJPEGStreamDescriptor()
 
     def _capture_frames(self):
         portal = get_blocking_portal(self)
