@@ -124,7 +124,7 @@
               <ul>
                 <li>{{ item.number_of_images }} images</li>
                 <li>created: {{ formatDate(item.created) }}</li>
-                <li>modified: {{ formatDate(item.modified) }}</li>
+                <li>scan duration: {{ item.duration }}</li>
               </ul>
                 <li v-if="item.number_of_images<3" class="warning-msg">Not enough images to stitch</li>
                 <li v-else-if="!item.dzi & item.stitch_available" class="alert-msg">Interactive preview not available</li> 
