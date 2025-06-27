@@ -1211,7 +1211,7 @@ class SmartScanThing(Thing):
         # Alternatively, use "output_dir" in stitching to separate stitching image files
         files_to_delay = [
             "TileConfiguration",
-            "tiling_cache",
+            ".json",
             "stitched.jp",
             "stitched_from",
             "stitched.om",
