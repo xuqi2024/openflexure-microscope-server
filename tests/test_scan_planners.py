@@ -183,8 +183,8 @@ def test_smart_spiral_first_few_pos():
     xy_pos4, z_pos4 = planner.get_next_location_and_z_estimate()
     # ...(100, 0)...
     assert xy_pos4 == (100, 0)
-    # ... and it should get its focus from the most recent point as this was focussed
-    assert z_pos4 is new_z_focus
+    # ... and it should get its focus from the lowest neighbouring point
+    assert z_pos4 is z_focus
     assert planner.closest_focus_site(xy_pos4) == xyz_pos3
 
 

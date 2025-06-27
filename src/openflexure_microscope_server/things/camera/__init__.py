@@ -7,7 +7,7 @@ See repository root for licensing information.
 """
 
 from __future__ import annotations
-from typing import Literal, Optional, Tuple
+from typing import Literal, Optional, Tuple, Any
 import json
 
 from pydantic import RootModel
@@ -50,30 +50,122 @@ class NoImageInMemoryError(RuntimeError):
     """An error called if no image in in memory when an method is called to use that image"""
 
 
+class CameraMemoryBuffer:
+    """
+    A class that holds images in memory. The images are by default PIL images.
+
+    However subclasses of BaseCamera can use this class to store other object types
+    """
+
+    _storage: dict[int, tuple[Any, Optional[dict]]]
+
+    def __init__(self):
+        # This dictionary is the main store for data. Dictionaries are ordered since
+        # Python 3.6, so the order in the dictionary is the capture order
+        self._storage = {}
+        # A simple id system where each capture id is just the number of captures since
+        # the server starts
+        self._latest_id: int = 0
+
+    def add_image(
+        self, image: Any, metadata: Optional[dict] = None, buffer_max: int = 1
+    ) -> int:
+        """
+        Add an image to the Memory buffer
+
+        This will add an image to the memory buffer. By default the buffer will
+        be cleared. To allow saving multiple images the buffer_max must be set
+        every time an image is added.
+
+        :param image: The image to add. A PIL image is recommended, but cameras
+        can choose to use other formats
+        :param metadata: Optional, a dictionary of the image metadata.
+        :param buffer_max: The maximum number of images that should be in the buffer
+        once this images is added. Default is 1.
+
+        :return buffer_id: The id in the buffer for this image
+        """
+        self._latest_id += 1
+        self._create_space(buffer_max)
+        self._storage[self._latest_id] = (image, metadata)
+        return self._latest_id
+
+    def get_image(
+        self, buffer_id: Optional[int] = None, remove: bool = True
+    ) -> tuple[Any, Optional[dict]]:
+        """
+        Return the image with the given id.
+
+        If no id is given the most recent image is returned. However, the
+        buffer is also cleared, otherwise it would be possible to accidentally
+        retrieve images out of order.
+
+        :param buffer_id: The buffer id of the image to retrieve
+        :param remove: True (default) to remove this image from the buffer, False
+        to leave the image in the buffer.
+        """
+
+        # No id given
+        if buffer_id is None:
+            # Get the latest image and metadata tuple from storage
+            try:
+                image_tuple = list(self._storage.values())[-1]
+            except IndexError as e:
+                raise NoImageInMemoryError("No image in memory to retrieve.") from e
+            # Clear the storage so images don't get retrieved out of order
+            self._storage.clear()
+            return image_tuple
+
+        try:
+            if remove:
+                return self._storage.pop(buffer_id)
+            return self._storage[buffer_id]
+        except KeyError as e:
+            raise NoImageInMemoryError(
+                "No image with matching id in memory to retrieve."
+            ) from e
+
+    def clear(self):
+        """
+        Clear all images from memory
+        """
+        self._storage.clear()
+
+    def _create_space(self, buffer_max: int) -> None:
+        """
+        Create space to add an image.
+
+        :param buffer_max: The maximum number of images that should be in the buffer
+        once another images is added.
+        """
+        # If only one image to be stored just clear the storage and return
+        if buffer_max <= 1:
+            self._storage.clear()
+            return
+
+        # Number to remove to get the storage down to 1 less than the buffer length
+        to_remove = len(self._storage) - (buffer_max - 1)
+        # If if there is space. Nothing to do, just return
+        if to_remove < 1:
+            return
+
+        keys_to_remove = list(self._storage.keys())[:to_remove]
+        for key in keys_to_remove:
+            del self._storage[key]
+
+
 class BaseCamera(Thing):
     """The base class for all cameras. All cameras must directly inherit from this class"""
 
-    _memory_image: Optional[Image] = None
-    _memory_metadata: Optional[dict] = None
     mjpeg_stream = MJPEGStreamDescriptor()
     lores_mjpeg_stream = MJPEGStreamDescriptor()
+    _memory_buffer = CameraMemoryBuffer()
 
     def __enter__(self) -> None:
         raise NotImplementedError("CameraThings must define their own __enter__ method")
 
     def __exit__(self, _exc_type, _exc_value, _traceback) -> None:
         raise NotImplementedError("CameraThings must define their own __exit__ method")
-
-    @thing_property
-    def image_in_memory(self) -> bool:
-        """True if an image is in memory ready to be saved"""
-        return self._memory_image is not None and self._memory_metadata is not None
-
-    @thing_action
-    def clear_image_memory(self) -> None:
-        """Clear any image in memory"""
-        self._memory_image = None
-        self._memory_metadata = None
 
     @thing_action
     def start_streaming(
@@ -134,6 +226,18 @@ class BaseCamera(Thing):
         return JPEGBlob.from_bytes(frame)
 
     @thing_action
+    def grab_jpeg_size(
+        self,
+        portal: BlockingPortal,
+        stream_name: Literal["main", "lores"] = "main",
+    ) -> int:
+        """Acquire one image from the preview stream and return its size"""
+        stream = (
+            self.lores_mjpeg_stream if stream_name == "lores" else self.mjpeg_stream
+        )
+        return portal.call(stream.next_frame_size)
+
+    @thing_action
     def capture_image(
         self,
         stream_name: Literal["main", "lores", "raw"],
@@ -154,9 +258,13 @@ class BaseCamera(Thing):
     ) -> None:
         """Capture an image and save it to disk
 
-
-        save_resolution can be set to resize the image before saving. By default this is None
-            meaning that the image is saved at original resoltion.
+        :param jpeg_path: The path to save the file to
+        :param logger: This should be injected automatically by Labthings FastAPI
+        when calling the action
+        :param metadata_getter: This should be injected automatically by Labthings
+        FastAPI when calling the action
+        :param save_resolution: can be set to resize the image before saving. By
+        default this is None meaning that the image is saved at original resolution.
         """
         image, metadata = self._robust_image_capture(
             metadata_getter,
@@ -176,17 +284,25 @@ class BaseCamera(Thing):
         self,
         logger: InvocationLogger,
         metadata_getter: GetThingStates,
+        buffer_max: int = 1,
     ) -> None:
         """
         Capture an image to memory. This can be saved later with `save_from_memory`
 
         Note that only one image is held in memory so this will overwrite any image
         in memory.
+
+        :param logger: This should be injected automatically by Labthings FastAPI
+        when calling the action
+        :param metadata_getter: This should be injected automatically by Labthings
+        FastAPI when calling the action
+        :param buffer_max: The maximum number of images that should be in the buffer
+        once this images is added. Default is 1.
+
+        :return: the buffer id of the image captured
         """
-        self._memory_image, self._memory_metadata = self._robust_image_capture(
-            metadata_getter,
-            logger=logger,
-        )
+        image, metadata = self._robust_image_capture(metadata_getter, logger)
+        return self._memory_buffer.add_image(image, metadata, buffer_max=buffer_max)
 
     @thing_action
     def save_from_memory(
@@ -194,21 +310,33 @@ class BaseCamera(Thing):
         jpeg_path: str,
         logger: InvocationLogger,
         save_resolution: Optional[Tuple[int, int]] = None,
+        buffer_id: Optional[int] = None,
     ) -> None:
         """
         Save an image that has been captured to memory.
+
+        :param jpeg_path: The path to save the file to
+        :param logger: This should be injected automatically by Labthings FastAPI
+        when calling the action
+        :param save_resolution: can be set to resize the image before saving. By
+        default this is None meaning that the image is saved at original resolution.
+        :param buffer_id: The buffer id of the image to save, this was returned by
+        `capture_to_memory`
         """
-        if not self.image_in_memory:
-            raise NoImageInMemoryError("No image in memory to save.")
+        image, metadata = self._memory_buffer.get_image(buffer_id)
 
         self._save_capture(
             jpeg_path=jpeg_path,
-            image=self._memory_image,
-            metadata=self._memory_metadata,
+            image=image,
+            metadata=metadata,
             logger=logger,
             save_resolution=save_resolution,
         )
-        self.clear_image_memory()
+
+    @thing_action
+    def clear_buffers(self) -> None:
+        """Clear all images in memory"""
+        self._memory_buffer.clear()
 
     def _robust_image_capture(
         self,
@@ -248,10 +376,13 @@ class BaseCamera(Thing):
         if save_resolution is not None and image.size != save_resolution:
             image = image.resize(save_resolution, Image.BOX)
         try:
-            # Per PIL documentation, (https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html#jpeg)
-            # there are two factors when saving a JPEG. subsampling affects the colour, quality the pixels
+            # Per PIL documentation,
+            # (https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html#jpeg)
+            # there are two factors when saving a JPEG. Subsampling affects the colour,
+            # quality affects the pixels.
             # subsampling = 0 disables subsampling of colour
-            # quality = 95 is the maximum recommended - above this, JPEG compression is disabled, file size increases and quality is barely or not affected
+            # quality = 95 is the maximum recommended - above this, JPEG compression is
+            # disabled, file size increases and quality is barely or not affected
             image.save(jpeg_path, quality=95, subsampling=0)
             try:
                 # Load EXIF metadata from image so it can be added to.

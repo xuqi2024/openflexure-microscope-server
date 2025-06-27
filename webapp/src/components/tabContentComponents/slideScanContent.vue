@@ -34,8 +34,15 @@
               <div class="uk-margin">
                 <propertyControl
                   thing-name="autofocus"
-                  property-name="stack_images_to_capture"
-                  label="Images in Stack to Capture"
+                  property-name="stack_images_to_save"
+                  label="Images in Stack to Save"
+                />
+              </div>
+              <div class="uk-margin">
+                <propertyControl
+                  thing-name="autofocus"
+                  property-name="stack_min_images_to_test"
+                  label="Minimum number of images to test for focus"
                 />
               </div>
               <div class="uk-margin">

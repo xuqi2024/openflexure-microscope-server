@@ -20,6 +20,12 @@ XYPosList: TypeAlias = list[XYPos]
 XYZPosList: TypeAlias = list[XYZPos]
 
 
+# how many times the minimum distance between images to include as a "nearby" image
+# default 1.4 includes images offset in x or y, but not diagonally.
+# This wis based of a 4:3 aspect ratio. So x moves are 1.33 times larger than y
+NEIGHBOUR_CUTOFF = 1.4
+
+
 def enforce_xy_tuple(value: XYPos) -> XYPos:
     """
     Used for enforcing that an input is a tuple and is the correct length
@@ -344,6 +350,63 @@ class SmartSpiral(ScanPlanner):
             )
 
         self._remaining_locations.sort(key=sort_key)
+
+    def get_next_location_and_z_estimate(self) -> tuple[XYPos, Optional[int]]:
+        """
+        Return the next location to scan, and the estimated z-position
+        for this location. This overrides the default behaviour of ScanPlanner
+        to take the lowest value of nearest neighbours as this works best for smart stack
+
+        Note z-position may be None! This indicates that the current z position
+        should be used.
+        """
+        if self.scan_complete:
+            raise RuntimeError("Can't get next position, scan is complete")
+
+        next_location = self._remaining_locations[0]
+
+        # If focused locations exist, return the neighbour with the lowest z position
+        closest_pos = self.select_nearby_focus_site(next_location)
+        if closest_pos is None:
+            z = None
+        else:
+            z = closest_pos[2]
+
+        return next_location, z
+
+    def select_nearby_focus_site(self, xy_pos: XYPos) -> Optional[XYZPos]:
+        """
+        Return the xyz position of the nearby site with the lowest z position.
+        Lowest position is best, as starting too high causes smart stacking to
+        autofocus and restart. Starting too low just requires extra movements in +z.
+        Nearby is defined as within NEIGHBOUR_CUTOFF times the distance to the closest neighbour.
+
+        Returns None if there if no focused locations are present
+        """
+        if not self._focused_locations:
+            return None
+
+        # must be float64 (double precision) to deal with the huge numbers involved!
+        current_pos = np.array(xy_pos, dtype="float64")
+        path_pos = np.array(self._focused_locations, dtype="float64")[:, :2]
+
+        # Use linalg.norm to calculate the direct distance between the points
+        # Note linalg.norm always uses float64
+        dists = np.linalg.norm((path_pos - current_pos), axis=1)
+
+        # Get indices of all focused sites within NEIGHBOUR_CUTOFF the minimum distance.
+        # Note np.where always returns a tuple of arrays, hence the trailing [0]
+        indices = np.where(dists <= NEIGHBOUR_CUTOFF * np.min(dists))[0]
+
+        # Turning into an array allows slicing based on a list
+        focused_locations_array = np.array(self._focused_locations)
+
+        # Choose the lowest (smallest z) of the neighbouring sites. Smart stack works best
+        # if started too low, so the lowest z will perform best
+        chosen_focused_site = min(focused_locations_array[indices], key=lambda x: x[-1])
+
+        # Convert back into list so values are of type int instead of np.int32
+        return tuple(chosen_focused_site.tolist())
 
     def moves_between(
         self,

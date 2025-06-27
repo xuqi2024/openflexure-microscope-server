@@ -37,7 +37,8 @@ dev = [
   "mypy-gitlab-code-quality",
 #  "pytest-gitlab-code-quality", # pytest version constraint clashes with labthings
   "pytest",
-  "matplotlib~=3.10"
+  "matplotlib~=3.10",
+  "hypothesis",
 ]
 pi = [
   "picamera2~=0.3.27",

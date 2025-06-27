@@ -94,3 +94,6 @@ openflexure/
 
 # js version file
 /webapp/src/version.js
+
+# Hypothesis
+.hypothesis
