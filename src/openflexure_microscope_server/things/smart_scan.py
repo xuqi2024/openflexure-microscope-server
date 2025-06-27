@@ -832,9 +832,9 @@ class SmartScanThing(Thing):
         if not os.path.isdir(self.base_scan_dir):
             return scans
         for f in os.listdir(self.base_scan_dir):
-            path = os.path.join(self.base_scan_dir, f)
-            if os.path.isdir(path):
-                images_folder = os.path.join(path, IMG_DIR_NAME)
+            scan_folder = os.path.join(self.base_scan_dir, f)
+            if os.path.isdir(scan_folder):
+                images_folder = os.path.join(scan_folder, IMG_DIR_NAME)
                 if os.path.isdir(images_folder):
                     folder_contents = os.listdir(images_folder)
                     scan_images = [i for i in folder_contents if IMAGE_REGEX.search(i)]
@@ -851,12 +851,17 @@ class SmartScanThing(Thing):
                 else:
                     number_of_images = 0
                     stitch_available = False
-                modified = max(os.stat(root).st_mtime for root, _, _ in os.walk(path))
+                all_dir_files = glob.glob(
+                    os.path.join(scan_folder, "**", "*"), recursive=True
+                )
+                all_dir_file_times = [os.path.getmtime(x) for x in all_dir_files]
+                modified = max(all_dir_file_times)
+                created = min(all_dir_file_times)
 
                 scans.append(
                     ScanInfo(
                         name=f,
-                        created=os.path.getctime(path),
+                        created=created,
                         modified=modified,
                         number_of_images=number_of_images,
                         stitch_available=stitch_available,
