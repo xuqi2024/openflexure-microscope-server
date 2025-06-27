@@ -9,7 +9,7 @@ import os
 import time
 from PIL import Image
 from pydantic import BaseModel
-from datetime import datetime
+import datetime
 from subprocess import CompletedProcess, Popen, PIPE, SubprocessError, STDOUT
 import glob
 import json
@@ -73,11 +73,12 @@ class ScanInfo(BaseModel):
     """Summary information about a scan folder"""
 
     name: str
-    created: datetime
-    modified: datetime
+    created: datetime.datetime
+    modified: datetime.datetime
     number_of_images: int
     stitch_available: bool
     dzi: Optional[str]
+    duration: str
 
 
 DOWNLOADABLE_SCAN_FILES = (
@@ -494,8 +495,8 @@ class SmartScanThing(Thing):
         "cancelled by user", or the error that ended the scan.
         """
         # Should this be a method of the scan_data dataclass?
-        current_time = datetime.now().replace(microsecond=0)
-        start_time = datetime.strptime(
+        current_time = datetime.datetime.now().replace(microsecond=0)
+        start_time = datetime.datetime.strptime(
             self._scan_data["start_time"], "%H_%M_%S-%d_%m_%Y"
         ).replace(microsecond=0)
 
@@ -837,7 +838,14 @@ class SmartScanThing(Thing):
                 images_folder = os.path.join(scan_folder, IMG_DIR_NAME)
                 if os.path.isdir(images_folder):
                     folder_contents = os.listdir(images_folder)
-                    scan_images = [i for i in folder_contents if IMAGE_REGEX.search(i)]
+                    scan_images = [
+                        os.path.join(images_folder, i)
+                        for i in folder_contents
+                        if IMAGE_REGEX.search(i)
+                    ]
+                    scan_times = [os.path.getmtime(x) for x in scan_images]
+                    modified = max(scan_times)
+                    created = min(scan_times)
                     stitches = [
                         i for i in folder_contents if i.endswith("_stitched.jpg")
                     ]
@@ -851,18 +859,17 @@ class SmartScanThing(Thing):
                 else:
                     number_of_images = 0
                     stitch_available = False
-                all_dir_files = glob.glob(
-                    os.path.join(scan_folder, "**", "*"), recursive=True
-                )
-                all_dir_file_times = [os.path.getmtime(x) for x in all_dir_files]
-                modified = max(all_dir_file_times)
-                created = min(all_dir_file_times)
+                    modified = 0
+                    created = 0
+
+                duration = str(datetime.timedelta(seconds=round(modified - created)))
 
                 scans.append(
                     ScanInfo(
                         name=f,
                         created=created,
                         modified=modified,
+                        duration=duration,
                         number_of_images=number_of_images,
                         stitch_available=stitch_available,
                         dzi=dzi,
@@ -966,7 +973,7 @@ class SmartScanThing(Thing):
         return stitch_path
 
     @thing_property
-    def latest_preview_stitch_time(self) -> Optional[datetime]:
+    def latest_preview_stitch_time(self) -> Optional[datetime.datetime]:
         """The modification time of the latest preview image
 
         This will return `null` if there is no preview image to return.
