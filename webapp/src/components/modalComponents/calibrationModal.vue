@@ -443,21 +443,27 @@ export default {
       }
     },
     downloadTextFile: function() {
-        var gear = document.getElementById("gear").value;
-        var stage = document.getElementById("stage").value;
-        var camera = document.getElementById("camera").value;
-        var printer = document.getElementById("printer").value;
-        var filament = document.getElementById("filament").value;
-        var magnification = document.getElementById("magnification").value;
-        var temperature = document.getElementById("temperature").value;
-        
-        var blob = new Blob([gear, ', ' , stage, ', ' , camera, ', ' , printer, ', ' , filament, ', ' , magnification, ', ' , temperature], { type: 'text/plain' });
-        var link = document.createElement('a');
+        const fields = [
+            document.getElementById("gear").value,
+            document.getElementById("stage").value,
+            document.getElementById("camera").value,
+            document.getElementById("printer").value,
+            document.getElementById("filament").value,
+            document.getElementById("magnification").value,
+            document.getElementById("temperature").value
+        ];
+
+        const content = fields.join(', '); // Join all field values with comma and space
+
+        const blob = new Blob([content], { type: 'text/plain' });
+        const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        console.log(link.href)
         link.download = 'assembly_config.txt';
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
     },
+
     skip_config: function() {
       this.stepValue = this.stepValue + 2;
     },
