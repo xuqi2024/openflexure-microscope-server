@@ -17,8 +17,32 @@
         </p>
       </div>
       
-      <!--Section for gathering configuration information from user-->
+      <!--Panel checks if the user has built the microscope or bought it from a supplier. 
+      If bought from a supplier, skips assembly setup questions.-->
       <div v-show="stepValue == 1">
+        <p>
+          <b
+            >Did you build this microscope yourself?</b
+          >
+        </p>
+        <div class = "centre">
+          <button
+          class="uk-button uk-button-default"
+          type="button"
+          @click="complete_config()">
+              Yes
+          </button>
+          <button
+          class="uk-button uk-button-default"
+          type="button"
+          @click="skip_config()">
+              No
+          </button>
+        </div>
+      </div>
+      
+      <!--Section for gathering configuration information from user-->
+      <div v-show="stepValue == 2">
         <h3>Assembly Configuration</h3>
         <p>
           <b
@@ -142,7 +166,7 @@
         </button>
       </div>
 
-      <div v-show="stepValue == 2">
+      <div v-show="stepValue == 3">
         <h3>Lens-shading</h3>
         <div v-if="isLSTCalibrated">
           <p>
@@ -165,7 +189,7 @@
           </ul>
 
           <miniStreamDisplay
-            v-if="stepValue == 2"
+            v-if="stepValue == 3"
             class="mini-preview"
           ></miniStreamDisplay>
 
@@ -178,7 +202,7 @@
         </div>
       </div>
 
-      <div v-show="stepValue == 3">
+      <div v-show="stepValue == 4">
         <h3>Camera-stage mapping</h3>
         <div v-if="isCSMCalibrated">
           <p>
@@ -212,7 +236,7 @@
           </ul>
 
           <miniStreamDisplay
-            v-if="stepValue == 3"
+            v-if="stepValue == 4"
             class="mini-preview"
           ></miniStreamDisplay>
 
@@ -224,7 +248,7 @@
         </div>
       </div>
 
-      <div v-show="stepValue == 4">
+      <div v-show="stepValue == 5">
         <h3>Range of Motion</h3>
           <p>
             <b
@@ -248,7 +272,7 @@
           </ul>
 
           <miniStreamDisplay
-            v-if="stepValue == 4"
+            v-if="stepValue == 5"
             class="mini-preview"
           ></miniStreamDisplay>
 
@@ -259,7 +283,7 @@
           ></ROMsettings>
         </div>
 
-      <div v-show="stepValue == 5">
+      <div v-show="stepValue == 6">
         <p>
           <b>Calibration complete</b>
         </p>
@@ -278,7 +302,7 @@
           Cancel
         </button>
         <button
-          v-show="stepValue == 5"
+          v-show="stepValue == 6"
           class="uk-button uk-button-default"
           type="button"
           @click="stepValue = 0"
@@ -286,7 +310,7 @@
           Restart
         </button>
         <button
-          v-show="stepValue < 5"
+          v-show="stepValue < 6 && stepValue != 1"
           class="uk-button uk-button-primary uk-margin-left"
           type="button"
           @click="increment()"
@@ -294,7 +318,7 @@
           Next
         </button>
         <button
-          v-show="stepValue == 5"
+          v-show="stepValue == 6"
           class="uk-button uk-button-primary uk-margin-left"
           type="button"
           @click="hide()"
@@ -413,7 +437,7 @@ export default {
 
     increment: function() {
       // Upper bound on section number
-      if (this.stepValue < 5) {
+      if (this.stepValue < 6) {
         this.stepValue = this.stepValue + 1;
         return true;
       }
@@ -433,6 +457,12 @@ export default {
         console.log(link.href)
         link.download = 'assembly_config.txt';
         link.click();
+    },
+    skip_config: function() {
+      this.stepValue = this.stepValue + 2;
+    },
+    complete_config: function() {
+      this.stepValue = this.stepValue + 1;
     }
   }
 };
@@ -453,5 +483,11 @@ textarea {
 .child {
   display: inline-block;
   padding: 1rem 1rem;
+}
+.centre {
+  justify-content: center;
+  display: flex;
+  align-items: center;
+  padding: 20px;
 }
 </style>
