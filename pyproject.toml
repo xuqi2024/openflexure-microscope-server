@@ -37,6 +37,7 @@ dev = [
   "mypy-gitlab-code-quality",
 #  "pytest-gitlab-code-quality", # pytest version constraint clashes with labthings
   "pytest",
+  "pytest-mock==3.14",
   "matplotlib~=3.10",
   "hypothesis",
 ]

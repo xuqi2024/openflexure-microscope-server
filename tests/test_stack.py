@@ -17,7 +17,7 @@ from openflexure_microscope_server.things.autofocus import (
     _get_capture_by_id,
     _get_capture_index_by_id,
 )
-from openflexure_microscope_server.things.smart_scan import IMAGE_REGEX
+from openflexure_microscope_server.scan_directories import IMAGE_REGEX
 
 RANDOM_GENERATOR = np.random.default_rng()
 

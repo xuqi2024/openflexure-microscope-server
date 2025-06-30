@@ -240,8 +240,6 @@ export default {
           this.scans = scans;
         }
         scans.forEach(scan => {
-          scan.modified = Date.parse(scan.modified);
-          scan.created = Date.parse(scan.created);
           scan.can_stitch = !scan.stitch_available && scan.number_of_images > 3;
         });
         scans.sort((a, b) => {
@@ -255,7 +253,9 @@ export default {
       }
     },
     formatDate(timestamp) {
-      let d = new Date(timestamp);
+      // Multiply by 1000 as JS uses ms not s
+      let d = new Date(timestamp*1000);
+      // Convert to a string in a very javascript way!
       let yyyy = d.getFullYear();
       let mm = d.getMonth() + 1;
       let dd = d.getDate();
