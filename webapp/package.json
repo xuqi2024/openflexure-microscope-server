@@ -6,10 +6,10 @@
   "author": "OpenFlexure <contact@openflexure.org> (https://www.openflexure.org)",
   "scripts": {
     "gv": "genversion src/version.js",
-    "serve": "npm run gv; vue-cli-service serve --mode development",
-    "serve-without-imjoy": "npm run gv; VUE_APP_ENABLE_IMJOY=false vue-cli-service serve --mode development",
-    "build": "npm run gv; vue-cli-service build --openssl-legacy-provider --mode production",
-    "build-without-imjoy": "npm run gv; VUE_APP_ENABLE_IMJOY=false vue-cli-service build --mode production",
+    "serve": "npm run gv && vue-cli-service serve --mode development",
+    "serve-without-imjoy": "npm run gv && VUE_APP_ENABLE_IMJOY=false vue-cli-service serve --mode development",
+    "build": "npm run gv && vue-cli-service build --openssl-legacy-provider --mode production",
+    "build-without-imjoy": "npm run gv && VUE_APP_ENABLE_IMJOY=false vue-cli-service build --mode production",
     "lint": "vue-cli-service lint",
     "lint:fix": "vue-cli-service lint --fix"
   },
