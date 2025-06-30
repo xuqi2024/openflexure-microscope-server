@@ -85,7 +85,6 @@
         thing="range_of_motion"
         action="calibration_data_generate"
         submit-label="Generate Calibration Data"
-        @completed="create_download"
         @response="alertPDF"
       />
     </div>
@@ -190,30 +189,32 @@ export default {
     startModals: function() {
       this.$refs.calibrationModal.force_show();
     },
-    alertPDF() {
+    alertPDF(response) {
+      const href = response.output.href
+      if (href) {
+        this.create_download(href);
+      } else {
+        console.error("No PDF href found in response:", response);
+      }
       this.modalNotify(`PDF has been created and downloaded.`);
     },
-    async create_download() {
+    async create_download(pdfUrl) {
       try {
-        const response = await ActionButton.data
-        const data = await response.json();
+        const urlWithCacheBuster = `${pdfUrl}?t=${Date.now()}`;
 
-        // Step 2: Extract the blob URL from the JSON response
-        const fileUrl = data.output.href;
+        const response = await fetch(urlWithCacheBuster, { cache: "no-store" });
 
-        // Step 3: Download the file as a blob
-        const fileResponse = await fetch(fileUrl);
-        const blob = await fileResponse.blob();
-        const url = URL.createObjectURL(blob);
+        const blob = await response.blob();
+        const bloburl = URL.createObjectURL(blob);
 
-        // Step 4: Trigger the download in the browser
+
         const a = document.createElement("a");
-        a.href = url;
+        a.href = bloburl;
         a.download = "calibration_summary.pdf"; // you can change this filename
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url); // clean up the object URL
+        URL.revokeObjectURL(bloburl); // clean up the object URL
       } catch (err) {
         console.error("Download failed:", err);
       }
