@@ -7,6 +7,8 @@ from PIL import Image
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import time
+import tempfile
+
 from typing import Annotated, Any, Callable, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 from scipy.optimize import curve_fit
 from camera_stage_mapping import camera_stage_tracker
@@ -15,18 +17,22 @@ from camera_stage_mapping import fft_image_tracking
 from labthings_fastapi.thing import Thing
 from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
 from labthings_fastapi.dependencies.invocation import CancelHook, InvocationLogger, InvocationCancelledError
-from labthings_fastapi.decorators import thing_action, thing_property
+from labthings_fastapi.decorators import thing_action, thing_property, fastapi_endpoint
 from .stage import StageDependency as StageDep
 from labthings_sangaboard import SangaboardThing
 from labthings_picamera2.thing import StreamingPiCamera2
 from labthings_fastapi.types.numpy import NDArray, denumpify, DenumpifyingDict
 from openflexure_microscope_server.things.autofocus import AutofocusThing
 from openflexure_microscope_server.things.camera_stage_mapping import CameraStageMapper
+from labthings_fastapi.outputs.blob import Blob
 
 StageDep = direct_thing_client_dependency(SangaboardThing, "/stage/")
 CamDep = direct_thing_client_dependency(StreamingPiCamera2, "/camera/")
 CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
 AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
+
+class PDFBlob(Blob):
+    media_type: str = "application/pdf"
 
 graph_path = "/var/openflexure/"
 
@@ -47,6 +53,21 @@ def quadratic(x, a, b, c):
 
 def straight_line(x,m,c):
     return m*x + c
+
+def plot_function(
+        title: str, 
+        xlabel: str, 
+        ylabel: str
+        ):
+    """
+    Initialises the basics of any plot. Add any features or customisations immediately below function.
+    """
+    plt.figure()
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.tight_layout()
+    plt.grid()
 
 #This function is used in the range of motion analysis.
 def pattern_gen(max_index, first_index):
@@ -622,17 +643,13 @@ class RangeofMotionThing(Thing):
         else:
             xlim = np.min(np.abs(x_stage_coord)) + 5000
 
+        plot_function("CSM across ROM", "Stage Coordinate", "Pixel/Step")
         plt.scatter(x_stage_coord, np.abs(x_full_pixel_step), label = 'X axis', color = '#C5247F')
         plt.scatter(y_stage_coord, np.abs(y_full_pixel_step), label = 'Y axis', color = '#24c5bb')
         plt.plot(xaxis_coord, xaxis_pixel_step, label = f'X Axis Best Fit, m = {np.format_float_scientific(params_csm_x[0], 2)}', color = 'green', linewidth = 2)
         plt.plot(yaxis_coord, yaxis_pixel_step, label = f'Y Axis Best Fit, m = {np.format_float_scientific(params_csm_y[0], 2)}', color = 'red', linewidth = 2)
         plt.xlim(-xlim, xlim)
-        plt.title("CSM across ROM")
-        plt.xlabel("Stage Coordinate")
-        plt.ylabel("Pixel/Step")
-        plt.tight_layout()
         plt.legend()
-        plt.grid()
         plt.savefig(f"{graph_path}/csm_graph.jpg")
 
         #ROM plot
@@ -656,16 +673,12 @@ class RangeofMotionThing(Thing):
         #These values set limits on the graphs to make them more readable
         ROM_lim_x = abs(rom_x) - 2
         ROM_lim_y = abs(rom_y) - 2
-
+        
+        plot_function('Stage Position', 'X-Position\n(mm)', 'Y-Position\n(mm)')
         plt.scatter(x_coord, y_coord, color = '#C5247F')
         plt.errorbar(x_coord, y_coord, xerr=rom_err_x_mm, yerr=rom_err_y_mm, fmt="None")
-        plt.title('Stage Position')
         plt.xlim(-ROM_lim_x, ROM_lim_x)
         plt.ylim(-ROM_lim_y, ROM_lim_y)
-        plt.xlabel('X-Position\n(mm)')
-        plt.ylabel('Y-Position\n(mm)')
-        plt.tight_layout()
-        plt.grid()
         plt.savefig(f"{graph_path}/rom_graph.jpg")
 
         #Polarity plot
@@ -673,14 +686,10 @@ class RangeofMotionThing(Thing):
         x_fit = np.arange(np.min(x_pos), np.max(x_pos), 1)
         y_fit = quadratic(x_fit, params[0], params[1], params[2])
 
-        plt.title(f'Polarity - {curvature}')
+        plot_function(f'Polarity - {curvature}', 'X Position', 'Z Position')
         plt.scatter(x_pos,z_pos, color = '#C5247F')
         plt.plot(x_fit, y_fit, color = 'green')
         plt.xlim(-xlim, xlim)
-        plt.xlabel('X Position')
-        plt.ylabel('Z Position')
-        plt.tight_layout()
-        plt.grid()
         plt.savefig(f"{graph_path}/pol_graph.jpg")
 
         rom_dict = {
@@ -712,6 +721,9 @@ class RangeofMotionThing(Thing):
         return full_calibration
 
     def txt_sweeper(self):
+        '''
+        Opens and extracts information from a text file.
+        '''
         txt_path = '/var/openflexure/assembly_config.txt'
 
         with open(txt_path, 'r') as f:
@@ -719,11 +731,27 @@ class RangeofMotionThing(Thing):
         
         return txt_file
 
+    @fastapi_endpoint(
+        "get",
+        "var/openflexure/calibration_summary.pdf",
+        responses={
+            200: {
+                "description": "PDF with calibration data.",
+                "content": {"document/pdf": {}},
+            },
+            404: {"description": "File not found"},
+        },
+    )
+    def get_calibration_summary(self):
+        summary_file = "var/openflexure/calibration_summary.pdf"
+        return summary_file
+
     @thing_action
     def calibration_data_generate(self):
         '''
         Creates a pdf containing all the useful calibration data a user would need.
         '''
+        tempdir = tempfile.TemporaryDirectory()
         rom_dict = self.rom_analysis()
         calibration_data = self.json_generator()
 
@@ -758,11 +786,11 @@ class RangeofMotionThing(Thing):
             Image.open(f"{graph_path}/{f}") for f in ["config_page.jpg", "data_page.jpg", "csm_graph.jpg", "rom_graph.jpg", "pol_graph.jpg"]
         ]
 
-        pdf_path = f"{graph_path}/calibration_summary.pdf"
+        pdf_path = f"{tempdir.name}/calibration_summary.pdf"
 
         graph_imgs[0].save(pdf_path, "PDF", resoultion=100, save_all=True, append_images=graph_imgs[1:])
 
-        return
+        return PDFBlob.from_temporary_directory(tempdir, "calibration_summary.pdf")
 
 class RecentringThing(Thing):
     @thing_action
