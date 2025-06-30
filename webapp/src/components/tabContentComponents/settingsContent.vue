@@ -67,19 +67,6 @@
             Range of Motion
           </tabIcon>
         </li>
-        <li>
-          <tabIcon
-            id="settings-features-icon"
-            tab-i-d="resolution"
-            :show-title="false"
-            :show-tooltip="false"
-            :require-connection="false"
-            :current-tab="currentTab"
-            @set-tab="setTab"
-          >
-            Resolution
-          </tabIcon>
-        </li>
       </ul>
       <action-button
         thing="range_of_motion"
@@ -129,16 +116,6 @@
           <CSMSettings />
         </div>
       </tabContent>
-
-      <tabContent
-        tab-i-d="resolution"
-        :require-connection="true"
-        :current-tab="currentTab"
-      >
-        <div class="settings-pane uk-padding-small">
-          <ResolutionSettings />
-        </div>
-      </tabContent>
     </div>
   </div>
 </template>
@@ -154,7 +131,6 @@ import stageSettings from "./settingsComponents/stageSettings.vue";
 import tabIcon from "../genericComponents/tabIcon";
 import tabContent from "../genericComponents/tabContent";
 import ActionButton from "../labThingsComponents/actionButton.vue";
-import ResolutionSettings from "./settingsComponents/resolutionSettings.vue";
 
 // Export main app
 export default {
@@ -169,7 +145,6 @@ export default {
     tabIcon,
     tabContent,
     ActionButton,
-    ResolutionSettings,
     calibrationModal
   },
 
