@@ -31,7 +31,7 @@ meta-build-image:
     - python --version
     - python -m venv .venv        # NB this does not overwrite an existing cached venv
     - source .venv/bin/activate
-    - pip install -e .[dev]
+    - pip install -e .[dev, opencv]
   cache:
     key: "${CI_COMMIT_REF_SLUG}"
     paths:

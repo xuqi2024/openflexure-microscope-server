@@ -18,7 +18,6 @@ dependencies = [
   "labthings-fastapi[server] == 0.0.9",
   "labthings-sangaboard",
   "camera-stage-mapping ~= 0.1.10",
-  "opencv-python ~= 4.11.0",
   "openflexure-stitching[libvips]==0.1.0",
   "pillow ~= 10.4",
   "anyio ~= 4.0",
@@ -43,6 +42,9 @@ dev = [
 ]
 pi = [
   "picamera2~=0.3.27",
+]
+opencv = [
+  "opencv-python ~= 4.11.0",
 ]
 
 [project.scripts]
