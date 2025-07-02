@@ -17,6 +17,8 @@ from openflexure_microscope_server.scan_directories import (
     NotEnoughFreeSpaceError,
 )
 
+from .utilities import assert_unique_of_length
+
 # A global logger to pass in as an Invocation Logger
 LOGGER = logging.getLogger("mock-invocation_logger")
 
@@ -168,7 +170,7 @@ def test_scan_sequence_and_listing():
 
     # Check they exist and are numbered sequentially
     all_scans = scan_dir_manager.all_scans
-    assert len(set(all_scans)) == 4
+    assert_unique_of_length(all_scans, 4)
     assert "fake_scan_0001" in all_scans
     assert "fake_scan_0002" in all_scans
     assert "fake_scan_0003" in all_scans
@@ -201,7 +203,7 @@ def test_scan_name_non_sequential():
     assert scan_dir.name == "fake_scan_0012"
 
     all_scans = scan_dir_manager.all_scans
-    assert len(set(all_scans)) == 7
+    assert_unique_of_length(all_scans, 7)
     assert "fake_scan_0001" in all_scans
     assert "fake_scan_0002" in all_scans
     assert "fake_scan_0003" in all_scans
@@ -331,7 +333,7 @@ def test_zipping_scan_data():
         else:
             zip_fname = scan_dir_manager.zip_scan("fake_scan_0001")
         zip_files = get_files_in_zip(zip_fname)
-        assert len(set(zip_files)) == 21
+        assert_unique_of_length(zip_files, 21)
 
         # Zip again with final version on and there should be 22 images
         if caller == "scan_dir":
@@ -339,7 +341,7 @@ def test_zipping_scan_data():
         else:
             scan_dir_manager.zip_scan("fake_scan_0001", final_version=True)
         zip_files = get_files_in_zip(zip_fname)
-        assert len(set(get_files_in_zip(zip_fname))) == 22
+        assert_unique_of_length(get_files_in_zip(zip_fname), 22)
         # Check the zips are not in the zip
         for file in zip_files:
             assert not file.endswith(".zip")
@@ -356,8 +358,7 @@ def test_all_files():
     all_files = scan_dir.all_files()
 
     # As standard for 8 layers there are 89 jpegs and 1 dzi file.
-    assert len(set(all_files)) == 90
-    assert len(all_files) == 90
+    assert_unique_of_length(all_files, 90)
     dzi_file = None
     # Check all files exist
     for file in all_files:
@@ -422,17 +423,17 @@ def test_extracting_files():
         _add_fake_image(scan_dir)
 
     scan_files = scan_dir.get_scan_files()
-    assert len(set(scan_dir._extract_scan_images(scan_files))) == 2321
-    assert len(set(scan_dir._extract_final_stitches(scan_files))) == 0
-    assert len(set(scan_dir._extract_dzi_files(scan_files))) == 0
+    assert_unique_of_length(scan_dir._extract_scan_images(scan_files), 2321)
+    assert_unique_of_length(scan_dir._extract_final_stitches(scan_files), 0)
+    assert_unique_of_length(scan_dir._extract_dzi_files(scan_files), 0)
 
     # Add and a stitched image
     _add_fake_file(scan_dir, "fake_scan_0001_stitched.jpg", in_im_dir=True)
 
     scan_files = scan_dir.get_scan_files()
-    assert len(set(scan_dir._extract_scan_images(scan_files))) == 2321
-    assert len(set(scan_dir._extract_final_stitches(scan_files))) == 1
-    assert len(set(scan_dir._extract_dzi_files(scan_files))) == 0
+    assert_unique_of_length(scan_dir._extract_scan_images(scan_files), 2321)
+    assert_unique_of_length(scan_dir._extract_final_stitches(scan_files), 1)
+    assert_unique_of_length(scan_dir._extract_dzi_files(scan_files), 0)
 
     _make_fake_dzi(scan_dir)
 
@@ -441,9 +442,9 @@ def test_extracting_files():
     scan_images = scan_dir._extract_scan_images(scan_files)
     stitches = scan_dir._extract_final_stitches(scan_files)
     dzi_files = scan_dir._extract_dzi_files(scan_files)
-    assert len(set(scan_images)) == 2321
-    assert len(set(stitches)) == 1
-    assert len(set(dzi_files)) == 1
+    assert_unique_of_length(scan_images, 2321)
+    assert_unique_of_length(stitches, 1)
+    assert_unique_of_length(dzi_files, 1)
 
     # And check the names are as expected
     assert stitches[0] == "fake_scan_0001_stitched.jpg"
