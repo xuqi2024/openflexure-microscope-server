@@ -17,6 +17,7 @@
 @global-primary-background: #C32280;
 
 @inverse-primary-muted-color: lighten(@global-primary-background, 15%);
+@darkened-primary-color: darken(@global-primary-background, 15%);
 @inverse-global-color: fade(@global-inverse-color, 80%);
 
 @global-border: #d5d5d5;
@@ -201,7 +202,6 @@ h4, .uk-h4 {
 
 .uk-card {
     border-radius: @paper-border-radius;
-    //border: 1px solid rgba(180, 180, 180, 0.25);
     box-shadow: @small-shadow;
 }
 
@@ -220,30 +220,12 @@ h4, .uk-h4 {
     margin: 0 auto;
 }
 
-.uk-card-default .uk-card-footer {
-    border-top: 1px solid rgba(180, 180, 180, 0.25);
-}
-
-.uk-card-primary .uk-card-footer {
-    border-top: 1px solid rgba(0, 0, 0, 0.075);
-}
-
-.uk-card-default {
-    color: @global-color;
-}
-
 .hook-inverse() {
 
     // Override background colour in dark mode
-    .uk-card-default {
+    .uk-card {
         background-color: #2a2a2a !important;
         color: @inverse-global-color;
-    }
-
-    // Lighten on hover to show depth in dark mode
-    .uk-card-default:hover {
-        transition: background-color @animation-fast-duration ease;
-        background-color: #333 !important;
     }
 }
 
@@ -383,9 +365,15 @@ a:hover {
     border: 1px solid #f0506e;
 }
 
+.uk-button-disabled {
+    border: 1px solid #999999 !important;
+    background-color: #cccccc !important;
+    color: #919191 !important;
+}
+
 .hook-inverse() {
     .uk-button {
-        background-color: rgba(180, 180, 180, 0.15);
+        background-color: rgba(27, 13, 13, 0.15);
         color: @inverse-primary-muted-color;
         border-color: @inverse-primary-muted-color;
     }
@@ -396,7 +384,7 @@ a:hover {
     }
 
     .uk-button-primary {
-        background-color: rgba(180, 180, 180, 0.15);
+        background-color: rgb(0, 0, 0);
         color: @inverse-primary-muted-color;
         border-color: @inverse-primary-muted-color;
     }
@@ -405,6 +393,12 @@ a:hover {
         background-color: @inverse-primary-muted-color;
         color: #fff;
         border-color: #fff;
+    }
+
+    .uk-button-disabled {
+        border: 1px solid @darkened-primary-color !important;
+        background-color: #333333 !important;
+        color: #777777 !important;
     }
 }
 

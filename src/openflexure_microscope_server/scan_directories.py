@@ -14,8 +14,10 @@ import zipfile
 from pydantic import BaseModel
 
 IMG_DIR_NAME = "images"
-IMAGE_REGEX = re.compile(r"-?[0-9]+_-?[0-9]+\.jpe?g$")
 SCAN_ZERO_PAD_DIGITS = 4
+
+STITCH_REGEX = re.compile(r"stitched\.jpe?g$")
+IMAGE_REGEX = re.compile(r"-?[0-9]+_-?[0-9]+\.jpe?g$")
 
 
 class NotEnoughFreeSpaceError(IOError):
@@ -68,10 +70,10 @@ class ScanDirectoryManager:
         """
         return os.path.join(self._base_scan_dir, scan_name, IMG_DIR_NAME)
 
-    def get_file_from(
+    def get_file_path_from(
         self, scan_name: str, filename: str, check_exists: bool = False
     ) -> Optional[str]:
-        """Return the file path for the file within a scan directory
+        """Return the full file path for the file within a scan directory
 
         If check_exists is True then None will be returned if the file does
         not exist.
@@ -82,19 +84,29 @@ class ScanDirectoryManager:
                 return None
         return file_path
 
-    def get_file_from_img_dir(
+    def get_file_path_from_img_dir(
         self, scan_name: str, filename: str, check_exists: bool = False
     ) -> Optional[str]:
-        """Return the file path for the file within a scan directory
+        """Return the full file path for the file within a scan directory
 
         If check_exists is True, None is returned if the file does not exist. If False
-        then the path is returned anway
+        then the path is returned anyway
         """
         file_path = os.path.join(self.img_dir_for(scan_name), filename)
         if check_exists:
             if not os.path.exists(file_path):
                 return None
         return file_path
+
+    def get_final_stitch_path(self, scan_name: str) -> Optional[str]:
+        """Return the file full path for the final stitch.
+
+        If no final stitch is found, return None
+        """
+        stitch_fname = ScanDirectory(scan_name, self.base_dir).get_final_stitch_name()
+        if stitch_fname is None:
+            return None
+        return self.get_file_path_from_img_dir(scan_name, stitch_fname)
 
     @property
     def all_scans(self) -> list[str]:
@@ -242,25 +254,58 @@ class ScanDirectory:
             return []
         return os.listdir(self.images_dir)
 
+    def _extract_scan_images(self, file_list: list[str]):
+        """Extract files which match the naming convention for scan images
+
+        :param file_list: The list of files to search. Normally this would be
+        `self.get_scan_files()`
+
+        :returns: The list of files that match the naming convention for scan images
+        """
+        return [i for i in file_list if IMAGE_REGEX.search(i)]
+
+    def _extract_final_stitches(self, file_list: list[str]):
+        """Extract files which match the naming convention for final stitches
+
+        :param file_list: The list of files to search.
+
+        :returns: The list of files that match the naming convention for final stitches
+        """
+        return [i for i in file_list if STITCH_REGEX.search(i)]
+
+    def _extract_dzi_files(self, file_list: list[str]):
+        """Extract files which match the naming convention for dzi_files
+
+        :param file_list: The list of files to search.
+
+        :returns: The list of files that match the naming convention for dzi_files
+        """
+        return [i for i in file_list if i.endswith("dzi")]
+
+    def get_final_stitch_name(self) -> Optional[str]:
+        """Return the filename for the final stitch (in the images dir)
+
+        If no final stitch is found, return None
+        """
+        stitches = self._extract_final_stitches(self.get_scan_files())
+        if not stitches:
+            return None
+        return stitches[0]
+
     def get_modified_time(self) -> float:
         """Return the modified time of the directory"""
         return max(os.stat(root).st_mtime for root, _, _ in os.walk(self.dir_path))
 
-    def scan_info(self):
+    def scan_info(self) -> ScanInfo:
         """Return the information for the scan directory as a ScanInfo object"""
-        folder_contents = self.get_scan_files()
-        if folder_contents:
-            scan_images = [i for i in folder_contents if IMAGE_REGEX.search(i)]
-            stitches = [i for i in folder_contents if i.endswith("_stitched.jpg")]
-            dzi_files = [i for i in folder_contents if i.endswith("dzi")]
 
-            number_of_images = len(scan_images)
-            stitch_available = len(stitches) > 0
-            dzi = None if not dzi_files else str(dzi_files[0])
-        else:
-            number_of_images = 0
-            stitch_available = False
-            dzi = None
+        scan_files = self.get_scan_files()
+        scan_images = self._extract_scan_images(scan_files)
+        stitches = self._extract_final_stitches(scan_files)
+        dzi_files = self._extract_dzi_files(scan_files)
+        number_of_images = len(scan_images)
+        stitch_available = len(stitches) > 0
+        dzi = None if not dzi_files else str(dzi_files[0])
 
         return ScanInfo(
             name=self.name,
@@ -271,10 +316,20 @@ class ScanDirectory:
             dzi=dzi,
         )
 
-    def all_files(self):
-        """Return a list of all files in the scan dir relative to the dir"""
+    def all_files(self, skip_dirs: Optional[list[str]] = None) -> list[str]:
+        """Return a list of all files in the scan dir relative to the dir.
+
+        :param skip_dirs: Skip any file in a directory that is on this list. The list
+            should be the basename of the directory. e.g. "scan_0001_files" not
+            "images/scan_0001_files"
+        """
+        if skip_dirs is None:
+            skip_dirs = []
         files = []
-        for file_root, _, filenames in os.walk(self.dir_path):
+        for file_root, dirs, filenames in os.walk(self.dir_path, topdown=True):
+            # Skip any skipped directories.
+            # Note: we must use slice assignment to edit in place.
+            dirs[:] = [d for d in dirs if d not in skip_dirs]
             for filename in filenames:
                 full_path = os.path.join(file_root, filename)
                 files.append(os.path.relpath(full_path, self.dir_path))
@@ -296,10 +351,14 @@ class ScanDirectory:
         else:
             zip_files = []
 
+        # For each `filename.dzi` we need to skip the `filename_files` directory
+        dzi_files = self._extract_dzi_files(self.get_scan_files())
+        dzi_dirs = [dzi[:-4] + "_files" for dzi in dzi_files]
+
         with zipfile.ZipFile(zip_fname, mode="a") as scan_zip:
-            for file in self.all_files():
-                # Don't zip zipfiles, or files in the zip
-                if file.endswith(".zip") or file in zip_files:
+            for file in self.all_files(skip_dirs=dzi_dirs):
+                # Don't zip zipfiles, dzi files, or files already in the zip
+                if file.endswith((".zip", ".dzi")) or file in zip_files:
                     continue
                 # If this is not the final version, then only zip image files.
                 if not final_version and not IMAGE_REGEX.search(file):

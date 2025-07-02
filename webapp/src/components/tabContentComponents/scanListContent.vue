@@ -86,16 +86,26 @@
               </div>
               <h3 class="uk-card-title" style="text-align: center;">{{ item.name }}</h3>
               <div class="button-container">
+              <div class="uk-button-group" style="width:100%">
                 <action-button
+                class="uk-width-1-2"
                 thing="smart_scan"
                 action="download_zip"
-                submit-label="Download ZIP"
+                submit-label="Download All"
                 :can-terminate="false"
                 :submit-data="{ scan_name: item.name }"
                 :button-primary="true"
                 @response="downloadZipFile"
                 @error="modalError"
-              />
+                />
+                <EndpointButton
+                  class="uk-width-1-2"
+                  :buttonPrimary=true
+                  :isDisabled=!item.stitch_available
+                  :URL="downloadStitchFile( item.name )"
+                  buttonLabel="Download JPEG"
+                  />
+              </div>
               <button
                 class="uk-button uk-button-default uk-width-1-1"
                 @click="deleteScan(item.name)"
@@ -106,12 +116,13 @@
                 submit-label="Stitch Images"
                 thing="smart_scan"
                 action="stitch_scan"
-                v-if="item.can_stitch | !item.dzi"
+                v-if="item.can_stitch | (item.stitch_available & !item.dzi)"
                 :can-terminate="false"
                 :submit-data="{ scan_name: item.name }"
                 :button-primary="false"
                 :modal-progress="true"
                 @error="modalError"
+                @response="updateScans"
               />
               <button
                 v-if="item.dzi" class="uk-button uk-button-default uk-width-1-1"
@@ -143,11 +154,12 @@ import axios from "axios";
 import UIkit from "uikit";
 import actionButton from "../labThingsComponents/actionButton.vue";
 import OpenSeadragonViewer from "./scanListComponents/openSeadragonViewer.vue";
+import EndpointButton from "../labThingsComponents/endpointButton.vue";
 
 // Export main app
 export default {
   name: "ScanListContent",
-  components: { actionButton, OpenSeadragonViewer },
+  components: { actionButton, OpenSeadragonViewer, EndpointButton },
 
   data: function() {
     return {
@@ -219,6 +231,9 @@ export default {
   },
 
   methods: {
+    downloadStitchFile: function(name) {
+      return `${this.$store.getters.baseUri}/smart_scan/get_stitch/${name}`;
+    },
     thumbnailPath(scan_name) {
       return (
         `${this.$store.getters.baseUri}/smart_scan/scans/stitched_thumbnail.jpg?scan_name=` +
@@ -381,4 +396,5 @@ ul {
   text-align: center;
   font-weight: bold;
 }
+
 </style>

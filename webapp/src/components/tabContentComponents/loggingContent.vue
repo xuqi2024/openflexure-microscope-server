@@ -30,12 +30,12 @@
             </button>
           </div>
           <div>
-            <a
-              class="uk-button uk-button-default"
-              :href="logFileURI"
-              download="openflexure_microscope.log"
-              >Download Log File</a
-            >
+          <EndpointButton
+            class="uk-button uk-width-1-1"
+            :URL="logFileURI"
+            buttonLabel="Download Log File"
+            :buttonPrimary="false"
+            />
           </div>
         </div>
       </div>
@@ -94,12 +94,14 @@
 <script>
 import axios from "axios";
 import Paginate from "vuejs-paginate";
+import EndpointButton from "../labThingsComponents/endpointButton.vue";
 
 export default {
   name: "LoggingContent",
 
   components: {
-    Paginate
+    Paginate,
+    EndpointButton
   },
 
   data: function() {
