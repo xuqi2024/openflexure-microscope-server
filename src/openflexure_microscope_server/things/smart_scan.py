@@ -398,7 +398,7 @@ class SmartScanThing(Thing):
         should return to the starting x,y,z position
         """
 
-        # Used to check if finally was reached via exeption (except
+        # Used to check if finally was reached via exception (except
         # cancel by user)
         scan_successful = True
 
@@ -416,6 +416,8 @@ class SmartScanThing(Thing):
 
         except InvocationCancelledError:
             scan_successful = False
+            # Reset the cancel event so it can be thrown again
+            self._cancel.clear()
             self._scan_logger.info("Stopping scan because it was cancelled.")
             self._update_scan_data_json(scan_result="cancelled by user")
         except scan_directories.NotEnoughFreeSpaceError as e:
@@ -447,7 +449,7 @@ class SmartScanThing(Thing):
                     # log the error.
                     if scan_successful:
                         self._scan_logger.error(
-                            "The scan appears to have started successfully, however "
+                            "The scan appears to have completed successfully, however "
                             f"the final capture raised the following error: {e}."
                             "Attempting to stitch and archive images.",
                             exc_info=e,
@@ -557,6 +559,7 @@ class SmartScanThing(Thing):
                 self._scan_logger.info("Stitching final image (may take some time)...")
                 self.stitch_scan(
                     logger=self._scan_logger,
+                    cancel=self._cancel,
                     scan_name=self._ongoing_scan.name,
                     stitch_resize=self._scan_data["stitch_resize"],
                     overlap=self._scan_data["overlap"],
@@ -847,6 +850,7 @@ class SmartScanThing(Thing):
     def run_subprocess(
         self,
         logger: InvocationLogger,
+        cancel: CancelHook,
         cmd: list[str],
     ) -> CompletedProcess:
         """
@@ -854,6 +858,7 @@ class SmartScanThing(Thing):
 
         Raises:
             ChildProcessError if exit code is not zero
+            InvocationCancelledError if the action is cancelled.
         """
         logger.info(f"Running command in subprocess: `{' '.join(cmd)}`")
 
@@ -876,7 +881,15 @@ class SmartScanThing(Thing):
         while process.poll() is None:
             log_buffer(process.stdout)
             # Once buffer is clear sleep for 0.2s before trying again.
-            time.sleep(0.2)
+
+            try:
+                # Note that using cancel.sleep allows the InvocationCancelledError to
+                # be thrown
+                cancel.sleep(0.2)
+            except InvocationCancelledError as e:
+                logger.info("Stitching cancelled by user")
+                process.kill()
+                raise e
 
         # Print everything in the buffer when program finishes
         log_buffer(process.stdout)
@@ -890,6 +903,7 @@ class SmartScanThing(Thing):
     def stitch_scan(
         self,
         logger: InvocationLogger,
+        cancel: CancelHook,
         scan_name: str,
         stitch_resize: Optional[float] = None,
         overlap: float = 0.0,
@@ -951,21 +965,27 @@ class SmartScanThing(Thing):
                 )
                 stitch_resize = 0.5
 
-        self.run_subprocess(
-            logger,
-            [
-                STITCHING_CMD,
-                "--stitching_mode",
-                "all",
-                f"{tiff_arg}",
-                "--stitch_dzi",
-                "--minimum_overlap",
-                f"{round(overlap * 0.9, 2)}",
-                "--resize",
-                f"{stitch_resize}",
-                self._scan_dir_manager.img_dir_for(scan_name),
-            ],
-        )
+        try:
+            self.run_subprocess(
+                logger=logger,
+                cancel=cancel,
+                cmd=[
+                    STITCHING_CMD,
+                    "--stitching_mode",
+                    "all",
+                    f"{tiff_arg}",
+                    "--stitch_dzi",
+                    "--minimum_overlap",
+                    f"{round(overlap * 0.9, 2)}",
+                    "--resize",
+                    f"{stitch_resize}",
+                    self._scan_dir_manager.img_dir_for(scan_name),
+                ],
+            )
+        except InvocationCancelledError:
+            # Sleep for 1 second just to allow invocation logs to pass to user.
+            time.sleep(1)
+            pass
 
     @thing_action
     def download_zip(
