@@ -75,9 +75,9 @@ class DummyStage(BaseStage):
     ):
         """Make an absolute move. Keyword arguments should be axis names."""
         displacement = {
-            k: int(v) - self.position[k]
-            for k, v in kwargs.items()
-            if k in self.axis_names
+            axis: int(pos) - self.position[axis]
+            for axis, pos in kwargs.items()
+            if axis in self.axis_names
         }
         self.move_relative(
             cancel, block_cancellation=block_cancellation, **displacement

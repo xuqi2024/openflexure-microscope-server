@@ -1,7 +1,7 @@
 {
     "things": {
         "/camera/": "openflexure_microscope_server.things.camera.picamera:StreamingPiCamera2",
-        "/stage/": "labthings_sangaboard:SangaboardThing",
+        "/stage/": "openflexure_microscope_server.things.stage.sangaboard:SangaboardThing",
         "/auto_recentre_stage/": "openflexure_microscope_server.things.auto_recentre_stage:RecentringThing",
         "/autofocus/": "openflexure_microscope_server.things.autofocus:AutofocusThing",
         "/camera_stage_mapping/": "openflexure_microscope_server.things.camera_stage_mapping:CameraStageMapper",

@@ -25,7 +25,7 @@ from labthings_fastapi.dependencies.metadata import GetThingStates
 from labthings_fastapi.server import ThingServer
 
 from . import BaseCamera, JPEGBlob, ArrayModel
-from ..stage import StageProtocol as Stage
+from ..stage import BaseStage
 
 # The ratio between "motor" steps and pixels
 # higher related to a faster movement
@@ -35,7 +35,7 @@ RATIO = 0.2
 class SimulatedCamera(BaseCamera):
     """A Thing representing an OpenCV camera"""
 
-    _stage: Optional[Stage] = None
+    _stage: Optional[BaseStage] = None
     _server: Optional[ThingServer] = None
 
     def __init__(
