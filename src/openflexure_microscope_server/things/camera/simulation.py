@@ -13,6 +13,8 @@ import logging
 from typing import Literal, Optional
 from threading import Thread
 import time
+import requests
+from PIL import Image
 
 import cv2
 import numpy as np
@@ -44,16 +46,29 @@ class SimulatedCamera(BaseCamera):
         glyph_shape: tuple[int, int, int] = (51, 51, 3),
         canvas_shape: tuple[int, int, int] = (3000, 4000, 3),
         frame_interval: float = 0.1,
+        url: str = None,
     ):
+        # try:
         self.shape = shape
         self.glyph_shape = glyph_shape
-        self.canvas_shape = canvas_shape
+        im = Image.open(requests.get(url, stream=True).raw)
+        self.canvas_shape = (im.size[1],im.size[0], 3)
         self.frame_interval = frame_interval
         self._capture_thread: Optional[Thread] = None
         self._capture_enabled = False
         self.generate_sprites()
         self.generate_blobs()
         self.generate_canvas()
+        # except:
+        #     self.shape = shape
+        #     self.glyph_shape = glyph_shape
+        #     self.canvas_shape = canvas_shape
+        #     self.frame_interval = frame_interval
+        #     self._capture_thread: Optional[Thread] = None
+        #     self._capture_enabled = False
+        #     self.generate_sprites()
+        #     self.generate_blobs()
+        #     self.generate_canvas()
 
     def generate_sprites(self):
         """Generate sprites to populate the image"""
@@ -82,14 +97,15 @@ class SimulatedCamera(BaseCamera):
 
     def generate_canvas(self):
         """Generate a blank canvas"""
-        self.canvas = np.zeros(self.canvas_shape, dtype=np.uint8)
-        self.canvas[...] = 255
-        w, h, _ = self.glyph_shape
-        for x, y, sprite in self.blobs:
-            self.canvas[
-                int(x) - w // 2 : int(x) - w // 2 + w,
-                int(y) - h // 2 : int(y) - h // 2 + h,
-            ] -= self.sprites[int(sprite)]
+        # self.canvas = np.zeros(self.canvas_shape, dtype=np.uint8)
+        # self.canvas[...] = 255
+        self.canvas = np.array(Image.open(requests.get("https://www.aasld.org/sites/default/files/lfn_migrated/wp-content/uploads/2020/08/Figure-1.-JPEG-Normal-liver_hematoxylin-and-eosin.jpg", stream=True).raw))
+        # w, h, _ = self.glyph_shape
+        # for x, y, sprite in self.blobs:
+        #     self.canvas[
+        #         int(x) - w // 2 : int(x) - w // 2 + w,
+        #         int(y) - h // 2 : int(y) - h // 2 + h,
+        #     ] -= self.sprites[int(sprite)]
 
     def generate_image(self, pos: tuple[int, int, int]):
         """Generate an image with blobs based on supplied coordinates"""

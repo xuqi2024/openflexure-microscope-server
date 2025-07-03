@@ -1,6 +1,11 @@
 {
     "things": {
-        "/camera/": "openflexure_microscope_server.things.camera.simulation:SimulatedCamera",
+        "/camera/": {
+            "class": "openflexure_microscope_server.things.camera.simulation:SimulatedCamera",
+            "kwargs": {
+                "url": "https://www.aasld.org/sites/default/files/lfn_migrated/wp-content/uploads/2020/08/Figure-1.-JPEG-Normal-liver_hematoxylin-and-eosin.jpg"
+            }
+        },
         "/stage/": "openflexure_microscope_server.things.stage.dummy:DummyStage",
         "/auto_recentre_stage/": "openflexure_microscope_server.things.auto_recentre_stage:RecentringThing",
         "/autofocus/": "openflexure_microscope_server.things.autofocus:AutofocusThing",
