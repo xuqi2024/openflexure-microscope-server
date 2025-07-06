@@ -165,7 +165,7 @@ build:
     name: "dist"
     expire_in: 1 week
     paths:
-      - "src/openflexure_microscope/static/"
+      - "src/openflexure_microscope_server/static/"
 
 # # Package application into distribution tarball
 # package:
