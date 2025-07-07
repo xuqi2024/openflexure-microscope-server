@@ -40,25 +40,6 @@
           <hr v-if="item.divide" :key="'tab-divider-' + index" />
         </template>
 
-        <tabIcon
-          v-for="imjoyTab in imjoyTabs"
-          :key="imjoyTab.id"
-          :tab-i-d="'ImJoy-Plugin-' + imjoyTab.id"
-          :title="imjoyTab.name"
-          :require-connection="false"
-          :current-tab="currentTab"
-          @set-tab="setTab"
-        >
-          <img
-            v-if="imjoyTab.iconURL"
-            style="filter: grayscale(100%);width: 22px;margin-top: 5px;margin-bottom: 8px;"
-            :src="imjoyTab.iconURL"
-          />
-          <span v-if="!imjoyTab.iconURL" class="material-symbols-outlined">
-            {{ imjoyTab.iconName || "extension" }}
-          </span>
-        </tabIcon>
-
         <hr id="extension-tab-divider" />
 
         <!-- For each bottom tab -->
@@ -98,15 +79,6 @@
         <component :is="item.component"></component>
       </tabContent>
 
-      <tabContent
-        v-for="imjoyTab in imjoyTabs"
-        :key="imjoyTab.id"
-        :tab-i-d="'ImJoy-Plugin-' + imjoyTab.id"
-        :require-connection="false"
-        :current-tab="currentTab"
-      >
-        <div :id="imjoyTab.window_id" class="window-container">Loading...</div>
-      </tabContent>
 
       <!-- For each bottom tab -->
       <tabContent
@@ -124,7 +96,6 @@
 </template>
 
 <script>
-import { mapState } from "vuex";
 
 // Import generic components
 import tabIcon from "./genericComponents/tabIcon";
@@ -139,11 +110,6 @@ import settingsContent from "./tabContentComponents/settingsContent.vue";
 import aboutContent from "./tabContentComponents/aboutContent.vue";
 import loggingContent from "./tabContentComponents/loggingContent.vue";
 import powerContent from "./tabContentComponents/powerContent.vue";
-// ImJoy is loaded asynchronously to allow it to be disabled if needed
-const imjoyContent = () =>
-  import(
-    /* webpackChunkName: "imjoy" */ "./tabContentComponents/imjoyContent.vue"
-  );
 
 // Import modal components for device initialisation
 import calibrationModal from "./modalComponents/calibrationModal.vue";
@@ -166,7 +132,6 @@ export default {
     loggingContent,
     TabIcon,
     powerContent,
-    imjoyContent
   },
   data: function() {
     return {
@@ -240,24 +205,12 @@ export default {
       if (!this.$store.state.galleryEnabled) {
         tabs = tabs.filter(tab => tab.id != "gallery");
       }
-      if (this.$store.state.imjoyEnabled) {
-        tabs.push({
-          id: "imjoy",
-          iconURL: "https://imjoy.io/static/img/imjoy-icon.svg",
-          component: imjoyContent,
-          divide: true
-        });
-      }
       return tabs;
     },
 
     currentTabIndex: function() {
       return this.tabOrder.indexOf(this.currentTab);
-    },
-
-    // Map the tabs from ImJoy's store module so we can display them
-    ...mapState("imjoy", { imjoyTabs: "tabs" }),
-    ...mapState({ imjoyEnabled: "imjoyEnabled" })
+    }
   },
 
   mounted() {

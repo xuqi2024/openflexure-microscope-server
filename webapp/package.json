@@ -7,14 +7,11 @@
   "scripts": {
     "gv": "genversion src/version.js",
     "serve": "npm run gv && vue-cli-service serve --mode development",
-    "serve-without-imjoy": "npm run gv && VUE_APP_ENABLE_IMJOY=false vue-cli-service serve --mode development",
     "build": "npm run gv && vue-cli-service build --openssl-legacy-provider --mode production",
-    "build-without-imjoy": "npm run gv && VUE_APP_ENABLE_IMJOY=false vue-cli-service build --mode production",
     "lint": "vue-cli-service lint",
     "lint:fix": "vue-cli-service lint --fix"
   },
   "dependencies": {
-    "imjoy-core": "^0.13",
     "material-design-icons": "^3.0",
     "material-symbols": "^0.14.3",
     "mousetrap": "^1.6.5",
@@ -39,9 +36,7 @@
     "prettier": "^1.19",
     "uikit": "^3.17",
     "vue": "^2.7",
-    "vue-friendly-iframe": "^0.17",
     "vue-template-compiler": "^2.7",
-    "vue-tour": "^1.6",
     "vuejs-paginate": "^2.1",
     "vuex": "^3.6"
   },

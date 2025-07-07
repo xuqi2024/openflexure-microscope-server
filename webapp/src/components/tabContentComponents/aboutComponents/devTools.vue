@@ -62,10 +62,6 @@ export default {
         this.$store.commit("changeOrigin", this.newOrigin);
         event.preventDefault();
       }
-    },
-    resetTour: function() {
-      // Make the introduction tour run next time the app loads
-      this.setLocalStorageObj("completedTour", false);
     }
   }
 };

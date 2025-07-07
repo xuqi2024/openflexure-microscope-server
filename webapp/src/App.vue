@@ -5,7 +5,6 @@
     :class="handleTheme"
   >
     <loadingContent v-if="!$store.getters.ready" />
-    <div v-if="$store.getters.ready" id="tour-header"></div>
     <appContent v-if="$store.getters.ready" />
     <!-- Runtime modals -->
     <div
@@ -27,13 +26,6 @@
         </div>
       </div>
     </div>
-    <v-tour
-      v-show="$store.getters.ready"
-      name="guidedTour"
-      :steps="tourSteps"
-      :callbacks="tourCallbacks"
-      :options="{ highlight: true }"
-    ></v-tour>
   </div>
 </template>
 
@@ -79,12 +71,7 @@ export default {
       arrowKeysDown: {},
       keyboardManual: [],
       systemDark: undefined,
-      themeObserver: undefined,
-      tourCallbacks: {
-        onStop: () => {
-          this.setLocalStorageObj("completedTour", true);
-        }
-      }
+      themeObserver: undefined
     };
   },
 
@@ -112,68 +99,6 @@ export default {
         "uk-light": isDark,
         "uk-background-secondary": isDark
       };
-    },
-    tourSteps: function() {
-      let tabPopperParams = {
-        modifiers: {
-          preventOverflow: {
-            boundariesElement: "window"
-          }
-        },
-        placement: "right"
-      };
-      return [
-        {
-          target: "#tour-header", // We're using document.querySelector() under the hood
-          header: {
-            title: "Welcome to the OpenFlexure Microscope"
-          },
-          content: `Click Next to learn how to use your microscope`,
-          params: {
-            placement: "bottom"
-          }
-        },
-        {
-          target: "#gallery-tab-icon",
-          header: {
-            title: "Capture gallery"
-          },
-          content: `View and download your microscope images from the gallery tab`,
-          params: tabPopperParams
-        },
-        {
-          target: "#navigate-tab-icon",
-          header: {
-            title: "Navigate around your sample"
-          },
-          content: `Move your microscope stage and perform autofocus from the navigate tab`,
-          params: tabPopperParams
-        },
-        {
-          target: "#capture-tab-icon",
-          header: {
-            title: "Capture microscope images"
-          },
-          content: `Take images and simple tile scans from the capture tab`,
-          params: tabPopperParams
-        },
-        {
-          target: "#settings-tab-icon",
-          header: {
-            title: "Change settings"
-          },
-          content: `Change app and microscope settings, including microscope calibration, from the settings tab`,
-          params: tabPopperParams
-        },
-        {
-          target: "#extension-tab-divider",
-          header: {
-            title: "Microscope extensions"
-          },
-          content: `Extensions installed on your microscope will appear below this line`,
-          params: tabPopperParams
-        }
-      ];
     }
   },
 
@@ -194,12 +119,6 @@ export default {
     });
     // Check connection to API
     this.checkConnection();
-    // Handle guided tour
-    // If the user has already completed or skipped the guided tour
-    var completedTour = this.getLocalStorageObj("completedTour") || true;
-    if (!completedTour) {
-      this.$tours["guidedTour"].start();
-    }
   },
 
   created: function() {
@@ -443,57 +362,4 @@ html {
   overflow-y: hidden;
 }
 
-// Style tour
-.v-tour__target--highlighted {
-  box-shadow: 0px 40px 200px 30px rgba(0, 0, 0, 0.5),
-    0px 0px 0px 4px rgba(128, 128, 128, 0.5) !important;
-  border-radius: 5px;
-  opacity: 100% !important;
-  pointer-events: none !important;
-}
-
-.v-step {
-  background: @global-primary-background !important;
-}
-
-.v-step__header {
-  background-color: darken(@global-primary-background, 7%) !important;
-}
-
-.v-step__button {
-  font-size: 0.9rem !important;
-}
-
-// Change step arrow colour
-// This is awful and hacky and makes me sad, but needs must
-.v-step .v-step__arrow {
-  border-color: darken(@global-primary-background, 7%) !important;
-  &--dark {
-    border-color: darken(@global-primary-background, 7%) !important;
-  }
-}
-
-.v-step[x-placement^="top"] .v-step__arrow {
-  border-left-color: transparent !important;
-  border-right-color: transparent !important;
-  border-bottom-color: transparent !important;
-}
-
-.v-step[x-placement^="bottom"] .v-step__arrow {
-  border-left-color: transparent !important;
-  border-right-color: transparent !important;
-  border-top-color: transparent !important;
-}
-
-.v-step[x-placement^="right"] .v-step__arrow {
-  border-left-color: transparent !important;
-  border-top-color: transparent !important;
-  border-bottom-color: transparent !important;
-}
-
-.v-step[x-placement^="left"] .v-step__arrow {
-  border-top-color: transparent !important;
-  border-right-color: transparent !important;
-  border-bottom-color: transparent !important;
-}
 </style>

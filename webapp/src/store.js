@@ -4,64 +4,6 @@ import wotStoreModule from "./wot-client";
 
 Vue.use(Vuex);
 
-const moduleImjoy = {
-  namespaced: true,
-  state: () => ({
-    tabs: [],
-    openImageMenu: [],
-    openScanMenu: []
-  }),
-  mutations: {
-    addOpenImageItem(state, newItem) {
-      state.openImageMenu.push(newItem);
-    }, // TODO: add a mutation to remove items when plugins are unloaded
-    addOpenScanItem(state, newItem) {
-      state.openScanMenu.push(newItem);
-    }, // TODO: add a mutation to remove items when plugins are unloaded
-    clearMenus(state) {
-      // This is primarily useful to reset the state in hot-reloads of
-      // imjoyContent.vue
-      state.openImageMenu = [];
-      state.openScanMenu = [];
-    },
-    addTab(state, newItem) {
-      // Add a tab to the list of ImJoy tabs
-      state.tabs.push(newItem);
-    },
-    removeTab(state, tabToRemove) {
-      const index = state.tabs.indexOf(tabToRemove);
-      if (index > -1) {
-        state.tabs.splice(index, 1);
-      } else {
-        console.warn(
-          `Attempted to remove a non-existing ImJoy tab ${tabToRemove}`
-        );
-      }
-    },
-    /**
-     * Set a parameter on the tab with a given id
-     *
-     * Payload should contain:
-     *   tab: ID of the tab to modify (not window_id)
-     *   key: name of the property to add/change
-     *   value: value of the property to add/change
-     */
-    setTabProperty(state, payload) {
-      let tab = payload.tab;
-      let key = payload.key;
-      let value = payload.value;
-      state.tabs = state.tabs.map(t => {
-        if (t.id === tab) {
-          t[key] = value;
-        }
-        return t;
-      });
-    }
-  },
-  actions: {},
-  getters: {}
-};
-
 function getOriginFromLocation() {
   // This will default to the same origin that's serving
   // the web app - but can be overridden by the URL.
@@ -77,7 +19,6 @@ function getOriginFromLocation() {
 
 export default new Vuex.Store({
   modules: {
-    imjoy: moduleImjoy,
     wot: wotStoreModule
   },
   state: {
@@ -88,7 +29,6 @@ export default new Vuex.Store({
     disableStream: false,
     autoGpuPreview: false,
     trackWindow: true,
-    imjoyEnabled: false,
     galleryEnabled: true,
     appTheme: "system",
     activeStreams: {},
@@ -113,17 +53,6 @@ export default new Vuex.Store({
     },
     changeAppTheme(state, theme) {
       state.appTheme = theme;
-    },
-    changeImjoyEnabled(state, enabled) {
-      if (process.env.VUE_APP_ENABLE_IMJOY === "true") {
-        state.imjoyEnabled = enabled;
-      } else {
-        state.imjoyEnabled = false;
-        if (enabled)
-          console.warn(
-            "Attempted to enable ImJoy, but it's disabled by VUE_APP_ENABLE_IMJOY."
-          );
-      }
     },
     changeGalleryEnabled(state, enabled) {
       state.galleryEnabled = enabled;
