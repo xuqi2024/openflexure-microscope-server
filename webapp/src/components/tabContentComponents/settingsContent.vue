@@ -58,11 +58,6 @@
           </tabIcon>
         </li>
       </ul>
-      <action-button
-        thing="settings"
-        action="save_all_thing_settings"
-        submit-label="Save All Settings"
-      />
     </div>
     <div class="view-component uk-width-expand uk-padding-small">
       <tabContent
@@ -118,7 +113,6 @@ import stageSettings from "./settingsComponents/stageSettings.vue";
 // Import generic components
 import tabIcon from "../genericComponents/tabIcon";
 import tabContent from "../genericComponents/tabContent";
-import ActionButton from "../labThingsComponents/actionButton.vue";
 
 // Export main app
 export default {
@@ -131,8 +125,7 @@ export default {
     CSMSettings,
     appSettings,
     tabIcon,
-    tabContent,
-    ActionButton
+    tabContent
   },
 
   data: function() {

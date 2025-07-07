@@ -1,11 +1,9 @@
 from __future__ import annotations
-from labthings_fastapi.decorators import thing_action
-from labthings_fastapi.dependencies.invocation import (
-    CancelHook,
-    InvocationCancelledError,
-)
+
 from collections.abc import Mapping
 import time
+
+import labthings_fastapi as lt
 
 from . import BaseStage
 
@@ -27,10 +25,10 @@ class DummyStage(BaseStage):
     def __exit__(self, _exc_type, _exc_value, _traceback):
         pass
 
-    @thing_action
+    @lt.thing_action
     def move_relative(
         self,
-        cancel: CancelHook,
+        cancel: lt.deps.CancelHook,
         block_cancellation: bool = False,
         **kwargs: Mapping[str, int],
     ):
@@ -53,7 +51,7 @@ class DummyStage(BaseStage):
                     for k, v in zip(self.axis_names, displacement)
                 }
             fraction_complete = 1.0
-        except InvocationCancelledError as e:
+        except lt.exceptions.InvocationCancelledError as e:
             # If the move has been cancelled, stop it but don't handle the exception.
             # We need the exception to propagate in order to stop any calling tasks,
             # and to mark the invocation as "cancelled" rather than stopped.
@@ -66,10 +64,10 @@ class DummyStage(BaseStage):
             }
             self.instantaneous_position = self.position
 
-    @thing_action
+    @lt.thing_action
     def move_absolute(
         self,
-        cancel: CancelHook,
+        cancel: lt.deps.CancelHook,
         block_cancellation: bool = False,
         **kwargs: Mapping[str, int],
     ):
@@ -83,7 +81,7 @@ class DummyStage(BaseStage):
             cancel, block_cancellation=block_cancellation, **displacement
         )
 
-    @thing_action
+    @lt.thing_action
     def set_zero_position(self):
         """Make the current position zero in all axes
 

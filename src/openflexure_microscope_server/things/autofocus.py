@@ -17,9 +17,7 @@ from fastapi import Depends
 import numpy as np
 from pydantic import BaseModel
 
-from labthings_fastapi.thing import Thing
-from labthings_fastapi.dependencies.blocking_portal import BlockingPortal
-from labthings_fastapi.decorators import thing_action, thing_property
+import labthings_fastapi as lt
 from labthings_fastapi.types.numpy import NDArray
 
 from .camera import RawCameraDependency as Camera
@@ -189,7 +187,7 @@ class SharpnessDataArrays(BaseModel):
 
 
 class JPEGSharpnessMonitor:
-    def __init__(self, stage: Stage, camera: Camera, portal: BlockingPortal):
+    def __init__(self, stage: Stage, camera: Camera, portal: lt.deps.BlockingPortal):
         self.camera = camera
         self.stage = stage
         self.portal = portal
@@ -287,14 +285,14 @@ class JPEGSharpnessMonitor:
 SharpnessMonitorDep = Annotated[JPEGSharpnessMonitor, Depends()]
 
 
-class AutofocusThing(Thing):
+class AutofocusThing(lt.Thing):
     """The Thing concerned with combinations of z axis movements and the camera.
 
     Actions here involve moving a stage in z, and using the camera to either
     capture images (generally, z-stacking) and measuring the sharpness of the
     field of view to assess focus (autofocus and testing the success of a z-stack)"""
 
-    @thing_action
+    @lt.thing_action
     def fast_autofocus(
         self,
         sharpness_monitor: SharpnessMonitorDep,
@@ -324,7 +322,7 @@ class AutofocusThing(Thing):
             # Return all focus data
             return sharpness_monitor.data_dict()
 
-    @thing_action
+    @lt.thing_action
     def z_move_and_measure_sharpness(
         self,
         sharpness_monitor: SharpnessMonitorDep,
@@ -350,7 +348,7 @@ class AutofocusThing(Thing):
                 sharpness_monitor.focus_rel(current_dz)
             return sharpness_monitor.data_dict()
 
-    @thing_action
+    @lt.thing_action
     def looping_autofocus(
         self,
         stage: Stage,
@@ -396,39 +394,38 @@ class AutofocusThing(Thing):
                     stage.move_absolute(z=peak_height)
             return heights.tolist(), sizes.tolist()
 
-    @thing_property
-    def stack_images_to_save(self) -> int:
-        """The number of images to capture and save in a stack
-        Defaults to 1 unless you need to see either side of focus"""
-        return self.thing_settings.get("stack_images_to_save", 1)
+    stack_images_to_save = lt.ThingSetting(
+        initial_value=1,
+        model=int,
+        description="""The number of images to save in a stack.
 
-    @stack_images_to_save.setter
-    def stack_images_to_save(self, value: int) -> None:
-        self.thing_settings["stack_images_to_save"] = value
+            Defaults to 1 unless you need to see either side of focus""",
+    )
 
-    @thing_property
-    def stack_min_images_to_test(self) -> int:
-        """The number of images to test for successful focusing in a stack
-        Defaults to 9, which balances reliability and speed"""
-        return self.thing_settings.get("stack_min_images_to_test", 9)
+    stack_min_images_to_test = lt.ThingSetting(
+        initial_value=9,
+        model=int,
+        description="""The minimum number of images to capture in a stack.
 
-    @stack_min_images_to_test.setter
-    def stack_min_images_to_test(self, value: int) -> None:
-        self.thing_settings["stack_min_images_to_test"] = value
+            This many images are captures and tested for focus, if the focus
+            is not central enough more images may be captured. After new images
+            are captured the number sets the number of images used for checking
+            if focus is central.
 
-    @thing_property
-    def stack_dz(self) -> int:
-        """Space in steps between images in a z-stack
-        Suggested is 50 for 60-100x
-        100 for 40x
-        200 for 20x"""
-        return self.thing_settings.get("stack_dz", 50)
+            Defaults to 9 which balances reliability and speed
+            """,
+    )
 
-    @stack_dz.setter
-    def stack_dz(self, value: int) -> None:
-        self.thing_settings["stack_dz"] = value
+    stack_dz = lt.ThingSetting(
+        initial_value=50,
+        model=int,
+        description="""Space in steps between images in a z-stack
+            Suggested is 50 for 60-100x
+            100 for 40x
+            200 for 20x""",
+    )
 
-    @thing_action
+    @lt.thing_action
     def run_smart_stack(
         self,
         cam: WrappedCamera,

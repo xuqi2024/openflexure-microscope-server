@@ -16,9 +16,7 @@ from threading import Thread
 import cv2
 import piexif
 
-from labthings_fastapi.utilities import get_blocking_portal
-from labthings_fastapi.decorators import thing_action, thing_property
-from labthings_fastapi.dependencies.metadata import GetThingStates
+import labthings_fastapi as lt
 from labthings_fastapi.types.numpy import NDArray
 
 from . import BaseCamera, JPEGBlob
@@ -45,7 +43,7 @@ class OpenCVCamera(BaseCamera):
             self._capture_thread.join()
         self.cap.release()
 
-    @thing_property
+    @lt.thing_property
     def stream_active(self) -> bool:
         "Whether the MJPEG stream is active"
         if self._capture_enabled and self._capture_thread:
@@ -53,7 +51,7 @@ class OpenCVCamera(BaseCamera):
         return False
 
     def _capture_frames(self):
-        portal = get_blocking_portal(self)
+        portal = lt.get_blocking_portal(self)
         while self._capture_enabled:
             ret, frame = self.cap.read()
             if not ret:
@@ -68,7 +66,7 @@ class OpenCVCamera(BaseCamera):
             ].tobytes()
             self.lores_mjpeg_stream.add_frame(jpeg_lores, portal)
 
-    @thing_action
+    @lt.thing_action
     def capture_array(
         self,
         resolution: Literal["main", "full"] = "full",
@@ -87,10 +85,10 @@ class OpenCVCamera(BaseCamera):
             )
         return frame
 
-    @thing_action
+    @lt.thing_action
     def capture_jpeg(
         self,
-        metadata_getter: GetThingStates,
+        metadata_getter: lt.deps.GetThingStates,
         resolution: Literal["main", "full"] = "main",
     ) -> JPEGBlob:
         """Acquire one image from the camera and return as a JPEG blob

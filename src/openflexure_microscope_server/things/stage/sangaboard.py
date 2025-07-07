@@ -7,11 +7,7 @@ from contextlib import contextmanager
 from collections.abc import Mapping
 
 import sangaboard
-from labthings_fastapi.decorators import thing_action
-from labthings_fastapi.dependencies.invocation import (
-    CancelHook,
-    InvocationCancelledError,
-)
+import labthings_fastapi as lt
 
 from . import BaseStage
 
@@ -57,10 +53,10 @@ class SangaboardThing(BaseStage):
         with self.sangaboard() as sb:
             self.position = dict(zip(self.axis_names, sb.position))
 
-    @thing_action
+    @lt.thing_action
     def move_relative(
         self,
-        cancel: CancelHook,
+        cancel: lt.deps.CancelHook,
         block_cancellation: bool = False,
         **kwargs: Mapping[str, int],
     ) -> None:
@@ -75,7 +71,7 @@ class SangaboardThing(BaseStage):
                 else:
                     while sb.query("moving?") == "true":
                         cancel.sleep(0.1)
-            except InvocationCancelledError as e:
+            except lt.exceptions.InvocationCancelledError as e:
                 # If the move has been cancelled, stop it but don't handle the exception.
                 # We need the exception to propagate in order to stop any calling tasks,
                 # and to mark the invocation as "cancelled" rather than stopped.
@@ -85,10 +81,10 @@ class SangaboardThing(BaseStage):
                 self.moving = False
                 self.update_position()
 
-    @thing_action
+    @lt.thing_action
     def move_absolute(
         self,
-        cancel: CancelHook,
+        cancel: lt.deps.CancelHook,
         block_cancellation: bool = False,
         **kwargs: Mapping[str, int],
     ) -> None:
@@ -104,7 +100,7 @@ class SangaboardThing(BaseStage):
                 cancel, block_cancellation=block_cancellation, **displacement
             )
 
-    @thing_action
+    @lt.thing_action
     def set_zero_position(self) -> None:
         """Make the current position zero in all axes
 
@@ -116,7 +112,7 @@ class SangaboardThing(BaseStage):
             sb.zero_position()
         self.update_position()
 
-    @thing_action
+    @lt.thing_action
     def flash_led(
         self,
         number_of_flashes: int = 10,

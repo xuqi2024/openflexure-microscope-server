@@ -1,19 +1,20 @@
 import numpy as np
 import logging
 
-from labthings_fastapi.thing import Thing
-from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
-from labthings_fastapi.decorators import thing_action
+import labthings_fastapi as lt
+
 from .stage import StageDependency as StageDep
 from openflexure_microscope_server.things.autofocus import AutofocusThing
 from openflexure_microscope_server.things.camera_stage_mapping import CameraStageMapper
 
-CSMDep = direct_thing_client_dependency(CameraStageMapper, "/camera_stage_mapping/")
-AutofocusDep = direct_thing_client_dependency(AutofocusThing, "/autofocus/")
+CSMDep = lt.deps.direct_thing_client_dependency(
+    CameraStageMapper, "/camera_stage_mapping/"
+)
+AutofocusDep = lt.deps.direct_thing_client_dependency(AutofocusThing, "/autofocus/")
 
 
-class RecentringThing(Thing):
-    @thing_action
+class RecentringThing(lt.Thing):
+    @lt.thing_action
     def recentre(
         self,
         autofocus: AutofocusDep,

@@ -3,13 +3,13 @@ import os
 import tempfile
 
 from fastapi.testclient import TestClient
-from labthings_fastapi.client import ThingClient
 from PIL import Image
 import numpy as np
 import piexif
 import pytest
 
-from openflexure_microscope_server.server import ThingServer
+import labthings_fastapi as lt
+
 from openflexure_microscope_server.things.camera.simulation import SimulatedCamera
 from openflexure_microscope_server.things.stage.dummy import DummyStage
 from openflexure_microscope_server.things.autofocus import AutofocusThing
@@ -22,7 +22,7 @@ camera_stage_mapping.DEFAULT_SETTLING_TIME = 0  # skip the settling time for tes
 @pytest.fixture
 def thing_server():
     temp_folder = tempfile.TemporaryDirectory()
-    server = ThingServer(settings_folder=temp_folder.name)
+    server = lt.ThingServer(settings_folder=temp_folder.name)
     server.add_thing(
         SimulatedCamera(
             shape=(240, 320, 3), canvas_shape=(960, 1240, 3), frame_interval=0.01
@@ -52,18 +52,18 @@ def slower_client(thing_server):
 
 def test_autofocus(slower_client):
     client = slower_client
-    autofocus = ThingClient.from_url("/autofocus/", client)
+    autofocus = lt.ThingClient.from_url("/autofocus/", client)
     _ = autofocus.fast_autofocus()
 
 
 def test_grab_jpeg(client):
-    camera = ThingClient.from_url("/camera/", client)
+    camera = lt.ThingClient.from_url("/camera/", client)
     blob = camera.grab_jpeg()
     _image = Image.open(blob.open())
 
 
 def test_capture_jpeg_metadata(client):
-    camera = ThingClient.from_url("/camera/", client)
+    camera = lt.ThingClient.from_url("/camera/", client)
     blob = camera.capture_jpeg()
     image = Image.open(blob.open())
     exif_dict = piexif.load(image.info["exif"])
@@ -73,7 +73,7 @@ def test_capture_jpeg_metadata(client):
 
 
 def test_stage(client):
-    stage = ThingClient.from_url("/stage/", client)
+    stage = lt.ThingClient.from_url("/stage/", client)
     start = stage.position
     move = {"x": 1, "y": 2, "z": 3}
     stage.move_relative(**move)
@@ -87,12 +87,12 @@ def test_stage(client):
 
 
 def test_capture_array(client):
-    camera = ThingClient.from_url("/camera/", client)
+    camera = lt.ThingClient.from_url("/camera/", client)
     array = np.asarray(camera.capture_array())
     assert array.shape == (240, 320, 3)
 
 
 # Currently this fails, not yet sure why.
 def test_camera_stage_mapping_calibration(client):
-    camera_stage_mapping = ThingClient.from_url("/camera_stage_mapping/", client)
+    camera_stage_mapping = lt.ThingClient.from_url("/camera_stage_mapping/", client)
     camera_stage_mapping.calibrate_xy()

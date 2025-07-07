@@ -3,14 +3,16 @@ from __future__ import annotations
 from typing import Optional
 from copy import copy
 
-from labthings_fastapi.server import cli, ThingServer
+import labthings_fastapi as lt
 import uvicorn
 from .serve_static_files import add_static_files
 from .legacy_api import add_v2_endpoints
 from ..logging import configure_logging, retrieve_log, retrieve_log_from_file
 
 
-def customise_server(server: ThingServer, log_folder: str, scans_folder: Optional[str]):
+def customise_server(
+    server: lt.ThingServer, log_folder: str, scans_folder: Optional[str]
+):
     """Customise the server with additional endpoints, etc."""
     configure_logging(log_folder)
     add_v2_endpoints(server)
@@ -39,7 +41,7 @@ def _get_scans_dir(config: dict) -> Optional[str]:
 
 def serve_from_cli(argv: Optional[list[str]] = None):
     """Start the server from the command line"""
-    args = cli.parse_args(argv)
+    args = lt.cli.parse_args(argv)
 
     log_config = copy(uvicorn.config.LOGGING_CONFIG)
     log_config["loggers"]["uvicorn"]["propagate"] = True
@@ -50,10 +52,10 @@ def serve_from_cli(argv: Optional[list[str]] = None):
     config = None
     server = None
     try:
-        config = cli.config_from_args(args)
+        config = lt.cli.config_from_args(args)
         log_folder = config.get("log_folder", "./openflexure/logs")
         scans_folder = _get_scans_dir(config)
-        server = cli.server_from_config(config)
+        server = lt.cli.server_from_config(config)
         customise_server(server, log_folder, scans_folder)
         uvicorn.run(
             server.app,
@@ -68,7 +70,7 @@ def serve_from_cli(argv: Optional[list[str]] = None):
             print(f"Error: {e}")
             fallback_server = "labthings_fastapi.server.fallback:app"
             print(f"Starting fallback server {fallback_server}.")
-            app = cli.object_reference_to_object(fallback_server)
+            app = lt.cli.object_reference_to_object(fallback_server)
             app.labthings_config = config
             app.labthings_server = server
             app.labthings_error = e

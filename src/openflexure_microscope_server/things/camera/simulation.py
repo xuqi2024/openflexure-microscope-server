@@ -19,10 +19,7 @@ import numpy as np
 import piexif
 from scipy.ndimage import gaussian_filter
 
-from labthings_fastapi.utilities import get_blocking_portal
-from labthings_fastapi.decorators import thing_action, thing_property
-from labthings_fastapi.dependencies.metadata import GetThingStates
-from labthings_fastapi.server import ThingServer
+import labthings_fastapi as lt
 
 from . import BaseCamera, JPEGBlob, ArrayModel
 from ..stage import BaseStage
@@ -36,7 +33,7 @@ class SimulatedCamera(BaseCamera):
     """A Thing representing an OpenCV camera"""
 
     _stage: Optional[BaseStage] = None
-    _server: Optional[ThingServer] = None
+    _server: Optional[lt.ThingServer] = None
 
     def __init__(
         self,
@@ -115,9 +112,11 @@ class SimulatedCamera(BaseCamera):
             )
         return image
 
-    def attach_to_server(self, server: ThingServer, path: str):
+    def attach_to_server(
+        self, server: lt.ThingServer, path: str, setting_storage_path: str
+    ):
         self._server = server
-        return super().attach_to_server(server, path)
+        return super().attach_to_server(server, path, setting_storage_path)
 
     def get_stage_position(self):
         if not self._stage and self._server:
@@ -144,7 +143,7 @@ class SimulatedCamera(BaseCamera):
             self._capture_enabled = False
             self._capture_thread.join()
 
-    @thing_property
+    @lt.thing_property
     def stream_active(self) -> bool:
         "Whether the MJPEG stream is active"
         if self._capture_enabled and self._capture_thread:
@@ -152,7 +151,7 @@ class SimulatedCamera(BaseCamera):
         return False
 
     def _capture_frames(self):
-        portal = get_blocking_portal(self)
+        portal = lt.get_blocking_portal(self)
         while self._capture_enabled:
             time.sleep(self.frame_interval)
             try:
@@ -166,7 +165,7 @@ class SimulatedCamera(BaseCamera):
             except Exception as e:
                 logging.error(f"Failed to capture frame: {e}, retrying...")
 
-    @thing_action
+    @lt.thing_action
     def capture_array(
         self,
         resolution: Literal["main", "full"] = "full",
@@ -180,10 +179,10 @@ class SimulatedCamera(BaseCamera):
         logging.warning(f"Simulation camera doen't respect {resolution} setting")
         return self.generate_frame()
 
-    @thing_action
+    @lt.thing_action
     def capture_jpeg(
         self,
-        metadata_getter: GetThingStates,
+        metadata_getter: lt.deps.GetThingStates,
         resolution: Literal["main", "full"] = "main",
     ) -> JPEGBlob:
         """Acquire one image from the camera and return as a JPEG blob

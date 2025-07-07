@@ -1,9 +1,9 @@
-from . import ThingServer
+import labthings_fastapi as lt
 from fastapi import Response
 from socket import gethostname
 
 
-def add_v2_endpoints(thing_server: ThingServer):
+def add_v2_endpoints(thing_server: lt.ThingServer):
     app = thing_server.app
 
     # TODO: update openflexure connect to make this unnecessary!!

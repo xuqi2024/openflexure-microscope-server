@@ -256,7 +256,9 @@ def test_outer_scan_wo_sample_skip():
     """Test setup and teardown of the scan."""
 
     def _set_skip_background(mock_ss_thing):
-        mock_ss_thing.thing_settings["skip_background"] = False
+        # As the Thing is not connected to a server we set the setting via the internal
+        # __dict__ to avoid triggering property emits that require a server
+        mock_ss_thing.__dict__["skip_background"] = False
 
     mock_ss_thing, exec_info = _run_only_outer_scan(_set_skip_background)
 

@@ -1,6 +1,6 @@
 """OpenFlexure Microscope Camera
 
-This module defines the interface for cameras. Any compatible Thing
+This module defines the interface for cameras. Any compatible lt.Thing
 should enabe the server to work.
 
 See repository root for licensing information.
@@ -14,23 +14,15 @@ from pydantic import RootModel
 from PIL import Image
 import piexif
 
-from labthings_fastapi.thing import Thing
-from labthings_fastapi.decorators import thing_action, thing_property
-from labthings_fastapi.dependencies.metadata import GetThingStates
-from labthings_fastapi.dependencies.blocking_portal import BlockingPortal
-from labthings_fastapi.dependencies.thing import direct_thing_client_dependency
-from labthings_fastapi.dependencies.raw_thing import raw_thing_dependency
-from labthings_fastapi.dependencies.invocation import InvocationLogger
-from labthings_fastapi.outputs.mjpeg_stream import MJPEGStreamDescriptor
-from labthings_fastapi.outputs.blob import Blob
+import labthings_fastapi as lt
 from labthings_fastapi.types.numpy import NDArray
 
 
-class JPEGBlob(Blob):
+class JPEGBlob(lt.blob.Blob):
     media_type: str = "image/jpeg"
 
 
-class PNGBlob(Blob):
+class PNGBlob(lt.blob.Blob):
     """A class representing a PNG image as a LabThings FastAPI Blob"""
 
     media_type: str = "image/png"
@@ -154,11 +146,11 @@ class CameraMemoryBuffer:
             del self._storage[key]
 
 
-class BaseCamera(Thing):
+class BaseCamera(lt.Thing):
     """The base class for all cameras. All cameras must directly inherit from this class"""
 
-    mjpeg_stream = MJPEGStreamDescriptor()
-    lores_mjpeg_stream = MJPEGStreamDescriptor()
+    mjpeg_stream = lt.outputs.MJPEGStreamDescriptor()
+    lores_mjpeg_stream = lt.outputs.MJPEGStreamDescriptor()
     _memory_buffer = CameraMemoryBuffer()
 
     def __enter__(self) -> None:
@@ -167,7 +159,7 @@ class BaseCamera(Thing):
     def __exit__(self, _exc_type, _exc_value, _traceback) -> None:
         raise NotImplementedError("CameraThings must define their own __exit__ method")
 
-    @thing_action
+    @lt.thing_action
     def start_streaming(
         self, main_resolution: tuple[int, int], buffer_count: int
     ) -> None:
@@ -177,14 +169,14 @@ class BaseCamera(Thing):
             "CameraThings must define their own start_streaming method"
         )
 
-    @thing_property
+    @lt.thing_property
     def stream_active(self) -> bool:
         "Whether the MJPEG stream is active"
         raise NotImplementedError(
             "CameraThings must define their own stream_active method"
         )
 
-    @thing_action
+    @lt.thing_action
     def capture_array(
         self,
         stream_name: Literal["main", "lores", "raw", "full"] = "main",
@@ -194,10 +186,10 @@ class BaseCamera(Thing):
             "CameraThings must define their own capture_array method"
         )
 
-    @thing_action
+    @lt.thing_action
     def capture_jpeg(
         self,
-        metadata_getter: GetThingStates,
+        metadata_getter: lt.deps.GetThingStates,
         resolution: Literal["lores", "main", "full"] = "main",
         wait: Optional[float] = 5,
     ) -> JPEGBlob:
@@ -206,10 +198,10 @@ class BaseCamera(Thing):
             "CameraThings must define their own capture_jpeg method"
         )
 
-    @thing_action
+    @lt.thing_action
     def grab_jpeg(
         self,
-        portal: BlockingPortal,
+        portal: lt.deps.BlockingPortal,
         stream_name: Literal["main", "lores"] = "main",
     ) -> JPEGBlob:
         """Acquire one image from the preview stream and return as an array
@@ -225,10 +217,10 @@ class BaseCamera(Thing):
         frame = portal.call(stream.grab_frame)
         return JPEGBlob.from_bytes(frame)
 
-    @thing_action
+    @lt.thing_action
     def grab_jpeg_size(
         self,
-        portal: BlockingPortal,
+        portal: lt.deps.BlockingPortal,
         stream_name: Literal["main", "lores"] = "main",
     ) -> int:
         """Acquire one image from the preview stream and return its size"""
@@ -237,7 +229,7 @@ class BaseCamera(Thing):
         )
         return portal.call(stream.next_frame_size)
 
-    @thing_action
+    @lt.thing_action
     def capture_image(
         self,
         stream_name: Literal["main", "lores", "raw"],
@@ -248,12 +240,12 @@ class BaseCamera(Thing):
             "CameraThings must define their own capture_image method"
         )
 
-    @thing_action
+    @lt.thing_action
     def capture_and_save(
         self,
         jpeg_path: str,
-        logger: InvocationLogger,
-        metadata_getter: GetThingStates,
+        logger: lt.deps.InvocationLogger,
+        metadata_getter: lt.deps.GetThingStates,
         save_resolution: Optional[Tuple[int, int]] = None,
     ) -> None:
         """Capture an image and save it to disk
@@ -279,11 +271,11 @@ class BaseCamera(Thing):
             save_resolution,
         )
 
-    @thing_action
+    @lt.thing_action
     def capture_to_memory(
         self,
-        logger: InvocationLogger,
-        metadata_getter: GetThingStates,
+        logger: lt.deps.InvocationLogger,
+        metadata_getter: lt.deps.GetThingStates,
         buffer_max: int = 1,
     ) -> None:
         """
@@ -304,11 +296,11 @@ class BaseCamera(Thing):
         image, metadata = self._robust_image_capture(metadata_getter, logger)
         return self._memory_buffer.add_image(image, metadata, buffer_max=buffer_max)
 
-    @thing_action
+    @lt.thing_action
     def save_from_memory(
         self,
         jpeg_path: str,
-        logger: InvocationLogger,
+        logger: lt.deps.InvocationLogger,
         save_resolution: Optional[Tuple[int, int]] = None,
         buffer_id: Optional[int] = None,
     ) -> None:
@@ -333,15 +325,15 @@ class BaseCamera(Thing):
             save_resolution=save_resolution,
         )
 
-    @thing_action
+    @lt.thing_action
     def clear_buffers(self) -> None:
         """Clear all images in memory"""
         self._memory_buffer.clear()
 
     def _robust_image_capture(
         self,
-        metadata_getter: GetThingStates,
-        logger: InvocationLogger,
+        metadata_getter: lt.deps.GetThingStates,
+        logger: lt.deps.InvocationLogger,
     ) -> Image:
         """Capture an image in memory and return it with metadata
         CaptureError raised if the capture fails for any reason
@@ -366,7 +358,7 @@ class BaseCamera(Thing):
         jpeg_path: str,
         image: Image,
         metadata: dict,
-        logger: InvocationLogger,
+        logger: lt.deps.InvocationLogger,
         save_resolution: Optional[Tuple[int, int]] = None,
     ) -> None:
         """Saving the captured image and metadata to disk
@@ -399,5 +391,5 @@ class BaseCamera(Thing):
             raise IOError(f"An error occurred while saving {jpeg_path}") from e
 
 
-CameraDependency = direct_thing_client_dependency(BaseCamera, "/camera/")
-RawCameraDependency = raw_thing_dependency(BaseCamera)
+CameraDependency = lt.deps.direct_thing_client_dependency(BaseCamera, "/camera/")
+RawCameraDependency = lt.deps.raw_thing_dependency(BaseCamera)
