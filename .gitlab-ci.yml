@@ -170,7 +170,7 @@ build:
 
 
 test_graceful_shutdown:
-  image: docker:24  # Modern Docker CLI
+  image: docker:24
   stage: integration
   needs:
     - job: build
@@ -194,6 +194,10 @@ test_graceful_shutdown:
     # Check everything is loaded up fine
     - docker-compose -f docker-compose.test.yml ps
     - docker-compose -f docker-compose.test.yml logs
+    # Connect this job to the correct DinD network
+    - NETWORK=$(docker network ls --filter name=test_net -q)
+    - 'echo "Docker Network ID: $NETWORK"'
+    - docker network connect "$NETWORK" "$(hostname)"
     # Check stream is active and accessible
     # Run a simple debug check, this may not error on fail but will provide details if the next errors
     - 'curl -I -X "GET" "http://microscope-server:5000/camera/stream_active" -H "accept: application/json"'
