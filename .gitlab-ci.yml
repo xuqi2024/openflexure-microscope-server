@@ -198,10 +198,10 @@ test_graceful_shutdown:
     - docker-compose -f docker-compose.test.yml logs
     # Check stream is active and accessible
     # Run a simple debug check, this may not error on fail but will provide details if the next errors
-    - curl -s http://localhost:5000/camera/stream_active
+    - 'curl -I -X "GET" "http://localhost:5000/camera/stream_active" -H "accept: application/json"'
     # To get the error code we must forward everything else to null. For the stream
     # this would say open, again just check stream is available.
-    - CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/camera/stream_active)
+    - 'CODE=$(curl -s -o /dev/null -w "%{http_code}" -X "GET" "http://localhost:5000/camera/stream_active" -H "accept: application/json"'
     - if [ $CODE -ne 200 ]; then echo exit 1; fi
     # Attach a background process to the stream
     - nohup curl -s http://localhost:5000/camera/mjpeg_stream > /dev/null 2>&1 &
