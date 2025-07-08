@@ -112,6 +112,37 @@ mypy:
         coverage_format: cobertura
         path: mypy/cobertura.xml
 
+
+test_graceful_shutdown:
+  image: docker/compose:latest
+  stage: analysis
+  services:
+    # Docker in docker!
+    - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+  timeout: 10m
+  script:
+    # Build container and spin up in background
+    - docker-compose -f docker-compose.test.yml build
+    - docker-compose -f docker-compose.test.yml up -d
+    # Sleep 20s for booting
+    - sleep 20
+    # Attach a background process to the stream
+    - nohup curl -s http://localhost:5000/camera/mjpeg_stream > /dev/null 2>&1 &
+    - sleep 2
+    # Send sigterm
+    - echo "Sending SIGTERM to server"
+    - docker-compose -f docker-compose.test.yml kill -s SIGTERM microscope-server
+    # Sleep for 5s, it will force exit after 2
+    - sleep 5
+    # Fail job if "graceful shutdown exceeded" is in the logs.
+    - if docker-compose -f docker-compose.test.yml logs | grep -q "graceful shutdown exceeded"; then exit 1; fi
+  after_script:
+    - docker-compose -f docker-compose.test.yml down -v
+
+
 # Python unit tests with PyTest
 pytest:
   stage: testing
