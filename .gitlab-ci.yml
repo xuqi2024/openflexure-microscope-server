@@ -170,21 +170,19 @@ build:
 
 
 test_graceful_shutdown:
-  image: docker/compose:1.29.2
+  image: docker:24  # Modern Docker CLI
   stage: integration
   needs:
     - job: build
       artifacts: true
   services:
-    # Docker in docker!
-    - docker:dind
+    - name: docker:24-dind
+      command: ["--host=tcp://0.0.0.0:2375", "--insecure-registry=0.0.0.0/0"]
   variables:
-    DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_CERTDIR: "/certs"
-    DOCKER_TLS_VERIFY: 1
-    DOCKER_CERT_PATH: "/certs/client"
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
   before_script:
-    - apk add --no-cache curl
+    - apk add --no-cache docker-cli-compose curl
     - until docker info; do sleep 1; done
   timeout: 10m
   script:
@@ -197,16 +195,14 @@ test_graceful_shutdown:
     - docker-compose -f docker-compose.test.yml ps
     - docker-compose -f docker-compose.test.yml logs
     # Check stream is active and accessible
-    - IP=$(docker inspect $(docker-compose -f docker-compose.test.yml ps -q microscope-server) | grep IPAddress | egrep -o "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+")
-    - echo $IP
     # Run a simple debug check, this may not error on fail but will provide details if the next errors
-    - 'curl -I -X "GET" "http://$IP:5000/camera/stream_active" -H "accept: application/json"'
+    - 'curl -I -X "GET" "http://microscope-server:5000/camera/stream_active" -H "accept: application/json"'
     # To get the error code we must forward everything else to null. For the stream
     # this would say open, again just check stream is available.
-    - 'CODE=$(curl -s -o /dev/null -w "%{http_code}" -X "GET" "http://$IP:5000/camera/stream_active" -H "accept: application/json"'
+    - 'CODE=$(curl -s -o /dev/null -w "%{http_code}" -X "GET" "http://microscope-server:5000/camera/stream_active" -H "accept: application/json")"'
     - if [ $CODE -ne 200 ]; then echo exit 1; fi
     # Attach a background process to the stream
-    - nohup curl -s http://$IP:5000/camera/mjpeg_stream > /dev/null 2>&1 &
+    - nohup curl -s http://microscope-server:5000/camera/mjpeg_stream > /dev/null 2>&1 &
     - sleep 2
     # Send sigterm
     - echo "Sending SIGTERM to server"
