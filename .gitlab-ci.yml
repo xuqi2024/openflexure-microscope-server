@@ -3,6 +3,7 @@ stages:
   - analysis
   - testing
   - build
+  - integration
   - package
   - deploy
 
@@ -166,6 +167,61 @@ build:
     expire_in: 1 week
     paths:
       - "src/openflexure_microscope_server/static/"
+
+
+test_graceful_shutdown:
+  image: docker:24
+  stage: integration
+  needs:
+    - job: build
+      artifacts: true
+  services:
+    - name: docker:24-dind
+      command: ["--host=tcp://0.0.0.0:2375", "--insecure-registry=0.0.0.0/0"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  before_script:
+    - apk add --no-cache docker-cli-compose curl
+    - until docker info; do sleep 1; done
+  timeout: 10m
+  script:
+    # Build container and spin up in background
+    - docker-compose -f docker-compose.test.yml build
+    - docker-compose -f docker-compose.test.yml up -d
+    # Sleep 20s for booting
+    - sleep 20
+    # Check everything is loaded up fine
+    - docker-compose -f docker-compose.test.yml ps
+    - docker-compose -f docker-compose.test.yml logs
+    # Connect this job to the correct DinD network
+    - NETWORK=$(docker network ls --filter name=test_net -q)
+    - 'echo "Docker Network ID: $NETWORK"'
+    - docker network connect "$NETWORK" "$(hostname)"
+    # Check stream is active and accessible
+    # Run a simple debug check, this may not error on fail but will provide details if the next errors
+    - 'curl -I -X "GET" "http://microscope-server:5000/camera/stream_active" -H "accept: application/json"'
+    # To get the error code we must forward everything else to null. For the stream
+    # this would say open, again just check stream is available.
+    - 'CODE=$(curl -s -o /dev/null -w "%{http_code}" -X "GET" "http://microscope-server:5000/camera/stream_active" -H "accept: application/json")"'
+    - if [ $CODE -ne 200 ]; then echo exit 1; fi
+    # Attach a background process to the stream
+    - nohup curl -s http://microscope-server:5000/camera/mjpeg_stream > /dev/null 2>&1 &
+    - sleep 2
+    # Send sigterm
+    - echo "Sending SIGTERM to server"
+    - docker-compose -f docker-compose.test.yml kill -s SIGTERM microscope-server
+    # Sleep for 5s, it will force exit after 2
+    - sleep 5
+    # Fail job if "graceful shutdown exceeded" is in the logs.
+    - if docker-compose -f docker-compose.test.yml logs | grep -q "graceful shutdown exceeded"; then exit 1; fi
+  after_script:
+    - docker-compose -f docker-compose.test.yml down -v
+  only:
+    - branches
+    - merge_requests
+    - tags
+    - web
 
 # # Package application into distribution tarball
 # package:
