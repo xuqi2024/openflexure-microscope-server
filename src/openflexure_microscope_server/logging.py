@@ -39,9 +39,9 @@ def configure_logging(log_folder):
 
 
 def retrieve_log() -> PlainTextResponse:
-    """
-    Returns logs since we started running the server, up to a maximum of
-    250 messages. This log is the one shown in the UI and on the logging page.
+    """Return logs since the server started, up to a maximum of 250 messages.
+
+    This log is the one shown in the UI and on the logging page.
 
     It does not include any of the ``uvicorn.access`` logs as these are emmitted
     every time any API route is called.
@@ -53,11 +53,10 @@ def retrieve_log() -> PlainTextResponse:
 
 
 def retrieve_log_from_file() -> PlainTextResponse:
-    """
-    Returns the full log from the file for downloading.
+    """Return the full log from the file for downloading.
 
     Note this is read and then sent as otherwise it causes a RuntimeError if it
-    is written to while sending through FileResponse
+    is written to while sending through FileResponse.
     """
     if OFM_LOG_FILE is None:
         raise RuntimeError(

@@ -46,7 +46,8 @@ class ScanNotRunningError(RuntimeError):
 
 
 def _scan_running(method):
-    """
+    """Decorate a method so that it will error if a scan is not running.
+
     This decorator is used by all methods in SmartScanThing that are using
     the variables set for the scan. It will throw a runtime error if
     self._scan_logger is not set, as all scan variables are set at
@@ -206,12 +207,13 @@ class SmartScanThing(lt.Thing):
     def _move_to_next_point(
         self, next_point: tuple[int, int], z_estimate: Optional[int] = None
     ) -> tuple[int, int, int]:
-        """Moves the stage to the next poistion. If no z_estimate is given then
-        the current stage position is used. Must move to the estimated focused position
-        (although moving below would be marginally faster) because background detect is
-        most reliable at the focused position.
+        """Move the stage to the next poistion.
 
-        Returns the (x,y,z) with the chosen z_estimate
+        If no z_estimate is given then the current stage position is used. Must move
+        to the estimated focused position (although moving below would be marginally
+        faster) because background detect is most reliable at the focused position.
+
+        :returns: the (x,y,z) with the chosen z_estimate
         """
         if z_estimate is None:
             z_estimate = self._stage.position["z"]
@@ -266,9 +268,9 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _set_scan_data(self):
-        """
-        This sets the self._scan_data dictionary. This needs to become a
-        dataclass.
+        """Set date for this scan to the ``self._scan_data`` variable.
+
+        This needs to become a dataclass at some point.
         """
         overlap = self.overlap
         dx, dy = self._calc_displacement_from_test_image(overlap)
@@ -454,8 +456,9 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _main_scan_loop(self):
-        """
-        The loop to run through during a scan, until no more scan x,y positions
+        """Run the main loop of the scan.
+
+        This loop runs during a scan, until no more scan x,y positions
         are remaining.
         """
         # The initial plan for the scan should be a single x,y position. All future
@@ -709,8 +712,10 @@ class SmartScanThing(lt.Thing):
                 self._delete_scan(scan_info.name, logger)
 
     def _delete_scan(self, scan_name, logger: lt.deps.InvocationLogger) -> bool:
-        """
-        A wrapper around scan manager's delete_scan that logs to the invocation logger
+        """Delete a scan.
+
+        This is a wrapper around scan manager's delete_scan that logs to the
+        invocation logger id there is a problem.
         """
         try:
             self._scan_dir_manager.delete_scan(scan_name)
@@ -832,9 +837,7 @@ class SmartScanThing(lt.Thing):
         logger.info(f"Running command in subprocess: `{' '.join(cmd)}`")
 
         def log_buffer(buffer):
-            """A short internal function to read everything in the buffer to
-            the log
-            """
+            """Log everything in the buffer at INFO level."""
             while line := buffer.readline():
                 logger.info(line)
 

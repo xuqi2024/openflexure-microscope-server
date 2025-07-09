@@ -53,7 +53,7 @@ class ScanDirectoryManager:
         return self._base_scan_dir
 
     def exists(self, scan_name: str) -> bool:
-        """True if scan of this name exists on disk"""
+        """Return True if scan of this name exists on disk"""
         return os.path.isdir(self.path_for(scan_name))
 
     def path_for(self, scan_name: str) -> str:

@@ -134,7 +134,6 @@ ignore = [
     "D400",
     "D200",
     "D404",
-    "D401",
     # These should be turned on before this MR is complete
     "D100",
     "D102",
@@ -146,4 +145,6 @@ ignore = [
 ]
 
 [tool.ruff.lint.pydocstyle]
+# This lets the D401 checker understand that decorated thing properties and thing
+# settings act like properties so should be documented as such.
 property-decorators = ["labthings_fastapi.thing_property", "labthings_fastapi.thing_setting"]

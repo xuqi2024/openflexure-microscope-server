@@ -11,10 +11,13 @@ from openflexure_microscope_server.things.camera.picamera import StreamingPiCame
 
 @fixture(scope="module")
 def client():
-    """
-    A pytest fixture that initialises a test client for the StreamingPiCamera2 Thing.
-    This fixture sets up a ThingServer, registers a StreamingPiCamera2 instance at the
-    "/camera/" endpoint, and provides a ThingClient for interacting with it during tests.
+    """Initialise a test client for the StreamingPiCamera2 Thing.
+
+    This fixture:
+
+    * Sets up a ThingServer,
+    * Registers a StreamingPiCamera2 instance at the "/camera/" endpoint
+    * Provides a ThingClient for interacting with it during tests.
     """
     server = ThingServer()
     server.add_thing(StreamingPiCamera2(), "/camera/")
@@ -24,9 +27,7 @@ def client():
 
 
 def test_calibration(client):
-    """
-    Check that full auto calibrate completes without an exception
-    """
+    """Check that full auto calibrate completes without an exception."""
     client.full_auto_calibrate()
 
 

@@ -377,9 +377,12 @@ class BaseCamera(lt.Thing):
         logger: lt.deps.InvocationLogger,
         save_resolution: Optional[Tuple[int, int]] = None,
     ) -> None:
-        """Saving the captured image and metadata to disk
-        logger warning (via InvocationLogger) is raised if metadata is failed to be added
-        IOError is raised if the file cannot be saved
+        """Save the captured image and metadata to disk.
+
+        A warning (via InvocationLogger) is raised if metadata is failed to be added
+
+        :raises IOError: if the file cannot be saved
+
         nothing is returned on success
         """
         if save_resolution is not None and image.size != save_resolution:

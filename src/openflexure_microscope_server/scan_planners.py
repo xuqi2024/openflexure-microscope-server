@@ -27,8 +27,11 @@ NEIGHBOUR_CUTOFF = 1.4
 
 
 def enforce_xy_tuple(value: XYPos) -> XYPos:
-    """
-    Used for enforcing that an input is a tuple and is the correct length
+    """Check input is a tuple and is of length 2.
+
+    If possible it will coerce the value to a tuple.
+
+    :raises ValueError: if the input cannot be coerced to a tuple of length 2.
     """
     if not isinstance(value, (list, tuple)):
         raise ValueError("2 value tuple expected")
@@ -40,8 +43,11 @@ def enforce_xy_tuple(value: XYPos) -> XYPos:
 
 
 def enforce_xyz_tuple(value: XYZPos) -> XYZPos:
-    """
-    Used for enforcing that an input is a tuple and is the correct length
+    """Check input is a tuple and is of length 3.
+
+    If possible it will coerce the value to a tuple.
+
+    :raises ValueError: if the input cannot be coerced to a tuple of length 3.
     """
     if not isinstance(value, (list, tuple)):
         raise ValueError("3 value tuple expected")
@@ -75,9 +81,7 @@ class ScanPlanner:
     """
 
     def __init__(self, intial_position: XYPos, planner_settings: Optional[dict] = None):
-        """
-        Set up lists for the path planning, and scan history.
-        """
+        """Set up lists for the path planning, and scan history."""
         self._initial_position = enforce_xy_tuple(intial_position)
         self._parse(planner_settings)
 
@@ -103,16 +107,12 @@ class ScanPlanner:
 
     @property
     def scan_complete(self) -> bool:
-        """
-        Return True if there are no locations left to scan.
-        """
+        """Return True if there are no locations left to scan."""
         return not self._remaining_locations
 
     @property
     def remaining_locations(self) -> XYPosList:
-        """
-        Property to access a copy of the remaining_locations
-        """
+        """Property to access a copy of the remaining_locations."""
         return copy(self._remaining_locations)
 
     @property
@@ -124,27 +124,22 @@ class ScanPlanner:
 
     @property
     def focused_locations(self) -> XYZPosList:
-        """
-        Property to access a copy of the focused_locations
-        """
+        """Property to access a copy of the focused_locations."""
         return copy(self._focused_locations)
 
     @property
     def path_history(self) -> XYPosList:
-        """
-        Property to access a copy of the path_history
-        """
+        """Property to access a copy of the path_history."""
         return copy(self._path_history)
 
     def _parse(self, planner_settings: Optional[dict] = None) -> None:
-        """
-        Parse any settings sent to this planner and store them if needed.
-        """
+        """Parse any settings sent to this planner and store them if needed."""
         raise NotImplementedError("Did you call the ScanPlanner base class?")
 
     def _intial_location_list(self) -> XYPosList:
-        """
-        Called on initalisation. Sets the initial list of locations for this scan planner
+        """Set the initial list of locations for this scan planner.
+
+        This is called on initalisation.
 
         For a simple grid scan/snake scan this would be all locations to move to.
 
@@ -267,12 +262,11 @@ class SmartSpiral(ScanPlanner):
     _dy: int = 0
 
     def _parse(self, planner_settings: Optional[dict] = None) -> None:
-        """
-        Parse SmartSpiral Settings. This should be a dictionary
+        """Parse SmartSpiral Settings dictionary.
 
-        "dx" - the movement size in x
-        "dy" - the movement size in y
-        "max_dist" - The maximum distance to a location can be from the centre.
+        * ``dx`` - the movement size in x
+        * ``dy`` - the movement size in y
+        * ``max_dist`` - The maximum distance to a location can be from the centre.
         """
         expected_keys = ["max_dist", "dx", "dy"]
         invalid_msg = "SmartSpiral requires a planner_settings dictionary with keys: "
@@ -286,8 +280,9 @@ class SmartSpiral(ScanPlanner):
         self._max_dist = int(planner_settings["max_dist"])
 
     def _intial_location_list(self) -> XYPosList:
-        """
-        Called on initalisation. Sets the initial list of locations for this scan planner
+        """Set the initial list of locations for this scan planner.
+
+        This is salled on initialisation.
 
         For smart spiral this is just the first point
         """
@@ -314,10 +309,14 @@ class SmartSpiral(ScanPlanner):
         self._re_sort_remaining_locations(xy_pos)
 
     def _add_surrounding_positions(self, xy_pos: XYPos) -> None:
-        """
-        This adds the surrounding (4 point connectivity) positions
-        to the remaining locations if they are not too far away or
-        already planned or already visited
+        """Add the 4 surrounding positions to the list of remaining locations to visit.
+
+        This adds the surrounding positions (with 4 point connectivity) to the
+        remaining locations list if they are not:
+
+        * too far away
+        * already planned
+        * already visited
         """
         new_positions = [
             (xy_pos[0] - self._dx, xy_pos[1]),
