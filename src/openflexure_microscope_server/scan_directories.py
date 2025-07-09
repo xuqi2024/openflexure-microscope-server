@@ -1,9 +1,4 @@
-"""
-This submodule contains functionality for interacting with scan directories.
-
-Currently it handles scan getting information from a information from a scan directory,
-eventually is should handle all the file system operation for smart_scan.
-"""
+"""Functionality to manage file system operations for scan directories."""
 
 from typing import Optional
 import os

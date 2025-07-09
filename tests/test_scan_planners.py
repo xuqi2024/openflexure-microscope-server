@@ -96,11 +96,11 @@ def test_bad_smart_spiral_settings():
 
 
 def test_smart_spiral_first_few_pos():
-    """
-    This test is  VERY long, not really a "unit". It checks step-by-step
-    that data is added correctly for the first few postions in a scan.
+    """Test for correct data addition during initial scan positions.
 
-    This should catch basic cases of if the algorithm is updated.
+    This is a very long test, not strictly a "unit" test. It checks step by step
+    that data is added correctly for the first few positions in a scan. It is
+    intended to catch basic issues if the algorithm is updated.
     """
     intial_position = (100, 50)
     planner_settings = {"dx": 50, "dy": 50, "max_dist": 10000}
@@ -206,12 +206,7 @@ def test_smart_spiral_stops_on_max_dist():
 
 
 def test_mark_wrong_location():
-    """
-    This test is  VERY long, not really a "unit". It checks step-by-step
-    that data is added correctly for the first few postions in a scan.
-
-    This should catch basic caseses of if the algorithm is updated.
-    """
+    """Check that an error is raised if a scan marks the wrong location as visited."""
     intial_position = (100, 50)
     planner_settings = {"dx": 50, "dy": 50, "max_dist": 10000}
     # Create a planner

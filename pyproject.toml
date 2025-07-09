@@ -133,7 +133,6 @@ ignore = [
     "D415",
     "D400",
     "D200",
-    "D404",
     # These should be turned on before this MR is complete
     "D100",
     "D102",

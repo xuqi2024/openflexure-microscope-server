@@ -1,14 +1,12 @@
-"""
-This module contains some utility functions and classes
-"""
+"""Utility functions and classes."""
 
 from threading import Thread
 
 
 class ErrorCapturingThread(Thread):
-    """
-    This is a a subclass or Thread. It wraps the target function in a
-    try-except block.
+    """Subclass of Thread that captures exceptions from the target function.
+
+    It wraps the target function in a try-except block.
 
     Execution will stop with an unhandled exception, but the exception will not be raised
     until the join method is called. When the join method is called, the exception is

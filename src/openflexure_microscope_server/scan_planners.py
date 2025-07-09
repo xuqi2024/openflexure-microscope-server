@@ -1,5 +1,4 @@
-"""
-This module contains functionality for planning a scan route
+"""Functionality for planning scan routes.
 
 A scan route can be planned by a ScanPlanner class currently there
 is only one type the SmartSpiral. More can be added using by
@@ -242,14 +241,14 @@ class ScanPlanner:
 
 
 class SmartSpiral(ScanPlanner):
-    """
-    This is a smart spiral scan that spirals out from the centre, but prioritises
-    short moves over rigidly sticking to minimising radius from the centre of the
-    scan.
+    """A scan planner that spirals outward from the centre, prioritising short moves.
+
+    This planner spirals out from the centre, but prioritises short moves over rigidly
+    sticking to minimising radius from the centre of the scan.
 
     Each time and image is taken the four neighbouring images are added
-    to the list of poisitions to image (unless they are already listed or
-    tried). However if a location is not imaged due no sample being detected
+    to the list of positions to image (unless they are already listed or
+    tried). However, if a location is not imaged due no sample being detected
     then neibouring positions are not imaged.
 
     The next image taken is the closes to the centre (considering the largest

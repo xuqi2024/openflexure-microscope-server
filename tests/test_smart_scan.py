@@ -175,16 +175,10 @@ def _run_only_outer_scan(adjust_inital_state: Optional[Callable] = None):
     bkgrnd_det_mock = MockBackgoundDetectThing()
 
     class MockedSmartScanThing(SmartScanThing):
-        """
-        This is a subclass of SmartScanThing with a mocked method and
-        mocked thing_settings.
-        """
+        """Mocked version of SmartScanThing with a patched _run_scan method."""
 
         # Counter for checking functions were called
         mock_call_count = {"_run_scan": 0}
-
-        # Mock thing settings as a dictionary
-        thing_settings = {"skip_background": True}
 
         def _run_scan(self):
             self.mock_call_count["_run_scan"] += 1

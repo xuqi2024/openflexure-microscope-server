@@ -1,5 +1,4 @@
-"""
-This SubModule interacts with a Raspberry Pi camera using the Picamera2 library.
+"""Submodule for interacting with a Raspberry Pi camera using the Picamera2 library.
 
 The Picamera2 library uses LibCamera as the underlying camera stack. This gives us
 some control of the GPU pipeline for the image.

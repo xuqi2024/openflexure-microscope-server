@@ -1,8 +1,8 @@
 """
-This sub-package contains utilities that help with testing and debugging.
+Utilities for testing and debugging.
 
-At the top level are some very basic testing functions, more specific testing
-is provided by modules inside the package.
+At the top level are some basic testing functions. More specific testing utilities are
+provided by modules inside the package.
 """
 
 from typing import Protocol, Iterable

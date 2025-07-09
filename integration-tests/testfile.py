@@ -1,11 +1,10 @@
 #! /usr/bin/env python3
-"""This module fires up a server in a subprocess to allow for integration tests.
+"""Start a server subprocess for integration tests.
 
-These are separated from the unit tests to stop them artificially inflating the test
-coverage. For now this file should be run directly not with a test framework.
+These tests are separated from unit tests to avoid inflating test coverage.
+For now, this file should be run directly rather than through a test framework.
 
-These tests are designed to run on CI. They should work on Linux or WSL for local
-debugging.
+They are designed to run on CI and should work on Linux or WSL for local debugging.
 """
 
 from typing import Optional
