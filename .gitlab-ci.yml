@@ -171,8 +171,6 @@ build:
 server_integration_tests:
   extends: .python
   stage: integration
-  # This is allowed to fail for now until graceful shutdown is resolved
-  allow_failure: true
   needs:
     - job: build
       artifacts: true

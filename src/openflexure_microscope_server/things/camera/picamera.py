@@ -446,8 +446,9 @@ class StreamingPiCamera2(BaseCamera):
             else:
                 self.stream_active = False
                 if stop_web_stream:
-                    self.mjpeg_stream.stop()
-                    self.lores_mjpeg_stream.stop()
+                    portal = lt.get_blocking_portal(self)
+                    self.mjpeg_stream.stop(portal)
+                    self.lores_mjpeg_stream.stop(portal)
                 logging.info("Stopped MJPEG stream.")
 
             # Adding a sleep to prevent camera getting confused by rapid commands

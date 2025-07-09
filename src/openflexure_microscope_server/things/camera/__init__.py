@@ -169,6 +169,21 @@ class BaseCamera(lt.Thing):
             "CameraThings must define their own start_streaming method"
         )
 
+    def kill_mjpeg_streams(self):
+        """
+        Kill the streams now as the server is shutting down.
+
+        This is called when uvicorn gets the a shutdown signal. As this is called from
+        the event loop it cannot interact with the our ThingProperties or run
+        `self.mjpeg_stream.stop()` as the portal cannot be called from this loop.
+
+        Instead we just set the `_streaming` value to False. This stops the async frame
+        generator when the next frame notifies.
+        """
+        if self.stream_active:
+            self.mjpeg_stream._streaming = False
+            self.lores_mjpeg_stream._streaming = False
+
     @lt.thing_property
     def stream_active(self) -> bool:
         "Whether the MJPEG stream is active"
