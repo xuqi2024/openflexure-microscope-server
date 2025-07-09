@@ -40,6 +40,7 @@ dev = [
   "pytest-mock==3.14",
   "matplotlib~=3.10",
   "hypothesis",
+  "pydoctor"
 ]
 pi = [
   "picamera2~=0.3.27",
