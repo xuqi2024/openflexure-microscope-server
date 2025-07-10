@@ -731,21 +731,6 @@ class RangeofMotionThing(Thing):
         
         return txt_file
 
-    @fastapi_endpoint(
-        "get",
-        "var/openflexure/calibration_summary.pdf",
-        responses={
-            200: {
-                "description": "PDF with calibration data.",
-                "content": {"document/pdf": {}},
-            },
-            404: {"description": "File not found"},
-        },
-    )
-    def get_calibration_summary(self):
-        summary_file = "var/openflexure/calibration_summary.pdf"
-        return summary_file
-
     @thing_action
     def calibration_data_generate(self):
         '''
