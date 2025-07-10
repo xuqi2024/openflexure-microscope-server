@@ -1,7 +1,7 @@
-"""OpenFlexure Microscope OpenCV Camera
+"""OpenFlexure Microscope OpenCV Camera.
 
 This module defines a camera Thing that uses OpenCV's
-`VideoCapture`.
+``VideoCapture``.
 
 See repository root for licensing information.
 """
@@ -23,14 +23,19 @@ from . import BaseCamera, JPEGBlob
 
 
 class OpenCVCamera(BaseCamera):
-    """A Thing representing an OpenCV camera"""
+    """A Thing that provides and interface to an OpenCV Camera."""
 
     def __init__(self, camera_index: int = 0):
+        """Iniatilise the thing storing the index of the camera to use.
+
+        :param camera_index: The index of the camera to use for the microscope.
+        """
         self.camera_index = camera_index
         self._capture_thread: Optional[Thread] = None
         self._capture_enabled = False
 
     def __enter__(self):
+        """Start the capture thread when the Thing context manager is opened."""
         self.cap = cv2.VideoCapture(self.camera_index)
         self._capture_enabled = True
         self._capture_thread = Thread(target=self._capture_frames)
@@ -38,6 +43,10 @@ class OpenCVCamera(BaseCamera):
         return self
 
     def __exit__(self, _exc_type, _exc_value, _traceback):
+        """Release the camera when the Thing context manager is closed.
+
+        Before releasing the camera the capture thread is closed.
+        """
         if self.stream_active:
             self._capture_enabled = False
             self._capture_thread.join()
@@ -45,7 +54,7 @@ class OpenCVCamera(BaseCamera):
 
     @lt.thing_property
     def stream_active(self) -> bool:
-        "Whether the MJPEG stream is active"
+        """Whether the MJPEG stream is active."""
         if self._capture_enabled and self._capture_thread:
             return self._capture_thread.is_alive()
         return False
@@ -71,7 +80,7 @@ class OpenCVCamera(BaseCamera):
         self,
         resolution: Literal["main", "full"] = "full",
     ) -> NDArray:
-        """Acquire one image from the camera and return as an array
+        """Acquire one image from the camera and return as an array.
 
         This function will produce a nested list containing an uncompressed RGB image.
         It's likely to be highly inefficient - raw and/or uncompressed captures using
@@ -91,7 +100,7 @@ class OpenCVCamera(BaseCamera):
         metadata_getter: lt.deps.GetThingStates,
         resolution: Literal["main", "full"] = "main",
     ) -> JPEGBlob:
-        """Acquire one image from the camera and return as a JPEG blob
+        """Acquire one image from the camera and return as a JPEG blob.
 
         This function will produce a JPEG image.
         """
