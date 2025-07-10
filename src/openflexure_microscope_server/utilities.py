@@ -1,6 +1,19 @@
 """Utility functions and classes."""
 
+import os
+import re
 from threading import Thread
+import logging
+from importlib.metadata import version
+import tomllib
+
+LOGGER = logging.getLogger(__name__)
+
+REPO_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+# Regex for a full commit hash
+COMMIT_REGEX = re.compile(r"[0-9a-f]{40}")
+# Regex for a reference in the git HEAD file. Group 1 is the path.
+REF_REGEX = re.compile(r"^ref:\s(.*)$")
 
 
 class ErrorCapturingThread(Thread):
@@ -74,3 +87,73 @@ def _wrap_and_catch_errors(target, error_buffer, *args, **kwargs):
         target(*args, **kwargs)
     except BaseException as e:
         error_buffer.append(e)
+
+
+def robust_version_strings() -> tuple[str, str]:
+    project_toml_path = os.path.join(REPO_DIR, "pyproject.toml")
+    git_dir_path = os.path.join(REPO_DIR, ".git")
+    has_project_toml = os.path.isfile(project_toml_path)
+    has_git_dir = os.path.isdir(git_dir_path)
+
+    if has_project_toml and has_git_dir:
+        # .git dir and pyproject.toml available. This is a development
+        # installation.
+        ver = "v" + _get_version_from_toml(project_toml_path)
+        source = _get_hash_from_git_dir(git_dir_path)
+    elif has_project_toml:
+        # Only pyproject.toml available. Likely installed from source. Check
+        # file directly as `importlib.metadata.version` plays badly with editable
+        # installs.
+        ver = "v" + _get_version_from_toml(project_toml_path)
+        source = "TOML"
+    elif has_git_dir:
+        # Only .git dir, that is weird.
+        LOGGER.warning(
+            "Unexpected installation cofiguration. Version number cannot be verified."
+        )
+        ver = "Undefined"
+        source = _get_hash_from_git_dir(git_dir_path)
+    else:
+        # "Neither probably installed from wheel. Note this can
+        # be unreliable if the package is not installed as a distribution.
+        # This is why it is the last option.
+        ver = "v" + version("openflexure_microscope_server")
+        source = "Dist"
+    return (ver, source)
+
+
+def _get_hash_from_git_dir(git_dir_path: str) -> str:
+    head_path = os.path.join(git_dir_path, "HEAD")
+    try:
+        with open(head_path, "r", encoding="utf-8") as head_file:
+            head = head_file.read()
+    except IOError:
+        LOGGER.error("Problem opening .git/HEAD")
+        return "Undefined"
+    # The file HEAD should either be a reference or commit ID.
+    if match := COMMIT_REGEX.match(head):
+        return match.group(0)
+    if match := REF_REGEX.match(head):
+        ref_path = os.path.join(git_dir_path, match.group(1))
+        return _get_hash_from_git_ref(ref_path)
+    LOGGER.error("Unexpected format for .git/HEAD")
+    return "Undefined"
+
+
+def _get_hash_from_git_ref(git_ref_path: str) -> str:
+    with open(git_ref_path, "r", encoding="utf-8") as ref_file:
+        ref = ref_file.read()
+    if ref_match := COMMIT_REGEX.match(ref):
+        return ref_match.group(0)
+    LOGGER.error("No hash found in Git ref")
+    return "Undefined"
+
+
+def _get_version_from_toml(toml_path: str) -> str:
+    try:
+        with open(toml_path, "rb") as toml_file:
+            toml_dict = tomllib.load(toml_file)
+        return toml_dict["project"]["version"]
+    except (IOError, ValueError, KeyError):
+        LOGGER.error("Problem opening .git/HEAD")
+        return "Undefined"

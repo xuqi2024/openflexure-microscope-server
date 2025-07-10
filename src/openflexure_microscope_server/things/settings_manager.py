@@ -35,6 +35,11 @@ class SettingsManager(lt.Thing):
         self._microscope_id = uuid
 
     @lt.thing_property
+    def sever_version(self) -> str:
+        """The version_string for the microscope server."""
+        return  # TODO
+
+    @lt.thing_property
     def hostname(self) -> str:
         """The hostname of the microscope, as reported by its operating system."""
         return gethostname()
