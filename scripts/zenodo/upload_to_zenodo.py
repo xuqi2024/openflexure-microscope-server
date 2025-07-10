@@ -1,3 +1,5 @@
+"""A script for uploading data to Zenodo."""
+
 import os
 from argparse import ArgumentParser, Namespace
 from zenodo import Zenodo
@@ -19,17 +21,19 @@ else:
 
 
 def parse_arguments() -> Namespace:
+    """Parse the commandline arguments and return a namespace containing the result."""
     p = ArgumentParser(description="Upload data to Zenodo")
     p.add_argument("paths", help="Directories and files to upload to Zenodo", nargs="*")
     return p.parse_args()
 
 
 def script_directory(path):
-    """resolves path to directory of the current script"""
+    """Return path to directory of the current script."""
     return os.path.join(os.path.dirname(os.path.realpath(__file__)), path)
 
 
 def get_meta():
+    """Return the metadata in the script directory as a dictionary."""
     with open(script_directory("metadata.yaml"), encoding="utf-8") as f:
         metadata = f.read()
 
@@ -37,6 +41,10 @@ def get_meta():
 
 
 def main():
+    """Create the zenodo deposit and upload it to Zenodo.
+
+    This is the main function called when the full script is run.
+    """
     args = parse_arguments()
 
     metadata = get_meta()

@@ -1,3 +1,5 @@
+"""Functionality for mimicking a stage during simulation and testing."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -9,7 +11,7 @@ from . import BaseStage
 
 
 class DummyStage(BaseStage):
-    """A dummy stage for testing purposes
+    """A dummy stage for testing purposes.
 
     This stage should work similarly to a Sangaboard stage, but without any
     hardware attached.
@@ -83,7 +85,7 @@ class DummyStage(BaseStage):
 
     @lt.thing_action
     def set_zero_position(self):
-        """Make the current position zero in all axes
+        """Make the current position zero in all axes.
 
         This action does not move the stage, but resets the position to zero.
         It is intended for use after manually or automatically recentring the
