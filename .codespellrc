@@ -1,0 +1,18 @@
+[codespell]
+
+skip = node_modules,
+       *-lock.json,
+       *.git,
+       *.pyc,
+       __pycache__,
+       ./build,
+       ./dist,
+       ./apidocs,
+       ./openflexure,
+       ./htmlcov,
+       ./src/openflexure_microscope_server/static,
+       .venv,
+       *.egg-info,
+       report.xml
+
+regex = [a-zA-Z0-9\-'’]+

@@ -1,3 +1,9 @@
+"""Utility functions for testing scan planners.
+
+These including fake sample creation, scan path visualisation, and
+persistent storage of expected scan paths for samples.
+"""
+
 import os
 import pickle
 
@@ -14,26 +20,23 @@ THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
 class FakeSample:
-    """
-    A fake sample to test scan algorithms. The sample is able to return
-    whether a given position is sample, no image associated with the sample
+    """A fake sample to test scan algorithms.
+
+    The sample is able to return whether a given position is sample, there is no image
+    associated with the sample
     """
 
     def __init__(self, xy_points: list[tuple[int, int]]):
-        """
-        Create the sample from a spline interpolation around
-        the given points.
-        """
+        """Create the sample from a spline interpolation around the given points."""
         self._sample_perimeter = interp_closed_path(xy_points, 500)
 
     def is_sample(self, pos: tuple[int, int], im_size: tuple[int, int]) -> bool:
-        """
-        Return whether an image at a given location with a given image size
-        is on the sample
+        """Return True if an image at a given location is on the sample.
 
-        This doesn't check the entire image field as this is designed to be used
-        where the fake sample is much larger than the image and has smooth edges
-        It just checks the 4 corners
+        The image size is specified to check if it overlaps the sample. It doesn't
+        check the entire image field as this is designed to be used where the fake
+        sample is much larger than the image and has smooth edges. It just checks the
+        4 corners.
         """
         img_corners = [
             (pos[0] + im_size[0], pos[1] + im_size[1]),
@@ -47,18 +50,14 @@ class FakeSample:
 
     @property
     def patch(self) -> PathPatch:
-        """
-        The sample as a matplotlib patch for plotting
-        """
+        """The sample as a matplotlib patch for plotting."""
         patch = PathPatch(self._sample_perimeter)
         patch.set(color=(1.0, 0.8, 1.0, 1.0))
         return patch
 
 
 def visualise_scan(sample: FakeSample, planner: scan_planners.ScanPlanner) -> Figure:
-    """
-    For a given sample and scanner object return a matplotlib figure of the scan
-    """
+    """For a given sample and scanner object return a matplotlib figure of the scan."""
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.add_artist(sample.patch)
     xh, yh = zip(*planner._path_history)
@@ -84,15 +83,14 @@ def visualise_scan(sample: FakeSample, planner: scan_planners.ScanPlanner) -> Fi
 
 
 def interp_closed_path(xy_points: list[tuple[int, int]], n_points: int) -> MatPath:
-    """
-    Given a lists of xy_points interpolate an n_point closed curve. This can be used
-    to create an arbitrary sample shape plan a scan.
+    """Interpolate an n_point closed curve from a lists of xy_points.
+
+    This can be used to create an arbitrary sample shape for testing a scan planner.
 
     Modified from:
     https://stackoverflow.com/questions/33962717/interpolating-a-closed-curve-using-scipy
     """
-
-    # Use zip to seperate x and y points into tuples
+    # Use zip to separate x and y points into tuples
     x, y = zip(*xy_points)
 
     # Append first point and convert to array
@@ -114,17 +112,17 @@ def interp_closed_path(xy_points: list[tuple[int, int]], n_points: int) -> MatPa
 def example_smart_spiral(
     sample_name: str = "lobed",
 ) -> tuple[FakeSample, scan_planners.ScanPlanner]:
-    """
-    Run an example scan and return the sample scanned and the planner object
-    after scan is complete
+    """Run an example scan.
+
+    :returns: The sample scanned and the planner object after scan is complete.
     """
     xy_sample_points = load_sample_points(sample_name)
     sample = FakeSample(xy_sample_points)
     img_size = (1000, 1000)
-    intial_position = (0, 0)
+    initial_position = (0, 0)
     planner_settings = {"dx": 1200, "dy": 800, "max_dist": 100000}
     planner = scan_planners.SmartSpiral(
-        intial_position=intial_position, planner_settings=planner_settings
+        initial_position=initial_position, planner_settings=planner_settings
     )
 
     while not planner.scan_complete:
@@ -136,12 +134,11 @@ def example_smart_spiral(
 
 
 def profile_and_save_plot_for_example_smart_spiral():
-    """
-    Run the example scan and save a plot and the profile data
-    Also print the cumulative stats
+    """Run the example scan and save a plot and the profile data.
 
+    Also print the cumulative stats.
 
-    This runs if you run this file directly
+    This runs if you run this file directly.
     """
     import pstats
     import cProfile
@@ -163,9 +160,9 @@ def profile_and_save_plot_for_example_smart_spiral():
 
 
 def update_example_smart_spiral_pickle(sample_name: str):
-    """
-    Pickle the ScanPlanner for the example_smart_spiral(),
-    this is done so the history can be compared by testing to check
+    """Pickle the ScanPlanner for the example_smart_spiral().
+
+    This is done so the history can be compared by testing to check
     the algorithm is unchanged.
 
     If the algorithm is purposefully changed then this will need to be
@@ -183,9 +180,9 @@ def update_example_smart_spiral_pickle(sample_name: str):
 def get_expected_result_for_example_smart_spiral(
     sample_name: str,
 ) -> scan_planners.ScanPlanner:
-    """
-    Return the expected ScanPlanner object for the example_smart_spiral(),
-    this is pickled, so that it can be committed.
+    """Return the expected ScanPlanner object for the example_smart_spiral().
+
+    This is loaded from a pickle so that the object can be committed to the repo.
     """
     pkl_fname = os.path.join(THIS_DIR, f"example_smart_spiral_{sample_name}.pkl")
     with open(pkl_fname, "rb") as pkl_file_obj:
@@ -193,7 +190,7 @@ def get_expected_result_for_example_smart_spiral(
 
 
 def load_sample_points(sample_name: str):
-    """Return the points to generate the FakeSample corresponding to the given input name
+    """Return the points to generate the FakeSample corresponding to the given input name.
 
     Options are "lobed", "regular", and "core".
     """
