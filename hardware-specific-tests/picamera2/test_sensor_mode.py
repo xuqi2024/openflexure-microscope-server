@@ -1,3 +1,5 @@
+"""Test changing and setting camerat modes on the Raspberry Picamera."""
+
 import logging
 
 from fastapi.testclient import TestClient

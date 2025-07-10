@@ -1,3 +1,16 @@
+"""Configure logging for the OpenFlexure Server.
+
+A module containing a custom logging handler and helper function for
+the OpenFlexure server. These handle formatting logs, ensuring that logs
+are logged both to a file and to the terminal (see note below!). Functionality
+is also provided for retrieving logs for to send over HTTP.
+
+Note that when running in production OpenFlexure Microscope the server is run via
+``systemd``. As such, the logs that are sent to the terminal (STDERR) or any other
+output to STDOUT/STDERR are captured by ``systemd``. These can be viewed by using
+``journalctl`` or the ``ofm journal`` command.
+"""
+
 import logging
 from logging.handlers import RotatingFileHandler
 import os

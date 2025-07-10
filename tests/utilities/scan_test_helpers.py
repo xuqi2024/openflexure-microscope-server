@@ -1,3 +1,9 @@
+"""Utility functions for testing scan planners.
+
+These including fake sample creation, scan path visualisation, and
+persistent storage of expected scan paths for samples.
+"""
+
 import os
 import pickle
 

@@ -1,3 +1,5 @@
+"""Provide endpoints that mimic the v2 API for OpenFlexure Connect discoverability."""
+
 import labthings_fastapi as lt
 from fastapi import Response
 from socket import gethostname

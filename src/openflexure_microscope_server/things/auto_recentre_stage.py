@@ -1,3 +1,5 @@
+"""Provide functionality for automatically recentring the Stage."""
+
 import numpy as np
 import logging
 

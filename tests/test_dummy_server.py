@@ -1,3 +1,13 @@
+"""Test the server without creating a full HTTP server and socket connection.
+
+Rather than spinning up a full uvicorn webserver for each test these tests use
+the FastAPI ``TestClient`` or to directly communicate with the underlying
+LabThings-FastAPI code. This increases speed of testing significantly.
+
+For tests that require a full running server see the ``integration-tests``
+directory in the root of the repository.
+"""
+
 import json
 import os
 import tempfile

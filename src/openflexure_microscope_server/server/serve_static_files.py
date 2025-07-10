@@ -1,3 +1,5 @@
+"""Add endpoints for static files to the underlying FastAPI server."""
+
 import os
 from typing import Optional
 

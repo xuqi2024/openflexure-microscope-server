@@ -1,4 +1,4 @@
-"""A script for uploading to zenodo.
+"""A script for packaging data for Zenodo.
 
 Copyright (c) 2020 Bath Open Instrumentation Group
 Adapted from: https://gitlab.com/schlauch/zenodo-api-test/

@@ -1,3 +1,5 @@
+"""A script for uploading data to Zenodo."""
+
 import os
 from argparse import ArgumentParser, Namespace
 from zenodo import Zenodo

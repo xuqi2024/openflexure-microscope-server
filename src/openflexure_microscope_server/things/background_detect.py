@@ -1,3 +1,10 @@
+"""Provide functionality to detect if the camera is imaging sample or background.
+
+An example background image must be captured and analysed by BackgroundDetectThing,
+information from this images is used to detect whether the current camera field of
+view contains sample.
+"""
+
 from typing import Mapping, Optional
 import cv2
 import numpy as np

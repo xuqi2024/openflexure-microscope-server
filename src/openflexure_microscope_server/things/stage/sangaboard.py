@@ -1,3 +1,5 @@
+"""Provide a LabThings-FastAPI interface to the Sangaboard motor controller."""
+
 from __future__ import annotations
 import logging
 import threading

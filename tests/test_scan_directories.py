@@ -1,3 +1,5 @@
+"""Test the functionality in the scan_directories module."""
+
 import tempfile
 import os
 import math

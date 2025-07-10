@@ -1,3 +1,5 @@
+"""Test data collection from the Raspberry Picamera."""
+
 from fastapi.testclient import TestClient
 from PIL import Image
 import numpy as np

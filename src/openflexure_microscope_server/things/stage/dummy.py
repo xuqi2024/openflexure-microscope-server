@@ -1,3 +1,5 @@
+"""Functionality for mimicking a stage during simulation and testing."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
