@@ -90,7 +90,7 @@ def interp_closed_path(xy_points: list[tuple[int, int]], n_points: int) -> MatPa
     Modified from:
     https://stackoverflow.com/questions/33962717/interpolating-a-closed-curve-using-scipy
     """
-    # Use zip to seperate x and y points into tuples
+    # Use zip to separate x and y points into tuples
     x, y = zip(*xy_points)
 
     # Append first point and convert to array
@@ -119,10 +119,10 @@ def example_smart_spiral(
     xy_sample_points = load_sample_points(sample_name)
     sample = FakeSample(xy_sample_points)
     img_size = (1000, 1000)
-    intial_position = (0, 0)
+    initial_position = (0, 0)
     planner_settings = {"dx": 1200, "dy": 800, "max_dist": 100000}
     planner = scan_planners.SmartSpiral(
-        intial_position=intial_position, planner_settings=planner_settings
+        initial_position=initial_position, planner_settings=planner_settings
     )
 
     while not planner.scan_complete:

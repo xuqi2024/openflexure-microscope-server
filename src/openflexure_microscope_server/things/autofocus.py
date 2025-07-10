@@ -38,7 +38,7 @@ class StackParams:
         images_dir: str,
         save_resolution: tuple[int, int],
     ) -> None:
-        """Initalise the parameters. All arguments are keyword only.
+        """Initialise the parameters. All arguments are keyword only.
 
         :param stack_dz: The number of motor steps between images
         :param images_to_save: The number of images to save to disk
@@ -205,7 +205,7 @@ class JPEGSharpnessMonitor:
     """
 
     def __init__(self, stage: Stage, camera: Camera, portal: lt.deps.BlockingPortal):
-        """Initalise a new JPEGSharpnessMonitor. The args are injected automatically.
+        """Initialise a new JPEGSharpnessMonitor. The args are injected automatically.
 
         :param stage: A direct_thing_client dependency for the the microscope stage.
         :param camera: A raw_thing_client depeendency for the camera. This is a raw
@@ -245,7 +245,7 @@ class JPEGSharpnessMonitor:
         """Move the stage by dz, monitoring the position over time.
 
         This performs exactly one move. Multiple calls of this method
-        will append to the internal postition storage for more complex
+        will append to the internal position storage for more complex
         autofocus procedures.
 
         This should be run from within the JPEGSharpnessMonitor.run
@@ -505,9 +505,9 @@ class AutofocusThing(lt.Thing):
             save_resolution=save_resolution,
         )
 
-        trys = 0
+        tries = 0
         # Loop until a stack is successful
-        while trys < stack_parameters.max_attempts:
+        while tries < stack_parameters.max_attempts:
             success, captures, sharpest_id = self.z_stack(
                 stack_parameters=stack_parameters,
                 cam=cam,

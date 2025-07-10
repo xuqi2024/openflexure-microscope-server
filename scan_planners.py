@@ -69,7 +69,7 @@ class ScanPlanner:
         variables
     * ``_initial_location_list()`` - Sets the list of locations for the scan to follow
 
-    For a simple scan pattern this should be sufficient. For more complex ones that
+    For initial a simple scan pattern this should be sufficient. For more complex ones that
     dynamically adjust the path it is suggested to override ``mark_location_visited()``
     calling ``super().mark_location_visited()`` at the start of the method so that all
     locations are adjusted.

@@ -1,7 +1,7 @@
 """The core sample scanning functionality for the OpenFlexure Microscope.
 
 SmartScan provides sample scanning functionality including automatic background
-dectection (via the `BackgroundDetectThing`) and automatic path planning via
+detection (via the `BackgroundDetectThing`) and automatic path planning via
 `scan_planners`. It manages the directories of past scans via `scan_directories`.
 It also controls external processes for live stitching composite images, and
 the creation of the final stitched images.
@@ -229,7 +229,7 @@ class SmartScanThing(lt.Thing):
     def _move_to_next_point(
         self, next_point: tuple[int, int], z_estimate: Optional[int] = None
     ) -> tuple[int, int, int]:
-        """Move the stage to the next poistion.
+        """Move the stage to the next position.
 
         If no z_estimate is given then the current stage position is used. Must move
         to the estimated focused position (although moving below would be marginally
@@ -256,7 +256,7 @@ class SmartScanThing(lt.Thing):
         :param overlap: The desired overlap as a fraction of the image. i.e. 0.5 means
             that each image should overlap its nearest neighbour by 50%.
 
-        :returns: (dx, dy) - the x and y displacments in steps
+        :returns: (dx, dy) - the x and y displacements in steps
         """
         test_jpg = self._cam.grab_jpeg()
         test_image = np.array(Image.open(test_jpg.open()))
@@ -488,7 +488,7 @@ class SmartScanThing(lt.Thing):
             "max_dist": self._scan_data["max_dist"],
         }
         route_planner = scan_planners.SmartSpiral(
-            intial_position=(self._stage.position["x"], self._stage.position["y"]),
+            initial_position=(self._stage.position["x"], self._stage.position["y"]),
             planner_settings=planner_settings,
         )
 
@@ -788,7 +788,7 @@ class SmartScanThing(lt.Thing):
         This uses popen and returns immediately
 
         - self._preview_stitch_popen holds the popen for polling
-        - self._preview_stitch_popen_lock is a lock aquired while interacting
+        - self._preview_stitch_popen_lock is a lock acquired while interacting
               with Popen
         """
         # Set minimum overlap to 90% of the scan overlap to catch only images directly adjacent,
@@ -856,7 +856,7 @@ class SmartScanThing(lt.Thing):
         os.set_blocking(process.stdout.fileno(), False)
         logger.info(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
 
-        # Poll returns None while running, will return the error code when finnished
+        # Poll returns None while running, will return the error code when finished
         while process.poll() is None:
             log_buffer(process.stdout)
             # Once buffer is clear sleep for 0.2s before trying again.

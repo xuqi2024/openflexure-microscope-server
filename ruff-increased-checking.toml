@@ -19,10 +19,10 @@ select = [
     "B", # Flake8 bugbear
     "A", # Flake8 builtins checker
     "C", # Flake8 comprehensions
-    "FIX", #TODO/FIXME's in code. These should be added during develoment for ongoing tasks.
+    "FIX", #TODO/FIXME's in code. These should be added during development for ongoing tasks.
            # If they are not fixed before merge they should be converted to GitLab issues
     "LOG", # Flake8 logging issues (pedantic logger formatting issues can be added with "G")
-    "T20", # Warns for print statments, production code should log
+    "T20", # Warns for print statements, production code should log
     "PT", # pytest linting
     "RET", # Consistent clear return statements
     "RSE", # Raise parentheses

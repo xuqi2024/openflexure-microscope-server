@@ -79,7 +79,7 @@ class SensorMode(BaseModel):
 class SensorModeSelector(BaseModel):
     """A Pydantic model holding the two values needed to select a PiCamera Sensor mode.
 
-    Theses values are the output size and the bit depth.
+    These values are the output size and the bit depth.
 
     This is a Pydantic model so that it can be saved to disk.
     """
@@ -95,7 +95,7 @@ class LensShading(BaseModel):
     (12, 16) in size. The arrays are luminance, red-difference chroma (Cr), and
     blue-difference chroma (Cb).
 
-    This is a Pydantic modell so that it can be saved to the disk.
+    This is a Pydantic model so that it can be saved to the disk.
     """
 
     luminance: list[list[float]]
@@ -162,7 +162,7 @@ class StreamingPiCamera2(BaseCamera):
         This method is run by any Thing when a ThingSetting is saved. However, the
         method reads the thing_setting. As reading the thing setting talks to the
         camera and calls save_settings if the value is not as expected, this could
-        cause recursion. Aslo this means that saving one setting causes all others
+        cause recursion. Also this means that saving one setting causes all others
         to be read each time.
         """
         try:
@@ -197,7 +197,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_setting
     def colour_gains(self) -> tuple[float, float]:
-        """The red and blue colour gains, must be betwen 0.0 and 32.0."""
+        """The red and blue colour gains, must be between 0.0 and 32.0."""
         if not self._setting_save_in_progress and self.streaming:
             with self._streaming_picamera() as cam:
                 cam_value = cam.capture_metadata()["ColourGains"]
@@ -759,7 +759,7 @@ class StreamingPiCamera2(BaseCamera):
         same as the default behaviour, which is to use an adaptive lens shading
         table.
 
-        This flat table is used to take an image wth no lens shading so that the
+        This flat table is used to take an image with no lens shading so that the
         correct lens shading table can be calibrated.
         """
         with self._streaming_picamera(pause_stream=True):

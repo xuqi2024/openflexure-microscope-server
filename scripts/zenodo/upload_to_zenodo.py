@@ -5,7 +5,7 @@ from argparse import ArgumentParser, Namespace
 from zenodo import Zenodo
 import yaml
 
-# you have to explicitely set ZENODO_USE_SANDBOX=false to not use the
+# You have to explicitly set ZENODO_USE_SANDBOX=false to not use the
 # sandbox, any other value or unset variable means this script will use
 # the sandbox zenodo site
 if "ZENODO_USE_SANDBOX" in os.environ:

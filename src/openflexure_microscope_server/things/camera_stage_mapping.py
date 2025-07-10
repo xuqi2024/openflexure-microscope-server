@@ -186,7 +186,7 @@ class CSMUncalibratedError(HTTPException):
     """An HTTP Exception raised if camera stage mapping data is needed but unavailable.
 
     Camera Stage Mapping data is needed to convert from distances specified in fractions
-    of the feild of view to distances in motor steps. This is used when clicking on the
+    of the field of view to distances in motor steps. This is used when clicking on the
     live preview to move, or when performing a scan.
     """
 

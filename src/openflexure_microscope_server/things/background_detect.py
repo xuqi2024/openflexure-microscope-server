@@ -77,7 +77,7 @@ class BackgroundDetectThing(lt.Thing):
     def background_mask(self, image: np.ndarray) -> np.ndarray:
         """Calculate a binary image, showing whether each pixel is background.
 
-        The image should be in LUV format, the ouput will be binary with the
+        The image should be in LUV format, the output will be binary with the
         same shape in the first two dimensions.
         """
         d = self.background_distributions

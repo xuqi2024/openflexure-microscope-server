@@ -1,7 +1,7 @@
 """OpenFlexure Microscope Camera.
 
 This module defines the interface for cameras. Any compatible lt.Thing
-should enabe the server to work.
+should enable the server to work.
 
 See repository root for licensing information.
 """

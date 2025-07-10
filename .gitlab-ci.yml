@@ -72,6 +72,13 @@ version-check:
     - tags
     - web
 
+# A job to protect reviewers from Julian's terrible spelling.
+spelling:
+  stage: analysis
+  extends: .python
+  script:
+    - codespell .
+
 # Python static analysis with ruff
 ruff-lint:
   stage: analysis

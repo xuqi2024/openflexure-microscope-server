@@ -84,7 +84,7 @@ def set_minimum_exposure(camera: Picamera2) -> None:
     Note ISO is left at auto, because this is needed for the gains
     to be set correctly.
     """
-    # Disable Automatic exposure and gain algoritm (AeEnable), and set analogue
+    # Disable Automatic exposure and gain algorithm (AeEnable), and set analogue
     # gain and exposure time.
     # Setting the shutter speed to 1us will result in it being set
     # to the minimum possible, which is ~8us for PiCamera v2
@@ -427,7 +427,7 @@ def set_static_lst(
     cr: np.ndarray,
     cb: np.ndarray,
 ) -> None:
-    """Update the ``rpi.alsc`` section of a camera tuning dict to use a static correcton.
+    """Update the ``rpi.alsc`` section of a camera tuning dict to use a static correction.
 
     ``tuning`` will be updated in-place to set its shading to static, and disable any
     adaptive tweaking by the algorithm.
@@ -452,7 +452,7 @@ def set_static_ccm(
         float, float, float, float, float, float, float, float, float
     ],
 ) -> None:
-    """Update the ``rpi.alsc`` section of a camera tuning dict to use a static correcton.
+    """Update the ``rpi.alsc`` section of a camera tuning dict to use a static correction.
 
     ``tuning`` will be updated in-place to set its shading to static, and disable any
     adaptive tweaking by the algorithm.
@@ -480,7 +480,7 @@ def set_static_geq(
     """Update the ``rpi.geq`` section of a camera tuning dict.
 
     :param tuning: the raspberry pi tuning file. This will be updated in-place to
-        set the geq offest to the given value.
+        set the geq offset to the given value.
     :param offset: The desired green equalisation offset. Default 65535. The default is
         the maximum allowed value. This means the brightness will always be below the
         threshold where averaging is used. This is default as we always need the green

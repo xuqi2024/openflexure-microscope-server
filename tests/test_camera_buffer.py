@@ -113,7 +113,7 @@ def test_buffer_size_changing():
     misc_image3 = random_image()
     buffer_id1 = mem_buf.add_image(misc_image1, buffer_max=3)
     buffer_id2 = mem_buf.add_image(misc_image2, buffer_max=3)
-    # Third capture doen't set buffer size, so it will be reset
+    # Third capture doesn't set buffer size, so it will be reset
     buffer_id3 = mem_buf.add_image(misc_image3)
     # As buffer size was reset, images 1 and 2 are deleted
     with pytest.raises(NoImageInMemoryError):
@@ -201,7 +201,7 @@ def test_get_metadata_too():
     # Preallocate zipped data, to avoid long confusing lines
     zipped = zip(images, metadatas, buffer_ids)
 
-    # Check both image and metdata
+    # Check both image and metadata
     for i, (image, metadata, buffer_id) in enumerate(zipped):
         returned_image, returned_metadata = mem_buf.get_image(buffer_id)
         assert image is returned_image

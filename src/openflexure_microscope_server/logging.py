@@ -31,7 +31,7 @@ def configure_logging(log_folder):
     """
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
-    # Explictly make OFM_LOG_FILE a global so it can be updated based on log settings
+    # Explicitly make OFM_LOG_FILE a global so it can be updated based on log settings
     global OFM_LOG_FILE
     OFM_LOG_FILE = os.path.join(log_folder, "openflexure_microscope.log")
 
@@ -64,11 +64,11 @@ def retrieve_log() -> PlainTextResponse:
 
     This log is the one shown in the UI and on the logging page.
 
-    It does not include any of the ``uvicorn.access`` logs as these are emmitted
+    It does not include any of the ``uvicorn.access`` logs as these are emitted
     every time any API route is called.
 
     All logs, including ``uvicorn.access`` are logged to the OFM_LOG_FILE (see above)
-    ths is the best place to get logs about crashes.
+    this is the best place to get logs about crashes.
     """
     return PlainTextResponse(OFM_HANDLER.log_history)
 
@@ -92,7 +92,7 @@ class OFMHandler(logging.Handler):
     """A logging.Handler that stores the most recent logs for access by the server."""
 
     def __init__(self, level=logging.INFO, max_logs=250):
-        """Inialise the handler with a set logging level and message buffer size.
+        """Initialise the handler with a set logging level and message buffer size.
 
         :param level: The level of logs captured. As standard logs of INFO and above
             are captured.

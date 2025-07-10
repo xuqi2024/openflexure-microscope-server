@@ -42,7 +42,7 @@ class SimulatedCamera(BaseCamera):
         canvas_shape: tuple[int, int, int] = (3000, 4000, 3),
         frame_interval: float = 0.1,
     ):
-        """Initalise the simulated with settings for how images are generated.
+        """Initialise the simulated with settings for how images are generated.
 
         :param shape: The shape (size) of the generated image.
         :param glyph_shape: The size randomly positioned glyphs.
@@ -128,7 +128,7 @@ class SimulatedCamera(BaseCamera):
         """Wrap the attach_to_server method so the server instance can be stored.
 
         Direct access to the server instance is needed to get the stage position while
-        maintianing the same public API as a real camera that doesn't need this access.
+        maintaining the same public API as a real camera that doesn't need this access.
         """
         self._server = server
         return super().attach_to_server(server, path, setting_storage_path)
@@ -198,7 +198,7 @@ class SimulatedCamera(BaseCamera):
         It's likely to be highly inefficient - raw and/or uncompressed captures using
         binary image formats will be added in due course.
         """
-        logging.warning(f"Simulation camera doen't respect {resolution} setting")
+        logging.warning(f"Simulation camera doesn't respect {resolution} setting")
         return self.generate_frame()
 
     @lt.thing_action
@@ -211,7 +211,7 @@ class SimulatedCamera(BaseCamera):
 
         This function will produce a JPEG image.
         """
-        logging.warning(f"Simulation camera doen't respect {resolution} setting")
+        logging.warning(f"Simulation camera doesn't respect {resolution} setting")
         frame = self.capture_array()
         jpeg = cv2.imencode(".jpg", frame)[1].tobytes()
         exif_dict = {

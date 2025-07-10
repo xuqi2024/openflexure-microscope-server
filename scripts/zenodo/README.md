@@ -1,5 +1,5 @@
 # Zenodo archiving
-This folder contains some scripts put together by Kaspar Bumke, and re-used by Richard, to upload the contents of the repository, together with any CI build artefacts, to Zenodo.  The result is a link, taking you to a pre-populated upload on Zenodo that you can manually correct and upload.  In order to customise it for a new project, there are a few steps you need, outlined below.
+This folder contains some scripts put together by Kaspar Bumke, and reused by Richard, to upload the contents of the repository, together with any CI build artefacts, to Zenodo.  The result is a link, taking you to a pre-populated upload on Zenodo that you can manually correct and upload.  In order to customise it for a new project, there are a few steps you need, outlined below.
 
 ## Setting up archival
 * Copy this folder to `scripts/zenodo` in your repository.

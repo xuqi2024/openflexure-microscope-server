@@ -65,7 +65,7 @@ def test_initial_properties(smart_scan_thing):
 def test_inaccessible_scan_methods(smart_scan_thing):
     """Test that method with @_scan_running decorator is inaccessible.
 
-    The @_scan_running decorator makes these functions inacessible unless
+    The @_scan_running decorator makes these functions inaccessible unless
     a scan is running.
     """
     with pytest.raises(ScanNotRunningError):
@@ -151,7 +151,7 @@ def test_delete_all_scans(smart_scan_thing, caplog):
         assert len(caplog.records) == 0
 
 
-def _run_only_outer_scan(adjust_inital_state: Optional[Callable] = None):
+def _run_only_outer_scan(adjust_initial_state: Optional[Callable] = None):
     """Create a subclass of SmartScanThing to mock _run_scan and run sample_scan.
 
     This should do all the set up for a scan, move into the mocked
@@ -199,8 +199,8 @@ def _run_only_outer_scan(adjust_inital_state: Optional[Callable] = None):
     # mock smart scan thing
     mock_ss_thing = MockedSmartScanThing(SCAN_DIR)
 
-    if adjust_inital_state is not None:
-        adjust_inital_state(mock_ss_thing)
+    if adjust_initial_state is not None:
+        adjust_initial_state(mock_ss_thing)
 
     exec_info = None
     try:
@@ -232,7 +232,7 @@ def _run_only_outer_scan(adjust_inital_state: Optional[Callable] = None):
     assert mock_ss_thing._scan_images_taken is None
 
     # Return the mock thing for further state testing, and the
-    # exec_info of any uncaught exeptions that were raised
+    # exec_info of any uncaught exceptions that were raised
     return mock_ss_thing, exec_info
 
 

@@ -86,7 +86,7 @@ class OpenCVCamera(BaseCamera):
         It's likely to be highly inefficient - raw and/or uncompressed captures using
         binary image formats will be added in due course.
         """
-        logging.warning(f"OpenCV camera doen't respect {resolution} setting")
+        logging.warning(f"OpenCV camera doesn't respect {resolution} setting")
         ret, frame = self.cap.read()
         if not ret:
             raise RuntimeError(
@@ -104,7 +104,7 @@ class OpenCVCamera(BaseCamera):
 
         This function will produce a JPEG image.
         """
-        logging.warning(f"OpenCV camera doen't respect {resolution} setting")
+        logging.warning(f"OpenCV camera doesn't respect {resolution} setting")
         frame = self.capture_array()
         jpeg = cv2.imencode(".jpg", frame)[1].tobytes()
         exif_dict = {
