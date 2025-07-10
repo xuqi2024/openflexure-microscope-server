@@ -1,7 +1,7 @@
-"""OpenFlexure Microscope OpenCV Camera
+"""OpenFlexure Microscope OpenCV Camera.
 
 This module defines a camera Thing that uses OpenCV's
-`VideoCapture`.
+``VideoCapture``.
 
 See repository root for licensing information.
 """
@@ -23,7 +23,7 @@ from . import BaseCamera, JPEGBlob
 
 
 class OpenCVCamera(BaseCamera):
-    """A Thing representing an OpenCV camera"""
+    """A Thing representing an OpenCV camera."""
 
     def __init__(self, camera_index: int = 0):
         self.camera_index = camera_index
@@ -45,7 +45,7 @@ class OpenCVCamera(BaseCamera):
 
     @lt.thing_property
     def stream_active(self) -> bool:
-        "Whether the MJPEG stream is active"
+        """Whether the MJPEG stream is active."""
         if self._capture_enabled and self._capture_thread:
             return self._capture_thread.is_alive()
         return False
@@ -71,7 +71,7 @@ class OpenCVCamera(BaseCamera):
         self,
         resolution: Literal["main", "full"] = "full",
     ) -> NDArray:
-        """Acquire one image from the camera and return as an array
+        """Acquire one image from the camera and return as an array.
 
         This function will produce a nested list containing an uncompressed RGB image.
         It's likely to be highly inefficient - raw and/or uncompressed captures using
@@ -91,7 +91,7 @@ class OpenCVCamera(BaseCamera):
         metadata_getter: lt.deps.GetThingStates,
         resolution: Literal["main", "full"] = "main",
     ) -> JPEGBlob:
-        """Acquire one image from the camera and return as a JPEG blob
+        """Acquire one image from the camera and return as a JPEG blob.
 
         This function will produce a JPEG image.
         """

@@ -1,3 +1,5 @@
+"""Provide endpoints that mimic the v2 API for OpenFlexure Connect discoverability."""
+
 import labthings_fastapi as lt
 from fastapi import Response
 from socket import gethostname
@@ -12,7 +14,10 @@ def add_v2_endpoints(thing_server: lt.ThingServer):
     # This is necessary until Connect is rebuilt.
     @app.get("/routes")
     def routes_stub() -> dict[str, dict]:
-        """A stub list of routes, used by OF Connect to identify the microscope"""
+        """Return a stub list of routes.
+
+        This is used by OF Connect to identify the microscope.
+        """
         fake_routes = [
             "/api/v2/",
             "/api/v2/streams/snapshot",
@@ -26,11 +31,11 @@ def add_v2_endpoints(thing_server: lt.ThingServer):
     @app.get("/api/v2/streams/snapshot")
     @app.head("/api/v2/streams/snapshot")
     async def thumbnail() -> JPEGResponse:
-        """A low-resolution snapshot, for compatibility with OF connect"""
+        """Return a low-resolution snapshot, for compatibility with OF connect."""
         blob = await thing_server.things["/camera/"].lores_mjpeg_stream.grab_frame()
         return JPEGResponse(blob)
 
     @app.get("/api/v2/instrument/settings/name")
     def get_hostname() -> str:
-        """Get the hostname of the device, for compatibility with OF connect"""
+        """Get the hostname of the device, for compatibility with OF connect."""
         return gethostname()

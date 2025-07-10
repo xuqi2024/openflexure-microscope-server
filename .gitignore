@@ -58,8 +58,8 @@ pytest_report.xml
 # Django stuff:
 *.log
 
-# Sphinx documentation
-docs/_build/
+# Documentation
+apidocs
 
 # PyBuilder
 target/

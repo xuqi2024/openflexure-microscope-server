@@ -1,5 +1,4 @@
-"""
-OpenFlexure Settings Management
+"""OpenFlexure Settings Management.
 
 This module provides some settings management across the other Things, and
 for code that currently lives in clients but needs to persist settings on
@@ -22,7 +21,7 @@ ThingServerDep = Annotated[lt.ThingServer, Depends(thing_server_from_request)]
 
 
 def recursive_update(old_dict: MutableMapping, update: Mapping):
-    """Update a dictionary recursively"""
+    """Update a dictionary recursively."""
     for k, v in update.items():
         if isinstance(v, Mapping):
             if k in old_dict and isinstance(old_dict[k], MutableMapping):
@@ -34,7 +33,7 @@ def recursive_update(old_dict: MutableMapping, update: Mapping):
 
 
 def nested_dict_get(data: dict, key: Sequence[str], create=False) -> Any:
-    """Index a dict-of-dicts with a sequence of strings"""
+    """Index a dict-of-dicts with a sequence of strings."""
     subdict = data
     for k in key:
         if k not in subdict and create:
@@ -44,17 +43,23 @@ def nested_dict_get(data: dict, key: Sequence[str], create=False) -> Any:
 
 
 class SettingsManager(lt.Thing):
+    """Provides functionality to other Things about the current server state.
+
+    The SettingsManager is used to get information the microscope ID, the hostname
+    and the state of other Things.
+    """
+
     external_metadata = lt.ThingSetting(
         initial_value={},
         model=Mapping,
-        description="External metadata stored in the server's settings",
     )
+    """External metadata stored in the server's settings."""
 
     external_metadata_in_state = lt.ThingSetting(
         initial_value=[],
         model=Sequence[str],
-        description='A list of strings that are included in the "state" metadata',
     )
+    """A list of strings that are included in the "state" metadata."""
 
     @lt.thing_action
     def update_external_metadata(
@@ -66,9 +71,9 @@ class SettingsManager(lt.Thing):
         recursively, i.e. if a key exists, it will be added to rather than
         replaced.
 
-        If a key is supplied, we will treat `data` as being relative to that
-        key, i.e. calling this action with `data={"a":1 }, key="foo/bar"` is
-        equivalent to calling it with `data={"foo": {"bar": {"a": 1}}}`.
+        If a key is supplied, we will treat ``data`` as being relative to that
+        key, i.e. calling this action with ``data={"a":1 }, key="foo/bar"`` is
+        equivalent to calling it with ``data={"foo": {"bar": {"a": 1}}}``.
         """
         metadata = self.external_metadata
         subdict = metadata
@@ -84,8 +89,8 @@ class SettingsManager(lt.Thing):
         """Delete a key from the stored metadata.
 
         The key may contain forward slashes, which are understood to separate
-        levels of the dictionary - i.e. `'a/c'` will remove the `c` key from a
-        dictionary that looks like: `{'a': {'c': 1}, 'b': {'d': 2}}`
+        levels of the dictionary - i.e. ``'a/c'`` will remove the ``c`` key from a
+        dictionary that looks like: ``{'a': {'c': 1}, 'b': {'d': 2}}``
         """
         metadata = self.external_metadata
         try:
@@ -101,7 +106,7 @@ class SettingsManager(lt.Thing):
 
     @lt.thing_setting
     def microscope_id(self) -> UUID:
-        """A unique identifier for this microscope"""
+        """A unique identifier for this microscope."""
         if self._microscope_id is None:
             self._microscope_id = str(uuid4())
         return UUID(self._microscope_id)
@@ -118,11 +123,12 @@ class SettingsManager(lt.Thing):
 
     @lt.thing_action
     def get_things_state(self, metadata_getter: lt.deps.GetThingStates) -> Mapping:
-        """Metadata summarising the current state of all Things in the server"""
+        """Metadata summarising the current state of all Things in the server."""
         return metadata_getter()
 
     @property
     def thing_state(self) -> Mapping:
+        """Summary metadata describing the current state of the Thing."""
         state = {
             "hostname": self.hostname,
             "microscope-uuid": str(self.microscope_id),

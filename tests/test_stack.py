@@ -1,5 +1,4 @@
-"""
-Tests for the smart/fast stacking.
+"""Tests for the smart/fast stacking.
 
 Currently these tests don't test the Thing itself, just surrounding functionality
 """
@@ -23,7 +22,7 @@ RANDOM_GENERATOR = np.random.default_rng()
 
 
 def odd_integers(min_value=0, max_value=1000):
-    """A hypothesis strategy for odd integers"""
+    """Return a hypothesis strategy for odd integers."""
     min_base = (min_value) // 2
     max_base = (max_value - 1) // 2
     # Ensure the range allows at least one odd number
@@ -33,7 +32,7 @@ def odd_integers(min_value=0, max_value=1000):
 
 
 def even_integers(min_value=0, max_value=1000):
-    """A hypothesis strategy for even integers"""
+    """Return a hypothesis strategy for even integers."""
     min_base = (min_value + 1) // 2
     max_base = (max_value) // 2
     # Ensure the range allows at least one even number
@@ -47,14 +46,13 @@ def even_integers(min_value=0, max_value=1000):
     extra_ims=even_integers(min_value=0, max_value=10),
 )
 def test_stack_params_validation(save_ims, extra_ims):
-    """Tests specifically the validation on the image numbers
+    """Test the validation of the image numbers for a stack.
 
     save_ims is the number to save (must be odd and positive)
     extra_ims is how many more images there are in min_images_to_test than
     images_to_save. (even so that, min_images_to_test is odd and larger than
     images_to_save
     """
-
     StackParams(
         stack_dz=50,
         images_to_save=save_ims,
@@ -70,8 +68,9 @@ def test_stack_params_validation(save_ims, extra_ims):
     extra_ims=even_integers(min_value=-10, max_value=-1),
 )
 def test_stack_params_not_enough_test_images(save_ims, extra_ims):
-    """Set the extra_ims negative so that min_images_to_test is smaller
-    than images_to_save.
+    """Test error is raised if min_images_to_test is smaller than images_to_save.
+
+    ``extra_ims`` negative so that min_images_to_test is smaller than images_to_save.
 
     For arguments see test_stack_params_validation
     """
@@ -91,7 +90,7 @@ def test_stack_params_not_enough_test_images(save_ims, extra_ims):
     extra_ims=even_integers(min_value=0, max_value=10),
 )
 def test_stack_params_negative_images_to_save(save_ims, extra_ims):
-    """save_ims is negative so images_to_save is negative, failing validation
+    """save_ims is negative so images_to_save is negative, failing validation.
 
     For arguments see test_stack_params_validation
     """
@@ -111,7 +110,7 @@ def test_stack_params_negative_images_to_save(save_ims, extra_ims):
     extra_ims=odd_integers(min_value=0, max_value=10),
 )
 def test_even_min_images_to_test(save_ims, extra_ims):
-    """extra_ims is odd so min_images_to_test is even, failing validation
+    """extra_ims is odd so min_images_to_test is even, failing validation.
 
     For arguments see test_stack_params_validation
     """
@@ -131,7 +130,7 @@ def test_even_min_images_to_test(save_ims, extra_ims):
     extra_ims=odd_integers(min_value=0, max_value=10),
 )
 def test_even_images_to_save(save_ims, extra_ims):
-    """save_ims is even so images_to_save is even, failing validation
+    """save_ims is even so images_to_save is even, failing validation.
 
     For arguments see test_stack_params_validation
     """
@@ -147,8 +146,7 @@ def test_even_images_to_save(save_ims, extra_ims):
 
 
 def test_computed_stack_params():
-    """
-    Test StackParams computed properties are as expected
+    """Test StackParams computed properties are as expected.
 
     Not using hypothesis or we will just copy in the same formulas.
     """
@@ -189,8 +187,7 @@ def test_computed_stack_params():
 
 
 def random_capture(set_id: Optional[int] = None):
-    """
-    Create a capture with random values
+    """Create a capture with random values.
 
     :param set_id: Optional, use to set a fixed id rather than a random one
     """
@@ -207,18 +204,14 @@ def random_capture(set_id: Optional[int] = None):
 
 
 def test_capture_filename_matches_regex():
-    """
-    For 100 random captures check the image always matches the regex
-    """
+    """For 100 random captures check the image always matches the regex."""
     for _ in range(100):
         assert IMAGE_REGEX.search(random_capture().filename)
 
 
 @given(st.integers(min_value=0, max_value=5000))
 def test_retrieval_of_captures(start):
-    """
-    For 20 random captures, check each can be retrieved correctly by id
-    """
+    """For 20 random captures, check each can be retrieved correctly by id."""
     captures = [random_capture(start + i) for i in range(20)]
 
     for i, capture in enumerate(captures):
