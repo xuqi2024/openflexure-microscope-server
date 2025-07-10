@@ -87,7 +87,7 @@ class OFMHandler(logging.Handler):
             self._log.pop(0)
 
     def emit(self, record):
-        """Emit will save the logged record to the log"""
+        """Emit will save the logged record to the log."""
         # Basic filter for now that simply stops uvicorn.access logs
         # These are the logs each time an API endpoint is accessed
         # This is only the log for the UI.
@@ -105,7 +105,7 @@ class OFMHandler(logging.Handler):
 
     @property
     def log_history(self):
-        """Return the log history up to the maximum number of logs"""
+        """Return the log history up to the maximum number of logs."""
         return "\n".join(self._log)
 
 

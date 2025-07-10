@@ -42,7 +42,7 @@ STITCHING_RESOLUTION = (820, 616)
 
 
 class ScanNotRunningError(RuntimeError):
-    """Exception called when scan not running that requires a scan to be running"""
+    """Exception called when scan not running that requires a scan to be running."""
 
 
 def _scan_running(method):
@@ -170,7 +170,7 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _check_background_and_csm_set(self):
-        """Before starting a scan, check that background and camera-stage-mapping are set
+        """Before starting a scan, check that background and camera-stage-mapping are set.
 
         Raise error if:
           - background is to be skipped but is not set
@@ -229,7 +229,7 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _calc_displacement_from_test_image(self, overlap: int) -> tuple[int, int]:
-        """Take a test image and use camera stage mapping to calculate x and y displacement
+        """Take a test image and use camera stage mapping to calculate x and y displacement.
 
         :param overlap: The desired overlap as a fraction of the image. i.e. 0.5 means
             that each image should overlap its nearest neighbour by 50%.
@@ -520,7 +520,7 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _return_to_starting_position(self):
-        """Return to the initial scan position, if set"""
+        """Return to the initial scan position, if set."""
         self._scan_logger.info("Returning to starting position.")
         if self._starting_position is not None:
             self._stage.move_absolute(
@@ -529,7 +529,7 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _perform_final_stitch(self):
-        """Update the scan zip and perform final stitch of the data"""
+        """Update the scan zip and perform final stitch of the data."""
         if self._scan_images_taken <= 3:
             self._scan_logger.info("Not performing a stitch as 3 or fewer images taken")
             return
@@ -626,7 +626,7 @@ class SmartScanThing(lt.Thing):
 
     @lt.thing_property
     def scans(self) -> list[scan_directories.ScanInfo]:
-        """All the available scans
+        """All the available scans.
 
         Each scan has a name (which can be used to access it), along with
         its modified and created times (according to the filesystem) and
@@ -687,7 +687,7 @@ class SmartScanThing(lt.Thing):
         "scans",
     )
     def delete_all_scans(self, logger: lt.deps.InvocationLogger) -> None:
-        """Delete all the scans on the microscope
+        """Delete all the scans on the microscope.
 
         **This will irreversibly remove all scanned data from the
         microscope!**
@@ -698,7 +698,7 @@ class SmartScanThing(lt.Thing):
 
     @lt.thing_action
     def purge_empty_scans(self, logger: lt.deps.InvocationLogger) -> None:
-        """Delete all scan folders containing no images at the top level"""
+        """Delete all scan folders containing no images at the top level."""
         # JSON is ignored as it's created before any images are captured
         for scan_info in self._scan_dir_manager.all_scans_info():
             if scan_info.number_of_images == 0:
@@ -722,7 +722,7 @@ class SmartScanThing(lt.Thing):
 
     @property
     def latest_preview_stitch_path(self) -> Optional[str]:
-        """The path of the latest preview stitched image, or None if not available"""
+        """The path of the latest preview stitched image, or None if not available."""
         if not self.latest_scan_name:
             return None
 
@@ -732,7 +732,7 @@ class SmartScanThing(lt.Thing):
 
     @lt.thing_property
     def latest_preview_stitch_time(self) -> Optional[float]:
-        """The modification time of the latest preview image, to allow live updating
+        """The modification time of the latest preview image, to allow live updating.
 
         This will return None (``null`` to JS) if there is no preview image to return.
 
@@ -795,7 +795,7 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _preview_stitch_running(self) -> bool:
-        """Whether there is a preview stitch running in a subprocess"""
+        """Whether there is a preview stitch running in a subprocess."""
         with self._preview_stitch_popen_lock:
             if self._preview_stitch_popen is None:
                 return False
@@ -805,7 +805,7 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _preview_stitch_wait(self):
-        """Wait for an ongoing preview stitch to return"""
+        """Wait for an ongoing preview stitch to return."""
         if self._preview_stitch_running():
             with self._preview_stitch_popen_lock:
                 self._preview_stitch_popen.wait()
@@ -816,7 +816,7 @@ class SmartScanThing(lt.Thing):
         cancel: lt.deps.CancelHook,
         cmd: list[str],
     ) -> CompletedProcess:
-        """Run a  subprocess and log any output
+        """Run a  subprocess and log any output.
 
         Raises:
             ChildProcessError if exit code is not zero
@@ -870,7 +870,7 @@ class SmartScanThing(lt.Thing):
         stitch_resize: Optional[float] = None,
         overlap: float = 0.0,
     ) -> None:
-        """Generate a stitched image based on stage position metadata
+        """Generate a stitched image based on stage position metadata.
 
         Note that as this is a lt.thing_action it needs the logger passed as
         a variable if called from another thing action

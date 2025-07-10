@@ -16,7 +16,7 @@ RANDOM_GENERATOR = np.random.default_rng()
 
 
 def random_image():
-    """Create a random image"""
+    """Create a random image."""
     imarray = RANDOM_GENERATOR.integers(
         low=0, high=255, size=(100, 100, 3), dtype="uint8"
     )
@@ -24,14 +24,14 @@ def random_image():
 
 
 def random_metadata():
-    """Create a misc dictionary to pretend to be metadata"""
+    """Create a misc dictionary to pretend to be metadata."""
     # Not very metadata like, but we are just checking that the same dict it
     # is returned
     return {"a": randint(1, 100), "b": randint(1, 100)}
 
 
 def test_add_and_get_image():
-    """Check images can be captured and retrieved"""
+    """Check images can be captured and retrieved."""
     mem_buf = CameraMemoryBuffer()
     misc_image = random_image()
     buffer_id = mem_buf.add_image(misc_image)
@@ -44,7 +44,7 @@ def test_add_and_get_image():
 
 
 def test_add_and_get_image_twice():
-    """Check images can be retrieved twice if remove flag set false"""
+    """Check images can be retrieved twice if remove flag set false."""
     mem_buf = CameraMemoryBuffer()
     misc_image = random_image()
     buffer_id = mem_buf.add_image(misc_image)
@@ -60,7 +60,7 @@ def test_add_and_get_image_twice():
 
 
 def test_get_without_id():
-    """Check images can be captured and retrieved without ID"""
+    """Check images can be captured and retrieved without ID."""
     mem_buf = CameraMemoryBuffer()
     misc_image = random_image()
     mem_buf.add_image(misc_image)
@@ -92,7 +92,7 @@ def test_get_two_images():
 
 
 def test_get_two_images_without_setting_buffer_size():
-    """Check two images can't be retrieved if the buffer size isn't set"""
+    """Check two images can't be retrieved if the buffer size isn't set."""
     mem_buf = CameraMemoryBuffer()
     misc_image1 = random_image()
     misc_image2 = random_image()
@@ -106,7 +106,7 @@ def test_get_two_images_without_setting_buffer_size():
 
 
 def test_buffer_size_changing():
-    """Check buffer size resets back to 1 when if not set"""
+    """Check buffer size resets back to 1 when if not set."""
     mem_buf = CameraMemoryBuffer()
     misc_image1 = random_image()
     misc_image2 = random_image()
@@ -126,7 +126,7 @@ def test_buffer_size_changing():
 
 
 def test_capture_two_images_get_without_id():
-    """Check that all images are deleted when getting without id"""
+    """Check that all images are deleted when getting without id."""
     mem_buf = CameraMemoryBuffer()
     misc_image1 = random_image()
     misc_image2 = random_image()
@@ -142,7 +142,7 @@ def test_capture_two_images_get_without_id():
 
 
 def test_buffer_size_respected():
-    """Capture 10 images with a buffer size of 5. Check only last 5 exist"""
+    """Capture 10 images with a buffer size of 5. Check only last 5 exist."""
     mem_buf = CameraMemoryBuffer()
 
     images = []
@@ -163,7 +163,7 @@ def test_buffer_size_respected():
 
 
 def test_clear_buffer():
-    """Capture 10 images clear the buffer and check they are gone"""
+    """Capture 10 images clear the buffer and check they are gone."""
     mem_buf = CameraMemoryBuffer()
 
     images = []
@@ -184,7 +184,7 @@ def test_clear_buffer():
 
 
 def test_get_metadata_too():
-    """Capture 10 images with metadata and check metadata is returned as expected"""
+    """Capture 10 images with metadata and check metadata is returned as expected."""
     mem_buf = CameraMemoryBuffer()
 
     images = []

@@ -14,7 +14,7 @@ from ..logging import configure_logging, retrieve_log, retrieve_log_from_file
 
 
 def set_shutdown_function(shutdown_function: Callable[[], None]):
-    """Ensure a function is called before the shutdown
+    """Ensure a function is called before the shutdown.
 
     This monkey patches the Uvicorn Server's handle_exit. This is needed because
     the uvicorn ``lifecycle`` events and FastAPI ``shutdown`` events only fire once
@@ -65,7 +65,7 @@ def _get_scans_dir(config: dict) -> Optional[str]:
 
 
 def serve_from_cli(argv: Optional[list[str]] = None):
-    """Start the server from the command line"""
+    """Start the server from the command line."""
     args = lt.cli.parse_args(argv)
 
     log_config = copy(uvicorn.config.LOGGING_CONFIG)

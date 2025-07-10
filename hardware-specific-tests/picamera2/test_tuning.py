@@ -1,4 +1,4 @@
-"""Tests that check that a tuning file can be reloaded"""
+"""Tests that check that a tuning file can be reloaded."""
 
 import os
 

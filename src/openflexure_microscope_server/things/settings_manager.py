@@ -1,4 +1,4 @@
-"""OpenFlexure Settings Management
+"""OpenFlexure Settings Management.
 
 This module provides some settings management across the other Things, and
 for code that currently lives in clients but needs to persist settings on
@@ -21,7 +21,7 @@ ThingServerDep = Annotated[lt.ThingServer, Depends(thing_server_from_request)]
 
 
 def recursive_update(old_dict: MutableMapping, update: Mapping):
-    """Update a dictionary recursively"""
+    """Update a dictionary recursively."""
     for k, v in update.items():
         if isinstance(v, Mapping):
             if k in old_dict and isinstance(old_dict[k], MutableMapping):
@@ -33,7 +33,7 @@ def recursive_update(old_dict: MutableMapping, update: Mapping):
 
 
 def nested_dict_get(data: dict, key: Sequence[str], create=False) -> Any:
-    """Index a dict-of-dicts with a sequence of strings"""
+    """Index a dict-of-dicts with a sequence of strings."""
     subdict = data
     for k in key:
         if k not in subdict and create:
@@ -100,7 +100,7 @@ class SettingsManager(lt.Thing):
 
     @lt.thing_setting
     def microscope_id(self) -> UUID:
-        """A unique identifier for this microscope"""
+        """A unique identifier for this microscope."""
         if self._microscope_id is None:
             self._microscope_id = str(uuid4())
         return UUID(self._microscope_id)
@@ -117,7 +117,7 @@ class SettingsManager(lt.Thing):
 
     @lt.thing_action
     def get_things_state(self, metadata_getter: lt.deps.GetThingStates) -> Mapping:
-        """Metadata summarising the current state of all Things in the server"""
+        """Metadata summarising the current state of all Things in the server."""
         return metadata_getter()
 
     @property

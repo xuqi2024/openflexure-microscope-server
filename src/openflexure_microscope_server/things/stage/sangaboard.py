@@ -13,7 +13,7 @@ from . import BaseStage
 
 
 class SangaboardThing(BaseStage):
-    """A Thing to manage a Sangaboard motor controller
+    """A Thing to manage a Sangaboard motor controller.
 
     Internally, this uses the ``pysangaboard`` package from PyPi. This imports
     as ``sangaboard``. As ``pysangaboard`` does not support some features added
@@ -115,7 +115,7 @@ class SangaboardThing(BaseStage):
 
     @lt.thing_action
     def set_zero_position(self) -> None:
-        """Make the current position zero in all axes
+        """Make the current position zero in all axes.
 
         This action does not move the stage, but resets the position to zero.
         It is intended for use after manually or automatically recentring the
@@ -132,7 +132,7 @@ class SangaboardThing(BaseStage):
         dt: float = 0.5,
         led_channel: Literal["cc"] = "cc",
     ) -> None:
-        """Flash the LED to identify the board
+        """Flash the LED to identify the board.
 
         This is intended to be useful in situations where there are multiple
         Sangaboards in use, and it is necessary to identify which one is

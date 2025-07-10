@@ -22,7 +22,7 @@ class RecentringThing(lt.Thing):
         max_steps=15,
         lateral_distance=5000,
     ):
-        """Recentre the stage, based on the focal plane
+        """Recentre the stage, based on the focal plane.
 
         Autofocuses at multiple points around the sample to
         find the overall maximum (or minimum) height, which

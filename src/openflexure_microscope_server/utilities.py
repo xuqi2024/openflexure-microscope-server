@@ -17,7 +17,7 @@ class ErrorCapturingThread(Thread):
     """
 
     def __init__(self, group=None, target=None, args=None, kwargs=None, daemon=None):
-        """Initialise with the same arguments as Thread"""
+        """Initialise with the same arguments as Thread."""
         # As all inputs are keywords we need to set the default values for args and kwargs:
         if args is None:
             args = ()

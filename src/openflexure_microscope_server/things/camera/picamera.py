@@ -40,10 +40,10 @@ from . import BaseCamera, JPEGBlob, ArrayModel
 
 
 class PicameraStreamOutput(Output):
-    """An Output class that sends frames to a stream"""
+    """An Output class that sends frames to a stream."""
 
     def __init__(self, stream: lt.outputs.MJPEGStream, portal: lt.deps.BlockingPortal):
-        """Create an output that puts frames in an MJPEGStream
+        """Create an output that puts frames in an MJPEGStream.
 
         We need to pass the stream object, and also the blocking portal, because
         new frame notifications happen in the anyio event loop and frames are
@@ -57,7 +57,7 @@ class PicameraStreamOutput(Output):
     def outputframe(
         self, frame, _keyframe=True, _timestamp=None, _packet=None, _audio=False
     ):
-        """Add a frame to the stream's ringbuffer"""
+        """Add a frame to the stream's ringbuffer."""
         self.stream.add_frame(frame, self.portal)
 
 
@@ -104,7 +104,7 @@ class LensShading(BaseModel):
 
 
 class StreamingPiCamera2(BaseCamera):
-    """A Thing that represents an OpenCV camera"""
+    """A Thing that represents an OpenCV camera."""
 
     def __init__(self, camera_num: int = 0):
         self._setting_save_in_progress = False
@@ -244,7 +244,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_property
     def sensor_modes(self) -> list[SensorMode]:
-        """All the available modes the current sensor supports"""
+        """All the available modes the current sensor supports."""
         if not self._sensor_modes:
             with self._streaming_picamera() as cam:
                 self._sensor_modes = cam.sensor_modes
@@ -254,14 +254,14 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_property
     def sensor_mode(self) -> Optional[SensorModeSelector]:
-        """The intended sensor mode of the camera"""
+        """The intended sensor mode of the camera."""
         if self._sensor_mode is None:
             return None
         return SensorModeSelector(**self._sensor_mode)
 
     @sensor_mode.setter
     def sensor_mode(self, new_mode: Optional[SensorModeSelector | dict]):
-        """Change the sensor mode used"""
+        """Change the sensor mode used."""
         if new_mode is None:
             self._sensor_mode = None
         elif isinstance(new_mode, SensorModeSelector):
@@ -277,7 +277,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_property
     def sensor_resolution(self) -> Optional[tuple[int, int]]:
-        """The native resolution of the camera's sensor"""
+        """The native resolution of the camera's sensor."""
         with self._streaming_picamera() as cam:
             return cam.sensor_resolution
 
@@ -324,7 +324,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @property
     def streaming(self) -> bool:
-        """True if the camera is streaming"""
+        """True if the camera is streaming."""
         return self._picamera is not None and self._picamera.started
 
     @contextmanager
@@ -432,7 +432,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_action
     def stop_streaming(self, stop_web_stream: bool = True) -> None:
-        """Stop the MJPEG stream"""
+        """Stop the MJPEG stream."""
         with self._streaming_picamera() as picam:
             try:
                 picam.stop_recording()  # This should also stop the extra lores encoder
@@ -474,7 +474,7 @@ class StreamingPiCamera2(BaseCamera):
         stream_name: Literal["main", "lores", "raw", "full"] = "main",
         wait: Optional[float] = 0.9,
     ) -> ArrayModel:
-        """Acquire one image from the camera and return as an array
+        """Acquire one image from the camera and return as an array.
 
         This function will produce a nested list containing an uncompressed RGB image.
         It's likely to be highly inefficient - raw and/or uncompressed captures using
@@ -496,7 +496,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_property
     def camera_configuration(self) -> Mapping:
-        """The "configuration" dictionary of the picamera2 object
+        """The "configuration" dictionary of the picamera2 object.
 
         The "configuration" sets the resolution and format of the camera's streams.
         Together with the "tuning" it determines how the sensor is configured and
@@ -516,7 +516,7 @@ class StreamingPiCamera2(BaseCamera):
         resolution: Literal["lores", "main", "full"] = "main",
         wait: Optional[float] = 0.9,
     ) -> JPEGBlob:
-        """Acquire one image from the camera as a JPEG
+        """Acquire one image from the camera as a JPEG.
 
         The JPEG will be acquired using ``Picamera2.capture_file``. If the
         ``resolution`` parameter is ``main`` or ``lores``, it will be captured
@@ -567,7 +567,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_property
     def capture_metadata(self) -> dict:
-        """Return the metadata from the camera"""
+        """Return the metadata from the camera."""
         with self._streaming_picamera() as cam:
             return cam.capture_metadata()
 
@@ -577,7 +577,7 @@ class StreamingPiCamera2(BaseCamera):
         target_white_level: int = 700,
         percentile: float = 99.9,
     ):
-        """Adjust exposure until a the target white level is reached
+        """Adjust exposure until a the target white level is reached.
 
         Starting from the minimum exposure, gradually increase exposure until
         the image reaches the specified white level.
@@ -603,7 +603,7 @@ class StreamingPiCamera2(BaseCamera):
         method: Literal["percentile", "centre"] = "centre",
         luminance_power: float = 1.0,
     ):
-        """Correct the white balance of the image
+        """Correct the white balance of the image.
 
         This calibration requires a neutral image, such that the 99th centile
         of each colour channel should correspond to white. We calculate the
@@ -711,7 +711,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_action
     def full_auto_calibrate(self) -> None:
-        """Perform a full auto-calibration
+        """Perform a full auto-calibration.
 
         This function will call the other calibration actions in sequence:
 
@@ -729,7 +729,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_action
     def flat_lens_shading(self) -> None:
-        """Disable flat-field correction
+        """Disable flat-field correction.
 
         This method will set a completely flat lens shading table. It is not the
         same as the default behaviour, which is to use an adaptive lens shading
@@ -748,7 +748,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_property
     def lens_shading_tables(self) -> Optional[LensShading]:
-        """The current lens shading (i.e. flat-field correction)
+        """The current lens shading (i.e. flat-field correction).
 
         Return the current lens shading correction, as three 2D lists each with
         dimensions 16x12, if a static lens shading table is in use.
@@ -770,7 +770,7 @@ class StreamingPiCamera2(BaseCamera):
             return None
 
         def reshape_lst(lin: list[float]) -> list[list[float]]:
-            """Reshape the 192 element list into a 2D 16x12 list"""
+            """Reshape the 192 element list into a 2D 16x12 list."""
             w, h = 16, 12
             return [lin[w * i : w * (i + 1)] for i in range(h)]
 
@@ -782,7 +782,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lens_shading_tables.setter
     def lens_shading_tables(self, lst: LensShading) -> None:
-        """Set the lens shading tables"""
+        """Set the lens shading tables."""
         with self._streaming_picamera(pause_stream=True):
             recalibrate_utils.set_static_lst(
                 self.tuning,
@@ -795,7 +795,7 @@ class StreamingPiCamera2(BaseCamera):
     def correct_colour_gains_for_lens_shading(
         self, colour_gains: tuple[float, float]
     ) -> tuple[float, float]:
-        """Correct white balance gains for the effect of lens shading
+        """Correct white balance gains for the effect of lens shading.
 
         The white balance algorithm we use assumes the brightest pixels
         should be white, and that the only thing affecting the colour of
@@ -825,7 +825,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_action
     def flat_lens_shading_chrominance(self) -> None:
-        """Disable flat-field correction
+        """Disable flat-field correction.
 
         This method will set the chrominance of the lens shading table to be
         flat, i.e. we'll correct vignetting of intensity, but not any change in
@@ -840,7 +840,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_action
     def reset_lens_shading(self) -> None:
-        """Revert to default lens shading settings
+        """Revert to default lens shading settings.
 
         This method will restore the default "adaptive" lens shading method used
         by the Raspberry Pi camera.
@@ -851,7 +851,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_property
     def lens_shading_is_static(self) -> bool:
-        """Whether the lens shading is static
+        """Whether the lens shading is static.
 
         This property is true if the lens shading correction has been set to use
         a static table (i.e. the number of automatic correction iterations is zero).

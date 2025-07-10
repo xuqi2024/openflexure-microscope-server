@@ -115,7 +115,7 @@ class ScanPlanner:
 
     @property
     def imaged_locations(self) -> XYZPosList:
-        """Property to access a copy of the imaged_locations"""
+        """Property to access a copy of the imaged_locations."""
         return copy(self._imaged_locations)
 
     @property
@@ -145,12 +145,12 @@ class ScanPlanner:
         raise NotImplementedError("Did you call the ScanPlanner base class?")
 
     def position_visited(self, position: XYPos) -> bool:
-        """Return True if input xy position has been visited before"""
+        """Return True if input xy position has been visited before."""
         # Ensure tuple for correct matching!
         return tuple(position) in self._path_history
 
     def position_planned(self, position: XYPos) -> bool:
-        """Return True if input xy position is planned"""
+        """Return True if input xy position is planned."""
         # Ensure tuple for correct matching!
         return tuple(position) in self._remaining_locations
 
@@ -205,7 +205,7 @@ class ScanPlanner:
     def mark_location_visited(
         self, xyz_pos: XYZPos, imaged: bool, focused: bool
     ) -> None:
-        """Mark the location as visited
+        """Mark the location as visited.
 
         Args:
             xyz_pos: the x_y_z position
@@ -282,7 +282,7 @@ class SmartSpiral(ScanPlanner):
     def mark_location_visited(
         self, xyz_pos: XYZPos, imaged: bool = True, focused: bool = True
     ) -> None:
-        """Mark the location as visited. Adjust extra positions accordingly
+        """Mark the location as visited. Adjust extra positions accordingly.
 
         Args:
             xyz_pos: the x_y_z position
@@ -327,7 +327,7 @@ class SmartSpiral(ScanPlanner):
             self._remaining_locations.append(new_pos)
 
     def _re_sort_remaining_locations(self, current_pos: XYPos) -> None:
-        """Sort the remaining positions besed on the current location"""
+        """Sort the remaining positions besed on the current location."""
 
         # Defined rather than use a lambda for readability
         def sort_key(pos):
@@ -421,7 +421,7 @@ class SmartSpiral(ScanPlanner):
 def distance_between(
     current_pos: XYPos | np.ndarray, next_pos: XYPos | np.ndarray
 ) -> float:
-    """Calculate the distance between the two xy positions
+    """Calculate the distance between the two xy positions.
 
     This was previously called ``distance_to_site``
     """

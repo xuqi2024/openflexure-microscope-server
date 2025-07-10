@@ -127,11 +127,8 @@ ignore = [
     "E501", # Ignore long lines for now
     "D203",  # incompatible with D204
     "D213",  # incompatible with D212
-    "D400",  # A stricter version of #415
-    # Below are checkers to be turned on gradually
-    "D415",
-    "D200",
-    # These should be turned on before this MR is complete
+    "D400",  # A stricter version of #415 that doesn't allow !
+    # The checkers below should be turned on as they complain about missing docstrings.
     "D100",
     "D102",
     "D101",

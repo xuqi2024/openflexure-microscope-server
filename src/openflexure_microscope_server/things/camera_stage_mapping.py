@@ -1,4 +1,4 @@
-"""OpenFlexure Microscope API extension for stage calibration
+"""OpenFlexure Microscope API extension for stage calibration.
 
 This file contains the HTTP API for camera/stage calibration. It
 includes calibration functions that measure the relationship between
@@ -53,7 +53,7 @@ class HardwareInterfaceModel(BaseModel):
 
 
 def downsample(factor: int, image: np.ndarray) -> np.ndarray:
-    """Downsample an image by taking the mean of each nxn region
+    """Downsample an image by taking the mean of each nxn region.
 
     This should be very efficient: we calculate the mean of each
     ``factor * factor`` square, no interpolation. If the image is
@@ -79,7 +79,7 @@ DEFAULT_SETTLING_TIME = 0.2
 def make_hardware_interface(
     stage: Stage, camera: Camera, downsample_factor: int = 2
 ) -> HardwareInterfaceModel:
-    """Construct the functions we need to interface with the hardware"""
+    """Construct the functions we need to interface with the hardware."""
     axes = stage.axis_names
 
     def pos2dict(pos: Sequence[float]) -> Mapping[str, float]:
@@ -144,7 +144,7 @@ class LoggingMoveWrapper:
         self.clear_history()
 
     def __call__(self, new_position: CoordinateType, *args, **kwargs):
-        """Move to a new position, and record it"""
+        """Move to a new position, and record it."""
         self._history.append((time.time(), self._current_position))
         self._move_function(new_position, *args, **kwargs)
         self._current_position = new_position
@@ -152,13 +152,13 @@ class LoggingMoveWrapper:
 
     @property
     def history(self) -> MoveHistory:
-        """The history, as a numpy array of times and another of positions"""
+        """The history, as a numpy array of times and another of positions."""
         times: List[float] = [t for t, p in self._history if p is not None]
         positions: List[CoordinateType] = [p for t, p in self._history if p is not None]
         return MoveHistory(times, positions)
 
     def clear_history(self):
-        """Reset our history to be an empty list"""
+        """Reset our history to be an empty list."""
         self._history: List[Tuple[float, Optional[CoordinateType]]] = []
 
 
@@ -175,7 +175,7 @@ class CSMUncalibratedError(HTTPException):
 
 
 class CameraStageMapper(lt.Thing):
-    """A Thing to manage mapping between image and stage coordinates"""
+    """A Thing to manage mapping between image and stage coordinates."""
 
     @lt.thing_action
     def calibrate_1d(
@@ -185,7 +185,7 @@ class CameraStageMapper(lt.Thing):
         logger: lt.deps.InvocationLogger,
         direction: Tuple[float, float, float],
     ) -> DenumpifyingDict:
-        """Move a microscope's stage in 1D, and figure out the relationship with the camera"""
+        """Move a microscope's stage in 1D, and figure out the relationship with the camera."""
         move = LoggingMoveWrapper(
             hw.move
         )  # log positions and times for stage calibration
@@ -214,7 +214,7 @@ class CameraStageMapper(lt.Thing):
     def calibrate_xy(
         self, hw: HardwareInterfaceDep, stage: Stage, logger: lt.deps.InvocationLogger
     ) -> DenumpifyingDict:
-        """Move the microscope's stage in X and Y, to calibrate its relationship to the camera
+        """Move the microscope's stage in X and Y, to calibrate its relationship to the camera.
 
         This performs two 1d calibrations in x and y, then combines their results.
         """
@@ -291,13 +291,13 @@ class CameraStageMapper(lt.Thing):
 
     @lt.thing_property
     def image_resolution(self) -> Optional[Tuple[float, float]]:
-        """The image size used to calibrate the image_to_stage_displacement_matrix"""
+        """The image size used to calibrate the image_to_stage_displacement_matrix."""
         if self.last_calibration is None:
             return None
         return self.last_calibration["image_resolution"]
 
     def assert_calibrated(self):
-        """Raise an exception if the image_to_stage_displacement matrix is not set"""
+        """Raise an exception if the image_to_stage_displacement matrix is not set."""
         if self.image_to_stage_displacement_matrix is None:
             # Disable check of no message in raised exception as the message is explicitly
             # added by CSMUncalibratedError
@@ -310,7 +310,7 @@ class CameraStageMapper(lt.Thing):
         x: float,
         y: float,
     ):
-        """Move by a given number of pixels on the camera
+        """Move by a given number of pixels on the camera.
 
         NB x and y here refer to what is usually understood to be the horizontal and
         vertical axes of the image. In many toolkits, "matrix indices" are used, which
@@ -329,7 +329,7 @@ class CameraStageMapper(lt.Thing):
 
     @lt.thing_property
     def thing_state(self) -> dict[str, Any]:
-        """Summary metadata describing the current state of the Thing"""
+        """Summary metadata describing the current state of the Thing."""
         return {
             k: getattr(self, k)
             for k in ["image_to_stage_displacement_matrix", "image_resolution"]

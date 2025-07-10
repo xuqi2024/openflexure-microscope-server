@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 def _test_exposure_time_drift(desired_time):
-    """Capture 10 full resolution images and check that the exposure time remains constant
+    """Capture 10 full resolution images and check that the exposure time remains constant.
 
     This confirms that automatic exposure time adjustment is fully turned off
     """

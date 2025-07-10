@@ -5,7 +5,7 @@ import labthings_fastapi as lt
 
 
 class BaseStage(lt.Thing):
-    """A base stage class for OpenFlexure translation stages
+    """A base stage class for OpenFlexure translation stages.
 
     This can't be used directly but should reduce boilerplate code when
     implementing new stages. A minimal working stage must implement
@@ -38,7 +38,7 @@ class BaseStage(lt.Thing):
 
     @property
     def thing_state(self):
-        """Summary metadata describing the current state of the stage"""
+        """Summary metadata describing the current state of the stage."""
         return {"position": self.position}
 
     @lt.thing_action
@@ -67,7 +67,7 @@ class BaseStage(lt.Thing):
 
     @lt.thing_action
     def set_zero_position(self):
-        """Make the current position zero in all axes
+        """Make the current position zero in all axes.
 
         This action does not move the stage, but resets the position to zero.
         It is intended for use after manually or automatically recentring the

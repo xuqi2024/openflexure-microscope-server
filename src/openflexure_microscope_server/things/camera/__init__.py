@@ -1,4 +1,4 @@
-"""OpenFlexure Microscope Camera
+"""OpenFlexure Microscope Camera.
 
 This module defines the interface for cameras. Any compatible lt.Thing
 should enabe the server to work.
@@ -23,23 +23,23 @@ class JPEGBlob(lt.blob.Blob):
 
 
 class PNGBlob(lt.blob.Blob):
-    """A class representing a PNG image as a LabThings FastAPI Blob"""
+    """A class representing a PNG image as a LabThings FastAPI Blob."""
 
     media_type: str = "image/png"
 
 
 class ArrayModel(RootModel):
-    """A model for an array"""
+    """A model for an array."""
 
     root: NDArray
 
 
 class CaptureError(RuntimeError):
-    """An error trying to capture from a CameraThing"""
+    """An error trying to capture from a CameraThing."""
 
 
 class NoImageInMemoryError(RuntimeError):
-    """An error called if no image in in memory when an method is called to use that image"""
+    """An error called if no image in in memory when an method is called to use that image."""
 
 
 class CameraMemoryBuffer:
@@ -61,7 +61,7 @@ class CameraMemoryBuffer:
     def add_image(
         self, image: Any, metadata: Optional[dict] = None, buffer_max: int = 1
     ) -> int:
-        """Add an image to the Memory buffer
+        """Add an image to the Memory buffer.
 
         This will add an image to the memory buffer. By default the buffer will
         be cleared. To allow saving multiple images the buffer_max must be set
@@ -114,7 +114,7 @@ class CameraMemoryBuffer:
             ) from e
 
     def clear(self):
-        """Clear all images from memory"""
+        """Clear all images from memory."""
         self._storage.clear()
 
     def _create_space(self, buffer_max: int) -> None:
@@ -140,7 +140,7 @@ class CameraMemoryBuffer:
 
 
 class BaseCamera(lt.Thing):
-    """The base class for all cameras. All cameras must directly inherit from this class"""
+    """The base class for all cameras. All cameras must directly inherit from this class."""
 
     mjpeg_stream = lt.outputs.MJPEGStreamDescriptor()
     lores_mjpeg_stream = lt.outputs.MJPEGStreamDescriptor()
@@ -181,7 +181,7 @@ class BaseCamera(lt.Thing):
 
     @lt.thing_property
     def stream_active(self) -> bool:
-        """Whether the MJPEG stream is active"""
+        """Whether the MJPEG stream is active."""
         raise NotImplementedError(
             "CameraThings must define their own stream_active method"
         )
@@ -203,7 +203,7 @@ class BaseCamera(lt.Thing):
         resolution: Literal["lores", "main", "full"] = "main",
         wait: Optional[float] = 5,
     ) -> JPEGBlob:
-        """Acquire one image from the camera and return as a JPEG blob"""
+        """Acquire one image from the camera and return as a JPEG blob."""
         raise NotImplementedError(
             "CameraThings must define their own capture_jpeg method"
         )
@@ -214,7 +214,7 @@ class BaseCamera(lt.Thing):
         portal: lt.deps.BlockingPortal,
         stream_name: Literal["main", "lores"] = "main",
     ) -> JPEGBlob:
-        """Acquire one image from the preview stream and return as an array
+        """Acquire one image from the preview stream and return as an array.
 
         This differs from ``capture_jpeg`` in that it does not pause the MJPEG
         preview stream. Instead, we simply return the next frame from that
@@ -233,7 +233,7 @@ class BaseCamera(lt.Thing):
         portal: lt.deps.BlockingPortal,
         stream_name: Literal["main", "lores"] = "main",
     ) -> int:
-        """Acquire one image from the preview stream and return its size"""
+        """Acquire one image from the preview stream and return its size."""
         stream = (
             self.lores_mjpeg_stream if stream_name == "lores" else self.mjpeg_stream
         )
@@ -245,7 +245,7 @@ class BaseCamera(lt.Thing):
         stream_name: Literal["main", "lores", "raw"],
         wait: Optional[float],
     ) -> None:
-        """Capture a PIL image from stream stream_name with timeout wait"""
+        """Capture a PIL image from stream stream_name with timeout wait."""
         raise NotImplementedError(
             "CameraThings must define their own capture_image method"
         )
@@ -258,7 +258,7 @@ class BaseCamera(lt.Thing):
         metadata_getter: lt.deps.GetThingStates,
         save_resolution: Optional[Tuple[int, int]] = None,
     ) -> None:
-        """Capture an image and save it to disk
+        """Capture an image and save it to disk.
 
         :param jpeg_path: The path to save the file to
         :param logger: This should be injected automatically by Labthings FastAPI
@@ -288,7 +288,7 @@ class BaseCamera(lt.Thing):
         metadata_getter: lt.deps.GetThingStates,
         buffer_max: int = 1,
     ) -> None:
-        """Capture an image to memory. This can be saved later with ``save_from_memory``
+        """Capture an image to memory. This can be saved later with ``save_from_memory``.
 
         Note that only one image is held in memory so this will overwrite any image
         in memory.
@@ -336,7 +336,7 @@ class BaseCamera(lt.Thing):
 
     @lt.thing_action
     def clear_buffers(self) -> None:
-        """Clear all images in memory"""
+        """Clear all images in memory."""
         self._memory_buffer.clear()
 
     def _robust_image_capture(

@@ -30,7 +30,7 @@ SERVER_CMD: list[str] = [
 
 
 def main() -> None:
-    """Set up the server, run basic checks, shutdown, check for graceful exit
+    """Set up the server, run basic checks, shutdown, check for graceful exit.
 
     The basic checks include checks that:
       - The server boots
@@ -69,7 +69,7 @@ def main() -> None:
 
 
 def test_client_connection() -> None:
-    """Check a ThingClient can interact with the simulation microscope camera"""
+    """Check a ThingClient can interact with the simulation microscope camera."""
     print("Connecting Python client to microscope, and capturing image")
     cam_client = lt.ThingClient.from_url("http://localhost:5000/camera/")
     img = Image.open(cam_client.grab_jpeg().open())
@@ -178,7 +178,7 @@ def error_if_server_not_started(
 
 
 def check_for_graceful_shutdown(server_process: subprocess.Popen) -> None:
-    """Check the server shutdown gracefully
+    """Check the server shutdown gracefully.
 
     Check the subprocess is not running
     Check the logs have no errors
@@ -201,7 +201,7 @@ def check_for_graceful_shutdown(server_process: subprocess.Popen) -> None:
 
 
 def read_process_buffers(process: subprocess.Popen) -> list[str]:
-    """Return STDOUT from a process"""
+    """Return STDOUT from a process."""
     stdout = []
 
     while line := process.stdout.readline():

@@ -25,7 +25,7 @@ def add_static_file(app: FastAPI, fname: str, folder: str) -> None:
 
 
 def add_static_files(app: FastAPI, scans_folder: Optional[str]) -> None:
-    """Add the static files responsible for the webapp app to the FastAPI app
+    """Add the static files responsible for the webapp app to the FastAPI app.
 
     app: The FastAPI app to add to, in this case the OpenFlexure server
     """

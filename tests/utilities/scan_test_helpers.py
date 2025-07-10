@@ -44,14 +44,14 @@ class FakeSample:
 
     @property
     def patch(self) -> PathPatch:
-        """The sample as a matplotlib patch for plotting"""
+        """The sample as a matplotlib patch for plotting."""
         patch = PathPatch(self._sample_perimeter)
         patch.set(color=(1.0, 0.8, 1.0, 1.0))
         return patch
 
 
 def visualise_scan(sample: FakeSample, planner: scan_planners.ScanPlanner) -> Figure:
-    """For a given sample and scanner object return a matplotlib figure of the scan"""
+    """For a given sample and scanner object return a matplotlib figure of the scan."""
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.add_artist(sample.patch)
     xh, yh = zip(*planner._path_history)
@@ -184,7 +184,7 @@ def get_expected_result_for_example_smart_spiral(
 
 
 def load_sample_points(sample_name: str):
-    """Return the points to generate the FakeSample corresponding to the given input name
+    """Return the points to generate the FakeSample corresponding to the given input name.
 
     Options are "lobed", "regular", and "core".
     """

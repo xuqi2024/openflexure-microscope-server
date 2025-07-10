@@ -90,7 +90,7 @@ def test_stack_params_not_enough_test_images(save_ims, extra_ims):
     extra_ims=even_integers(min_value=0, max_value=10),
 )
 def test_stack_params_negative_images_to_save(save_ims, extra_ims):
-    """save_ims is negative so images_to_save is negative, failing validation
+    """save_ims is negative so images_to_save is negative, failing validation.
 
     For arguments see test_stack_params_validation
     """
@@ -110,7 +110,7 @@ def test_stack_params_negative_images_to_save(save_ims, extra_ims):
     extra_ims=odd_integers(min_value=0, max_value=10),
 )
 def test_even_min_images_to_test(save_ims, extra_ims):
-    """extra_ims is odd so min_images_to_test is even, failing validation
+    """extra_ims is odd so min_images_to_test is even, failing validation.
 
     For arguments see test_stack_params_validation
     """
@@ -130,7 +130,7 @@ def test_even_min_images_to_test(save_ims, extra_ims):
     extra_ims=odd_integers(min_value=0, max_value=10),
 )
 def test_even_images_to_save(save_ims, extra_ims):
-    """save_ims is even so images_to_save is even, failing validation
+    """save_ims is even so images_to_save is even, failing validation.
 
     For arguments see test_stack_params_validation
     """
@@ -146,7 +146,7 @@ def test_even_images_to_save(save_ims, extra_ims):
 
 
 def test_computed_stack_params():
-    """Test StackParams computed properties are as expected
+    """Test StackParams computed properties are as expected.
 
     Not using hypothesis or we will just copy in the same formulas.
     """
@@ -187,7 +187,7 @@ def test_computed_stack_params():
 
 
 def random_capture(set_id: Optional[int] = None):
-    """Create a capture with random values
+    """Create a capture with random values.
 
     :param set_id: Optional, use to set a fixed id rather than a random one
     """
@@ -204,14 +204,14 @@ def random_capture(set_id: Optional[int] = None):
 
 
 def test_capture_filename_matches_regex():
-    """For 100 random captures check the image always matches the regex"""
+    """For 100 random captures check the image always matches the regex."""
     for _ in range(100):
         assert IMAGE_REGEX.search(random_capture().filename)
 
 
 @given(st.integers(min_value=0, max_value=5000))
 def test_retrieval_of_captures(start):
-    """For 20 random captures, check each can be retrieved correctly by id"""
+    """For 20 random captures, check each can be retrieved correctly by id."""
     captures = [random_capture(start + i) for i in range(20)]
 
     for i, capture in enumerate(captures):

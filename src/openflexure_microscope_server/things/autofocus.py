@@ -1,4 +1,4 @@
-"""OpenFlexure Microscope autofocus module
+"""OpenFlexure Microscope autofocus module.
 
 This module defines a Thing that is responsible for using the stage and
 camera together to perform an autofocus routine.
@@ -26,7 +26,7 @@ from .stage import StageDependency as Stage
 
 
 class StackParams:
-    """A class for holding for scan parameters
+    """A class for holding for scan parameters.
 
     All arguments are keyword only
 
@@ -97,7 +97,7 @@ class StackParams:
 
     @property
     def stack_z_range(self) -> int:
-        """The range of the z stack, in steps
+        """The range of the z stack, in steps.
 
         Note that this is the range of the minimum number of images captured,
         which is also the range of the images stored in memory that can be
@@ -107,7 +107,7 @@ class StackParams:
 
     @property
     def steps_undershoot(self) -> int:
-        """The distance to deliberately undershoot the estimated optimal starting point"""
+        """The distance to deliberately undershoot the estimated optimal starting point."""
         # Starting too low by "steps_undershoot" makes smart stacking faster.
         # Starting a stack too high requires it to move to the start,
         # autofocus and then re-stack. Starting slightly too low only
@@ -116,14 +116,14 @@ class StackParams:
 
     @property
     def max_images_to_test(self) -> int:
-        """The maximum number of images that will be captured and tested in a stack
+        """The maximum number of images that will be captured and tested in a stack.
 
         This is 15 images more then the minimum number that are captured.
         """
         return self.min_images_to_test + 15
 
     def slice_to_save(self, sharpest_index):
-        """Return the slice of images to save given the index of the sharpest image"""
+        """Return the slice of images to save given the index of the sharpest image."""
         images_each_side = (self.images_to_save - 1) // 2
         return slice(
             max(sharpest_index - images_each_side, 0),
@@ -133,7 +133,7 @@ class StackParams:
 
 @dataclass
 class CaptureInfo:
-    """The information from a capture in a z_stack"""
+    """The information from a capture in a z_stack."""
 
     buffer_id: int
     position: dict[str, int]
@@ -141,7 +141,7 @@ class CaptureInfo:
 
     @property
     def filename(self) -> str:
-        """The filename for this image generated from the position"""
+        """The filename for this image generated from the position."""
         return f"{self.position['x']}_{self.position['y']}_{self.position['z']}.jpeg"
 
 
@@ -195,7 +195,7 @@ class JPEGSharpnessMonitor:
     running = False
 
     async def monitor_sharpness(self):
-        """Start monitoring the frame sizes"""
+        """Start monitoring the frame sizes."""
         self.running = True
         async for frame in self.camera.lores_mjpeg_stream.frame_async_generator():
             self.jpeg_times.append(time.time())
@@ -205,7 +205,7 @@ class JPEGSharpnessMonitor:
 
     @contextmanager
     def run(self):
-        """Context manager, during which we will monitor sharpness from the camera"""
+        """Context manager, during which we will monitor sharpness from the camera."""
         self.portal.start_task_soon(self.monitor_sharpness)
         try:
             yield
@@ -233,7 +233,7 @@ class JPEGSharpnessMonitor:
     def move_data(
         self, istart: int, istop: Optional[int] = None
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Extract sharpness as a function of (interpolated) z"""
+        """Extract sharpness as a function of (interpolated) z."""
         if istop is None:
             istop = istart + 2
         jpeg_times: np.ndarray = np.array(self.jpeg_times)
@@ -261,7 +261,7 @@ class JPEGSharpnessMonitor:
         return jpeg_times, jpeg_zs, jpeg_sizes[start:stop]
 
     def sharpest_z_on_move(self, index: int) -> int:
-        """Return the z position of the sharpest image on a given move"""
+        """Return the z position of the sharpest image on a given move."""
         _, jz, js = self.move_data(index)
         if len(js) == 0:
             raise ValueError(
@@ -270,7 +270,7 @@ class JPEGSharpnessMonitor:
         return jz[np.argmax(js)]
 
     def data_dict(self) -> SharpnessDataArrays:
-        """Return the gathered data as a single convenient dictionary"""
+        """Return the gathered data as a single convenient dictionary."""
         data = {}
         for k in ["jpeg_times", "jpeg_sizes", "stage_times", "stage_positions"]:
             data[k] = getattr(self, k)
@@ -295,7 +295,7 @@ class AutofocusThing(lt.Thing):
         dz: int = 2000,
         start: str = "centre",
     ) -> SharpnessDataArrays:
-        """Sweep the stage up and down, then move to the sharpest point
+        """Sweep the stage up and down, then move to the sharpest point.
 
         This method will will move down by dz/2, sweep up by dz, and then evaluate
         the position where the image was sharpest. We'll then move back down, and
@@ -325,7 +325,7 @@ class AutofocusThing(lt.Thing):
         dz: Sequence[int],
         wait: float = 0,
     ) -> SharpnessDataArrays:
-        """Make a move (or a series of moves) and monitor sharpness
+        """Make a move (or a series of moves) and monitor sharpness.
 
         This method will will make a series of relative moves in z, and
         return the sharpness (JPEG size) vs time, along with timestamps
@@ -561,7 +561,7 @@ class AutofocusThing(lt.Thing):
         cam: WrappedCamera,
         stage: Stage,
     ) -> tuple[bool, list[CaptureInfo], Optional[int]]:
-        """Capture a series of images checking that sharpest image central
+        """Capture a series of images checking that sharpest image central.
 
         The images are seperated in z offset by stack_parameters.stack_dz, as they
         are captured the last stack_parameters.min_images_to_test images are checked
