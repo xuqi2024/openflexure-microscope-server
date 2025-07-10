@@ -107,9 +107,7 @@ class StackParams:
 
     @property
     def steps_undershoot(self) -> int:
-        """
-        The distance to deliberately undershoot the estimated optimal starting point
-        """
+        """The distance to deliberately undershoot the estimated optimal starting point"""
         # Starting too low by "steps_undershoot" makes smart stacking faster.
         # Starting a stack too high requires it to move to the start,
         # autofocus and then re-stack. Starting slightly too low only
@@ -135,9 +133,7 @@ class StackParams:
 
 @dataclass
 class CaptureInfo:
-    """
-    The information from a capture in a z_stack
-    """
+    """The information from a capture in a z_stack"""
 
     buffer_id: int
     position: dict[str, int]

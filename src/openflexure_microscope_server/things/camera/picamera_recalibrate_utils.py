@@ -1,5 +1,4 @@
-"""
-Functions to set up a Raspberry Pi Camera v2 for scientific use
+"""Functions to set up a Raspberry Pi Camera v2 for scientific use
 
 This module provides slower, simpler functions to set the
 gain, exposure, and white balance of a Raspberry Pi camera, using

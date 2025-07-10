@@ -31,9 +31,7 @@ class ScanInfo(BaseModel):
 
 
 class ScanDirectoryManager:
-    """
-    A class for managing interactions with scan directories
-    """
+    """A class for managing interactions with scan directories"""
 
     _base_scan_dir: str
 
@@ -180,8 +178,7 @@ class ScanDirectoryManager:
         return ScanDirectory(scan_name, self.base_dir).zip_files(final_version)
 
     def check_free_disk_space(self, min_space: int = 500000000) -> None:
-        """
-        Raise an exception if there is not enough free disk space to continue scanning
+        """Raise an exception if there is not enough free disk space to continue scanning
 
         :param min_space: the minimum space required in bytes.
             Default = 500,000,000 (500MB)
@@ -227,8 +224,7 @@ class ScanDirectory:
 
     @property
     def images_dir(self) -> Optional[str]:
-        """
-        The path to the images directory. None is returned if no images directory
+        """The path to the images directory. None is returned if no images directory
         was created
         """
         im_path = os.path.join(self.dir_path, IMG_DIR_NAME)

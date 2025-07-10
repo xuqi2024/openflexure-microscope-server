@@ -229,8 +229,7 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _calc_displacement_from_test_image(self, overlap: int) -> tuple[int, int]:
-        """
-        Take a test image and use camera stage mapping to calculate x and y displacement
+        """Take a test image and use camera stage mapping to calculate x and y displacement
 
         :param overlap: The desired overlap as a fraction of the image. i.e. 0.5 means
             that each image should overlap its nearest neighbour by 50%.
@@ -312,8 +311,7 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _save_scan_inputs_json(self):
-        """
-        Save scan inputs as a JSON file in the scan folder, to allow
+        """Save scan inputs as a JSON file in the scan folder, to allow
         the user to review the settings used in the scan
         """
         # Should this be a method of the scan_data dataclass?
@@ -337,8 +335,7 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _update_scan_data_json(self, scan_result: str):
-        """
-        Update scan data as a JSON file in the scan folder, with
+        """Update scan data as a JSON file in the scan folder, with
         data only known at the end of the scan.
 
         Takes scan_result, a string that is either "success",
@@ -372,9 +369,7 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _manage_stitching_threads(self):
-        """
-        Manage the stitching threads, starting them if needed and not already running.
-        """
+        """Manage the stitching threads, starting them if needed and not already running."""
         # Assume 4 images means at least one offset in x and y, making the stitching
         # well constrained.
         if self._scan_images_taken > 3:
@@ -383,8 +378,7 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _run_scan(self):
-        """
-        Prepare and run the main scan, handling the threads performing
+        """Prepare and run the main scan, handling the threads performing
         stitching. Uses the result (or exception) from the scanning to
         determine whether the scan should be stitched and the microscope
         should return to the starting x,y,z position
@@ -703,9 +697,7 @@ class SmartScanThing(lt.Thing):
 
     @lt.thing_action
     def purge_empty_scans(self, logger: lt.deps.InvocationLogger) -> None:
-        """
-        Delete all scan folders containing no images at the top level
-        """
+        """Delete all scan folders containing no images at the top level"""
         # JSON is ignored as it's created before any images are captured
         for scan_info in self._scan_dir_manager.all_scans_info():
             if scan_info.number_of_images == 0:
@@ -813,9 +805,7 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _preview_stitch_wait(self):
-        """
-        Wait for an ongoing preview stitch to return
-        """
+        """Wait for an ongoing preview stitch to return"""
         if self._preview_stitch_running():
             with self._preview_stitch_popen_lock:
                 self._preview_stitch_popen.wait()
@@ -826,8 +816,7 @@ class SmartScanThing(lt.Thing):
         cancel: lt.deps.CancelHook,
         cmd: list[str],
     ) -> CompletedProcess:
-        """
-        Run a  subprocess and log any output
+        """Run a  subprocess and log any output
 
         Raises:
             ChildProcessError if exit code is not zero

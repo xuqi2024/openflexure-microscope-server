@@ -1,6 +1,4 @@
-"""
-Tests for the built in buffer for the camera.
-"""
+"""Tests for the built in buffer for the camera."""
 
 from random import randint
 

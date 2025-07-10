@@ -1,7 +1,6 @@
 #! /usr/bin/env python3
 
-"""
-A script to check that the npm version string matches the python
+"""A script to check that the npm version string matches the python
 version string exactly.
 """
 

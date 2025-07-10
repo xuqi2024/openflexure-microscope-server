@@ -124,8 +124,7 @@ def set_up_working_dir() -> None:
 
 
 def start_server() -> subprocess.Popen:
-    """
-    Start the server in a subprocess.
+    """Start the server in a subprocess.
 
     The server is started in a subprocess and all outputs are buffered.
 

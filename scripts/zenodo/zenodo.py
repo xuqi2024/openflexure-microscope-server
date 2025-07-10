@@ -1,5 +1,4 @@
-"""
-Copyright (c) 2020 Bath Open Instrumentation Group
+"""Copyright (c) 2020 Bath Open Instrumentation Group
 Adapted from: https://gitlab.com/schlauch/zenodo-api-test/
 Copyright (c) 2018 German Aerospace Center (DLR). All rights reserved.
 SPDX-License-Identifier: MIT-DLR

@@ -62,8 +62,7 @@ class PicameraStreamOutput(Output):
 
 
 class SensorMode(BaseModel):
-    """
-    A Pydantic model holding all the information about a specific
+    """A Pydantic model holding all the information about a specific
     sensor mode as reported by the PiCamera.
     """
 
@@ -77,8 +76,7 @@ class SensorMode(BaseModel):
 
 
 class SensorModeSelector(BaseModel):
-    """
-    A Pydantic model holding the two values needed to select a PiCamera
+    """A Pydantic model holding the two values needed to select a PiCamera
     Sensor mode. The output size and the bit depth.
 
     This is a Pydantic modell so that it can be saved to the disk.
@@ -89,8 +87,7 @@ class SensorModeSelector(BaseModel):
 
 
 class LensShading(BaseModel):
-    """
-    A Pydantic model holding the lens shading tables.
+    """A Pydantic model holding the lens shading tables.
 
     PiCamera needs three numpy arrays for lens shading correction. Each array is
     (12, 16) in size. The arrays are luminance, red-difference chroma (Cr), and
@@ -363,8 +360,7 @@ class StreamingPiCamera2(BaseCamera):
     def start_streaming(
         self, main_resolution: tuple[int, int] = (820, 616), buffer_count: int = 6
     ) -> None:
-        """
-        Start the MJPEG stream. This is where persistent controls are sent to camera.
+        """Start the MJPEG stream. This is where persistent controls are sent to camera.
 
         Sets the camera resolutions based on input parameters, and sets the low-res
         resolution to (320, 240). Note: (320, 240) is a standard from the Pi Camera
@@ -434,9 +430,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_action
     def stop_streaming(self, stop_web_stream: bool = True) -> None:
-        """
-        Stop the MJPEG stream
-        """
+        """Stop the MJPEG stream"""
         with self._streaming_picamera() as picam:
             try:
                 picam.stop_recording()  # This should also stop the extra lores encoder
@@ -679,8 +673,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_action
     def reset_ccm(self):
-        """
-        Overwrite the colour correction matrix in camera tuning with default values.
+        """Overwrite the colour correction matrix in camera tuning with default values.
 
         These values are from the Raspberry Pi Camera Algorithm and Tuning Guide, page
         45.

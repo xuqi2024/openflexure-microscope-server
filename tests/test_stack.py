@@ -1,5 +1,4 @@
-"""
-Tests for the smart/fast stacking.
+"""Tests for the smart/fast stacking.
 
 Currently these tests don't test the Thing itself, just surrounding functionality
 """
@@ -146,8 +145,7 @@ def test_even_images_to_save(save_ims, extra_ims):
 
 
 def test_computed_stack_params():
-    """
-    Test StackParams computed properties are as expected
+    """Test StackParams computed properties are as expected
 
     Not using hypothesis or we will just copy in the same formulas.
     """
@@ -188,8 +186,7 @@ def test_computed_stack_params():
 
 
 def random_capture(set_id: Optional[int] = None):
-    """
-    Create a capture with random values
+    """Create a capture with random values
 
     :param set_id: Optional, use to set a fixed id rather than a random one
     """
@@ -206,18 +203,14 @@ def random_capture(set_id: Optional[int] = None):
 
 
 def test_capture_filename_matches_regex():
-    """
-    For 100 random captures check the image always matches the regex
-    """
+    """For 100 random captures check the image always matches the regex"""
     for _ in range(100):
         assert IMAGE_REGEX.search(random_capture().filename)
 
 
 @given(st.integers(min_value=0, max_value=5000))
 def test_retrieval_of_captures(start):
-    """
-    For 20 random captures, check each can be retrieved correctly by id
-    """
+    """For 20 random captures, check each can be retrieved correctly by id"""
     captures = [random_capture(start + i) for i in range(20)]
 
     for i, capture in enumerate(captures):

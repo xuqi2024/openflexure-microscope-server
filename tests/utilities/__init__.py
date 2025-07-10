@@ -1,5 +1,4 @@
-"""
-Utilities for testing and debugging.
+"""Utilities for testing and debugging.
 
 At the top level are some basic testing functions. More specific testing utilities are
 provided by modules inside the package.

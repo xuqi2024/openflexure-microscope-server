@@ -156,9 +156,7 @@ def test_basic_directory_operations():
 
 
 def test_scan_sequence_and_listing():
-    """
-    Check created scans are added in order and listed correctly
-    """
+    """Check created scans are added in order and listed correctly"""
     _clear_scan_dir()
     scan_dir_manager = ScanDirectoryManager(BASE_SCAN_DIR)
     # Make 4 scans
@@ -185,8 +183,7 @@ def test_scan_sequence_and_listing():
 
 
 def test_scan_name_non_sequential():
-    """
-    Check created scans is the correct name if the directories
+    """Check created scans is the correct name if the directories
     are not sequential
     """
     _clear_scan_dir()
@@ -213,9 +210,7 @@ def test_scan_name_non_sequential():
 
 
 def test_all_scan_names_taken():
-    """
-    If the next sequential scan name needs more than 4 digits check error is thrown.
-    """
+    """If the next sequential scan name needs more than 4 digits check error is thrown."""
     _clear_scan_dir()
     os.makedirs(os.path.join(BASE_SCAN_DIR, "fake_scan_9999"))
     scan_dir_manager = ScanDirectoryManager(BASE_SCAN_DIR)
@@ -224,9 +219,7 @@ def test_all_scan_names_taken():
 
 
 def test_no_scan_names_given():
-    """
-    Check correct default scan name is used if empty string is given
-    """
+    """Check correct default scan name is used if empty string is given"""
     _clear_scan_dir()
     scan_dir_manager = ScanDirectoryManager(BASE_SCAN_DIR)
     scan_dir = scan_dir_manager.new_scan_dir("")

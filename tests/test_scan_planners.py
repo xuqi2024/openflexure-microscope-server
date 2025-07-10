@@ -222,8 +222,7 @@ def test_mark_wrong_location():
 
 
 def test_closest_focus_wth_large_numbers():
-    """
-    The number of steps gets very large in reality runs some tests to check
+    """The number of steps gets very large in reality runs some tests to check
     that everything works well with huge numbers of steps
     """
     intial_position = (0, 0)

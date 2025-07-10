@@ -1,5 +1,4 @@
-"""
-OpenFlexure Microscope API extension for stage calibration
+"""OpenFlexure Microscope API extension for stage calibration
 
 This file contains the HTTP API for camera/stage calibration. It
 includes calibration functions that measure the relationship between

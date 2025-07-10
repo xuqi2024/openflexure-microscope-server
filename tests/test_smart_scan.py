@@ -1,5 +1,4 @@
-"""
-Test the SmartScanThing *without* connecting it to a LabThings Server.
+"""Test the SmartScanThing *without* connecting it to a LabThings Server.
 
 By testing without connecting to the LabThings server it is possible to
 directly poll any properties and to start any methods.
@@ -151,8 +150,7 @@ def test_delete_all_scans(smart_scan_thing, caplog):
 
 
 def _run_only_outer_scan(adjust_inital_state: Optional[Callable] = None):
-    """
-    Create a subclass of SmartScanThing to mock _run_scan and run sample_scan
+    """Create a subclass of SmartScanThing to mock _run_scan and run sample_scan
 
     This should do all the set up for a scan, move into the mocked
     _run_scan method where this can be tested. Once this is done

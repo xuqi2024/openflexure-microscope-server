@@ -68,8 +68,7 @@ def retrieve_log_from_file() -> PlainTextResponse:
 
 
 class OFMHandler(logging.Handler):
-    """
-    A child class of logging.Handler. This class handles storing the most recent
+    """A child class of logging.Handler. This class handles storing the most recent
     logs for access by the server.
     """
 
@@ -79,8 +78,7 @@ class OFMHandler(logging.Handler):
         self._max_logs = max_logs
 
     def append_record(self, record):
-        """
-        Use the built in formatter to format the record, then save
+        """Use the built in formatter to format the record, then save
         it to an array. Pop any in excess of the maximum number of logs
         """
         self._log.append(self.format(record))
@@ -88,9 +86,7 @@ class OFMHandler(logging.Handler):
             self._log.pop(0)
 
     def emit(self, record):
-        """
-        Emit will save the logged record to the log
-        """
+        """Emit will save the logged record to the log"""
         # Basic filter for now that simply stops uvicorn.access logs
         # These are the logs each time an API endpoint is accessed
         # This is only the log for the UI.
@@ -108,9 +104,7 @@ class OFMHandler(logging.Handler):
 
     @property
     def log_history(self):
-        """
-        Return the log history up to the maximum number of logs
-        """
+        """Return the log history up to the maximum number of logs"""
         return "\n".join(self._log)
 
 

@@ -43,8 +43,7 @@ class NoImageInMemoryError(RuntimeError):
 
 
 class CameraMemoryBuffer:
-    """
-    A class that holds images in memory. The images are by default PIL images.
+    """A class that holds images in memory. The images are by default PIL images.
 
     However subclasses of BaseCamera can use this class to store other object types
     """
@@ -62,8 +61,7 @@ class CameraMemoryBuffer:
     def add_image(
         self, image: Any, metadata: Optional[dict] = None, buffer_max: int = 1
     ) -> int:
-        """
-        Add an image to the Memory buffer
+        """Add an image to the Memory buffer
 
         This will add an image to the memory buffer. By default the buffer will
         be cleared. To allow saving multiple images the buffer_max must be set
@@ -85,8 +83,7 @@ class CameraMemoryBuffer:
     def get_image(
         self, buffer_id: Optional[int] = None, remove: bool = True
     ) -> tuple[Any, Optional[dict]]:
-        """
-        Return the image with the given id.
+        """Return the image with the given id.
 
         If no id is given the most recent image is returned. However, the
         buffer is also cleared, otherwise it would be possible to accidentally
@@ -117,14 +114,11 @@ class CameraMemoryBuffer:
             ) from e
 
     def clear(self):
-        """
-        Clear all images from memory
-        """
+        """Clear all images from memory"""
         self._storage.clear()
 
     def _create_space(self, buffer_max: int) -> None:
-        """
-        Create space to add an image.
+        """Create space to add an image.
 
         :param buffer_max: The maximum number of images that should be in the buffer
             once another images is added.
@@ -170,8 +164,7 @@ class BaseCamera(lt.Thing):
         )
 
     def kill_mjpeg_streams(self):
-        """
-        Kill the streams now as the server is shutting down.
+        """Kill the streams now as the server is shutting down.
 
         This is called when uvicorn gets the a shutdown signal. As this is called from
         the event loop it cannot interact with the our ThingProperties or run
@@ -293,8 +286,7 @@ class BaseCamera(lt.Thing):
         metadata_getter: lt.deps.GetThingStates,
         buffer_max: int = 1,
     ) -> None:
-        """
-        Capture an image to memory. This can be saved later with ``save_from_memory``
+        """Capture an image to memory. This can be saved later with ``save_from_memory``
 
         Note that only one image is held in memory so this will overwrite any image
         in memory.
@@ -319,8 +311,7 @@ class BaseCamera(lt.Thing):
         save_resolution: Optional[Tuple[int, int]] = None,
         buffer_id: Optional[int] = None,
     ) -> None:
-        """
-        Save an image that has been captured to memory.
+        """Save an image that has been captured to memory.
 
         :param jpeg_path: The path to save the file to
         :param logger: This should be injected automatically by Labthings FastAPI

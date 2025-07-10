@@ -14,21 +14,18 @@ THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
 class FakeSample:
-    """
-    A fake sample to test scan algorithms. The sample is able to return
+    """A fake sample to test scan algorithms. The sample is able to return
     whether a given position is sample, no image associated with the sample
     """
 
     def __init__(self, xy_points: list[tuple[int, int]]):
-        """
-        Create the sample from a spline interpolation around
+        """Create the sample from a spline interpolation around
         the given points.
         """
         self._sample_perimeter = interp_closed_path(xy_points, 500)
 
     def is_sample(self, pos: tuple[int, int], im_size: tuple[int, int]) -> bool:
-        """
-        Return whether an image at a given location with a given image size
+        """Return whether an image at a given location with a given image size
         is on the sample
 
         This doesn't check the entire image field as this is designed to be used
@@ -47,18 +44,14 @@ class FakeSample:
 
     @property
     def patch(self) -> PathPatch:
-        """
-        The sample as a matplotlib patch for plotting
-        """
+        """The sample as a matplotlib patch for plotting"""
         patch = PathPatch(self._sample_perimeter)
         patch.set(color=(1.0, 0.8, 1.0, 1.0))
         return patch
 
 
 def visualise_scan(sample: FakeSample, planner: scan_planners.ScanPlanner) -> Figure:
-    """
-    For a given sample and scanner object return a matplotlib figure of the scan
-    """
+    """For a given sample and scanner object return a matplotlib figure of the scan"""
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.add_artist(sample.patch)
     xh, yh = zip(*planner._path_history)
@@ -84,8 +77,7 @@ def visualise_scan(sample: FakeSample, planner: scan_planners.ScanPlanner) -> Fi
 
 
 def interp_closed_path(xy_points: list[tuple[int, int]], n_points: int) -> MatPath:
-    """
-    Given a lists of xy_points interpolate an n_point closed curve. This can be used
+    """Given a lists of xy_points interpolate an n_point closed curve. This can be used
     to create an arbitrary sample shape plan a scan.
 
     Modified from:
@@ -113,8 +105,7 @@ def interp_closed_path(xy_points: list[tuple[int, int]], n_points: int) -> MatPa
 def example_smart_spiral(
     sample_name: str = "lobed",
 ) -> tuple[FakeSample, scan_planners.ScanPlanner]:
-    """
-    Run an example scan and return the sample scanned and the planner object
+    """Run an example scan and return the sample scanned and the planner object
     after scan is complete
     """
     xy_sample_points = load_sample_points(sample_name)
@@ -135,8 +126,7 @@ def example_smart_spiral(
 
 
 def profile_and_save_plot_for_example_smart_spiral():
-    """
-    Run the example scan and save a plot and the profile data
+    """Run the example scan and save a plot and the profile data
     Also print the cumulative stats
 
 
@@ -162,8 +152,7 @@ def profile_and_save_plot_for_example_smart_spiral():
 
 
 def update_example_smart_spiral_pickle(sample_name: str):
-    """
-    Pickle the ScanPlanner for the example_smart_spiral(),
+    """Pickle the ScanPlanner for the example_smart_spiral(),
     this is done so the history can be compared by testing to check
     the algorithm is unchanged.
 
@@ -182,8 +171,7 @@ def update_example_smart_spiral_pickle(sample_name: str):
 def get_expected_result_for_example_smart_spiral(
     sample_name: str,
 ) -> scan_planners.ScanPlanner:
-    """
-    Return the expected ScanPlanner object for the example_smart_spiral(),
+    """Return the expected ScanPlanner object for the example_smart_spiral(),
     this is pickled, so that it can be committed.
     """
     pkl_fname = os.path.join(THIS_DIR, f"example_smart_spiral_{sample_name}.pkl")

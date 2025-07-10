@@ -1,5 +1,4 @@
-"""
-OpenFlexure Settings Management
+"""OpenFlexure Settings Management
 
 This module provides some settings management across the other Things, and
 for code that currently lives in clients but needs to persist settings on

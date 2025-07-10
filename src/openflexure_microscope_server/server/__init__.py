@@ -14,8 +14,7 @@ from ..logging import configure_logging, retrieve_log, retrieve_log_from_file
 
 
 def set_shutdown_function(shutdown_function: Callable[[], None]):
-    """
-    Ensure a function is called before the shutdown
+    """Ensure a function is called before the shutdown
 
     This monkey patches the Uvicorn Server's handle_exit. This is needed because
     the uvicorn ``lifecycle`` events and FastAPI ``shutdown`` events only fire once
@@ -52,8 +51,7 @@ def customise_server(
 
 
 def _get_scans_dir(config: dict) -> Optional[str]:
-    """
-    Read the config and return the scans directory.
+    """Read the config and return the scans directory.
 
     Return is None if there is no /smart_scan/ thing loaded.
     """
