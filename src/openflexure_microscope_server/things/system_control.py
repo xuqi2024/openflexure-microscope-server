@@ -1,5 +1,4 @@
-"""
-OpenFlexure Microscope system control Thing
+"""OpenFlexure Microscope system control Thing.
 
 This module defines a Thing that can shut down or restart the host computer.
 """
@@ -16,15 +15,11 @@ class CommandOutput(BaseModel):
 
 
 class SystemControlThing(lt.Thing):
-    """
-    Attempt to shutdown the device
-    """
+    """Attempt to shutdown the device."""
 
     @lt.thing_action
     def shutdown(self) -> CommandOutput:
-        """
-        Attempt to shutdown the device
-        """
+        """Attempt to shutdown the device."""
         p = subprocess.Popen(
             ["sudo", "shutdown", "-h", "now"],
             stderr=subprocess.PIPE,
@@ -36,14 +31,12 @@ class SystemControlThing(lt.Thing):
 
     @lt.thing_property
     def is_raspberrypi() -> bool:
-        """
-        Checks if we are running on a Raspberry Pi.
-        """
+        """Return True if running on a Raspberry Pi."""
         return os.path.exists("/usr/bin/raspi-config")
 
     @lt.thing_action
     def reboot(self) -> CommandOutput:
-        """Attempt to reboot the device"""
+        """Attempt to reboot the device."""
         p = subprocess.Popen(
             ["sudo", "shutdown", "-r", "now"],
             stderr=subprocess.PIPE,

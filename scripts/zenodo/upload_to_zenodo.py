@@ -1,3 +1,5 @@
+"""A script for uploading data to Zenodo."""
+
 import os
 from argparse import ArgumentParser, Namespace
 from zenodo import Zenodo
@@ -25,7 +27,7 @@ def parse_arguments() -> Namespace:
 
 
 def script_directory(path):
-    """resolves path to directory of the current script"""
+    """Resolve path to directory of the current script."""
     return os.path.join(os.path.dirname(os.path.realpath(__file__)), path)
 
 

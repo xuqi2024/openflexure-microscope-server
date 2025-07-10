@@ -1,5 +1,4 @@
-"""
-Test the SmartScanThing *without* connecting it to a LabThings Server.
+"""Test the SmartScanThing *without* connecting it to a LabThings Server.
 
 By testing without connecting to the LabThings server it is possible to
 directly poll any properties and to start any methods.
@@ -42,14 +41,14 @@ SCAN_DIR = os.path.join(tempfile.gettempdir(), "scans")
 
 
 def _clear_scan_dir() -> None:
-    """Delete the scan dir"""
+    """Delete the scan dir."""
     if os.path.exists(SCAN_DIR):
         shutil.rmtree(SCAN_DIR)
 
 
 @pytest.fixture
 def smart_scan_thing():
-    """Return a smart scan thing as a fixture"""
+    """Return a smart scan thing as a fixture."""
     return SmartScanThing(SCAN_DIR)
 
 
@@ -64,8 +63,11 @@ def test_initial_properties(smart_scan_thing):
 
 
 def test_inaccessible_scan_methods(smart_scan_thing):
-    """The @_scan_running decorator should make some methods
-    inaccessible unless a scan is running"""
+    """Test that method with @_scan_running decorator is inaccessible.
+
+    The @_scan_running decorator makes these functions inacessible unless
+    a scan is running.
+    """
     with pytest.raises(ScanNotRunningError):
         smart_scan_thing._run_scan()
     with pytest.raises(ScanNotRunningError):
@@ -73,8 +75,7 @@ def test_inaccessible_scan_methods(smart_scan_thing):
 
 
 def test_private_delete_scan(smart_scan_thing, caplog):
-    """Test the private _delete_scan method deletes directories or warns if it can't"""
-
+    """Test the private _delete_scan method deletes directories or warns if it can't."""
     _clear_scan_dir()
     with caplog.at_level(logging.INFO):
         fake_scan_name = "fake_scan_0001"
@@ -100,8 +101,7 @@ def test_private_delete_scan(smart_scan_thing, caplog):
 
 
 def test_public_delete_scan(smart_scan_thing, caplog):
-    """Test the delete_scan API call deletes directories or warns if it can't"""
-
+    """Test the delete_scan API call deletes directories or warns if it can't."""
     _clear_scan_dir()
     with caplog.at_level(logging.INFO):
         fake_scan_name = "fake_scan_0001"
@@ -152,8 +152,7 @@ def test_delete_all_scans(smart_scan_thing, caplog):
 
 
 def _run_only_outer_scan(adjust_inital_state: Optional[Callable] = None):
-    """
-    Create a subclass of SmartScanThing to mock _run_scan and run sample_scan
+    """Create a subclass of SmartScanThing to mock _run_scan and run sample_scan.
 
     This should do all the set up for a scan, move into the mocked
     _run_scan method where this can be tested. Once this is done
@@ -166,7 +165,6 @@ def _run_only_outer_scan(adjust_inital_state: Optional[Callable] = None):
     This seems hard to do with a fixture so it is being done with a private
     function
     """
-
     # cancel handle shouldn't be used. Set to arbitrary value for checking
     cancel_mock = 1  # not called
     af_mock = MockAutoFocusThing()
@@ -177,16 +175,10 @@ def _run_only_outer_scan(adjust_inital_state: Optional[Callable] = None):
     bkgrnd_det_mock = MockBackgoundDetectThing()
 
     class MockedSmartScanThing(SmartScanThing):
-        """
-        This is a subclass of SmartScanThing with a mocked method and
-        mocked thing_settings.
-        """
+        """Mocked version of SmartScanThing with a patched _run_scan method."""
 
         # Counter for checking functions were called
         mock_call_count = {"_run_scan": 0}
-
-        # Mock thing settings as a dictionary
-        thing_settings = {"skip_background": True}
 
         def _run_scan(self):
             self.mock_call_count["_run_scan"] += 1

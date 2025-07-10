@@ -1,3 +1,9 @@
+"""Test the scan planning algorithms of the Microscope.
+
+As well as low level function by function tests, this test suite also provides tests
+that simulate scanning a sample, checking that the expected path is followed.
+"""
+
 import pytest
 from copy import copy
 
@@ -96,11 +102,11 @@ def test_bad_smart_spiral_settings():
 
 
 def test_smart_spiral_first_few_pos():
-    """
-    This test is  VERY long, not really a "unit". It checks step-by-step
-    that data is added correctly for the first few postions in a scan.
+    """Test for correct data addition during initial scan positions.
 
-    This should catch basic cases of if the algorithm is updated.
+    This is a very long test, not strictly a "unit" test. It checks step by step
+    that data is added correctly for the first few positions in a scan. It is
+    intended to catch basic issues if the algorithm is updated.
     """
     intial_position = (100, 50)
     planner_settings = {"dx": 50, "dy": 50, "max_dist": 10000}
@@ -206,12 +212,7 @@ def test_smart_spiral_stops_on_max_dist():
 
 
 def test_mark_wrong_location():
-    """
-    This test is  VERY long, not really a "unit". It checks step-by-step
-    that data is added correctly for the first few postions in a scan.
-
-    This should catch basic caseses of if the algorithm is updated.
-    """
+    """Check that an error is raised if a scan marks the wrong location as visited."""
     intial_position = (100, 50)
     planner_settings = {"dx": 50, "dy": 50, "max_dist": 10000}
     # Create a planner
@@ -227,9 +228,10 @@ def test_mark_wrong_location():
 
 
 def test_closest_focus_wth_large_numbers():
-    """
-    The number of steps gets very large in reality runs some tests to check
-    that everything works well with huge numbers of steps
+    """Tests to check that everything works well with huge numbers of steps.
+
+    The number of steps gets very large on the micorscope. But most of the tests
+    above use smaller numbers for clarity.
     """
     intial_position = (0, 0)
     # Set this up, but we won't use the settings
@@ -253,11 +255,19 @@ def test_closest_focus_wth_large_numbers():
 
 
 def test_example_smart_spiral():
-    """Test the smart spiral scan algorithm on the sample types listed
-    below and defined in scan_test_helpers.load_sample_points
+    """Test the smart spiral scan algorithm on the different sample types.
 
-    Will fail if the locations or path between locations visited has changed
-    for any of the samples listed"""
+    The sample types:
+
+    * ``regular``
+    * ``lobed``
+    * ``core"``
+
+    These are defined in scan_test_helpers.load_sample_points
+
+    This will fail if the locations or path between locations visited has changed
+    for any of the samples listed.
+    """
     example_samples = [
         "regular",
         "lobed",
