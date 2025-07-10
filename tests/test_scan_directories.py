@@ -1,3 +1,5 @@
+"""Test the functionality in the scan_directories module."""
+
 import tempfile
 import os
 import math
@@ -28,13 +30,13 @@ BASE_SCAN_DIR = os.path.join(tempfile.gettempdir(), "scans")
 
 
 def _clear_scan_dir() -> None:
-    """Delete the scan dir"""
+    """Delete the scan dir."""
     if os.path.exists(BASE_SCAN_DIR):
         shutil.rmtree(BASE_SCAN_DIR)
 
 
 def _add_fake_image(scan_dir: ScanDirectory) -> None:
-    """Make a fake image on disk in the scan directory"""
+    """Make a fake image on disk in the scan directory."""
     unique = False
     while not unique:
         x_pos = random.randint(-10000, 10000)
@@ -63,12 +65,11 @@ def _add_fake_file(
 
 
 def _make_fake_dzi(scan_dir: ScanDirectory, n_layers: int = 8) -> None:
-    """Create a fake DZI in a scan
+    """Create a fake DZI in a scan.
 
     :param n_layers: The number of layers of tiles. I.e. tile directories numbered
         0...(n_layers-1) will be created. Default 8
     """
-
     # Add an a dzi image
     dzi_fname = scan_dir.name + ".dzi"
     dzi_path = os.path.join(scan_dir.images_dir, dzi_fname)
@@ -97,7 +98,7 @@ def _make_fake_dzi(scan_dir: ScanDirectory, n_layers: int = 8) -> None:
 
 
 def test_basic_directory_operations():
-    """Test some basic operations
+    """Test some basic operations.
 
     Test some basic operations, including:
     - ScanDirectoryManager creates a scan directory
@@ -157,9 +158,7 @@ def test_basic_directory_operations():
 
 
 def test_scan_sequence_and_listing():
-    """
-    Check created scans are added in order and listed correctly
-    """
+    """Check created scans are added in order and listed correctly."""
     _clear_scan_dir()
     scan_dir_manager = ScanDirectoryManager(BASE_SCAN_DIR)
     # Make 4 scans
@@ -186,10 +185,7 @@ def test_scan_sequence_and_listing():
 
 
 def test_scan_name_non_sequential():
-    """
-    Check created scans is the correct name if the directories
-    are not sequential
-    """
+    """Check new scan has the correct name if the directories are not sequential."""
     _clear_scan_dir()
     os.makedirs(os.path.join(BASE_SCAN_DIR, "fake_scan_0001"))
     os.makedirs(os.path.join(BASE_SCAN_DIR, "fake_scan_0002"))
@@ -214,9 +210,7 @@ def test_scan_name_non_sequential():
 
 
 def test_all_scan_names_taken():
-    """
-    If the next sequential scan name needs more than 4 digits check error is thrown.
-    """
+    """If the next sequential scan name needs more than 4 digits check error is thrown."""
     _clear_scan_dir()
     os.makedirs(os.path.join(BASE_SCAN_DIR, "fake_scan_9999"))
     scan_dir_manager = ScanDirectoryManager(BASE_SCAN_DIR)
@@ -225,9 +219,7 @@ def test_all_scan_names_taken():
 
 
 def test_no_scan_names_given():
-    """
-    Check correct default scan name is used if empty string is given
-    """
+    """Check correct default scan name is used if empty string is given."""
     _clear_scan_dir()
     scan_dir_manager = ScanDirectoryManager(BASE_SCAN_DIR)
     scan_dir = scan_dir_manager.new_scan_dir("")
@@ -235,7 +227,7 @@ def test_no_scan_names_given():
 
 
 def test_scan_info():
-    """Test the scan info is correct even using fake scan data"""
+    """Test the scan info is correct even using fake scan data."""
     _clear_scan_dir()
     scan_dir_manager = ScanDirectoryManager(BASE_SCAN_DIR)
     scan_dir = scan_dir_manager.new_scan_dir("fake_scan")
@@ -262,7 +254,7 @@ def test_scan_info():
 
 
 def test_get_final_stitch():
-    """Check that the final stitch can be retrieved"""
+    """Check that the final stitch can be retrieved."""
     _clear_scan_dir()
     scan_dir_manager = ScanDirectoryManager(BASE_SCAN_DIR)
     scan_dir = scan_dir_manager.new_scan_dir("fake_scan")
@@ -290,7 +282,7 @@ def test_get_final_stitch():
 
 
 def test_empty_scan_info():
-    """Test the scan info is correct even if the scan is empty"""
+    """Test the scan info is correct even if the scan is empty."""
     _clear_scan_dir()
     scan_dir_manager = ScanDirectoryManager(BASE_SCAN_DIR)
     scan_dir = scan_dir_manager.new_scan_dir("fake_scan")
@@ -308,8 +300,7 @@ def test_empty_scan_info():
 
 
 def test_zipping_scan_data():
-    """Test zipping the scan images with fake image data"""
-
+    """Test zipping the scan images with fake image data."""
     # Run twice, once calling the ScanDirectory directly,
     # Once calling the ScanDirectoryManager
     for caller in ["scan_dir", "manager"]:
@@ -349,7 +340,7 @@ def test_zipping_scan_data():
 
 
 def test_all_files():
-    """Test all_files returns the path, and respects skipped directories"""
+    """Test all_files returns the path, and respects skipped directories."""
     _clear_scan_dir()
     scan_dir_manager = ScanDirectoryManager(BASE_SCAN_DIR)
     scan_dir = scan_dir_manager.new_scan_dir("fake_scan")
@@ -404,7 +395,7 @@ def test_none_returned_for_missing_images_dir():
 
 
 def test_extracting_files():
-    """Test the private _find_files method of ScanDirectories
+    """Test the private _find_files method of ScanDirectories.
 
     Add files to directory and check expected returns.
     """
@@ -456,7 +447,7 @@ DiskUsage = namedtuple("DiskUsage", ["total", "used", "free"])
 
 @pytest.mark.parametrize("free_space", [500_000_001, 700_000_000, 5_000_000_000])
 def test_disk_not_full(mocker, free_space):
-    """Check no error thrown if disk has over 500MB of space"""
+    """Check no error thrown if disk has over 500MB of space."""
     total_space = 16_000_000_000
     # Mock the disk_usage
     mocker.patch(
@@ -472,7 +463,7 @@ def test_disk_not_full(mocker, free_space):
 
 @pytest.mark.parametrize("free_space", [100_000_000, 499_999_999])
 def test_disk_full(mocker, free_space):
-    """Check error thrown if disk has under 500MB of space"""
+    """Check error thrown if disk has under 500MB of space."""
     total_space = 16_000_000_000
     # Mock the disk_usage
     mocker.patch(

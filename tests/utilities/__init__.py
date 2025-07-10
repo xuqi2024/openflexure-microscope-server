@@ -1,8 +1,7 @@
-"""
-This sub-package contains utilities that help with testing and debugging.
+"""Utilities for testing and debugging.
 
-At the top level are some very basic testing functions, more specific testing
-is provided by modules inside the package.
+At the top level are some basic testing functions. More specific testing utilities are
+provided by modules inside the package.
 """
 
 from typing import Protocol, Iterable
@@ -10,9 +9,10 @@ from collections.abc import Hashable
 
 
 class SizedIterableHashable(Iterable[Hashable], Protocol):
-    """A protocol for sized iterable of hashable objects"""
+    """A protocol for sized iterable of hashable objects."""
 
-    def __len__(self) -> int: ...
+    def __len__(self) -> int:
+        """Add a len function to protocol so Python knows the object is sized."""
 
 
 def assert_unique_of_length(data: SizedIterableHashable, length: int) -> None:

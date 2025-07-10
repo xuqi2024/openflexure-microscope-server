@@ -1,4 +1,4 @@
-"""OpenFlexure Microscope OpenCV Camera
+"""OpenFlexure Microscope OpenCV Camera.
 
 This module defines a Thing that is responsible for using the stage and
 camera together to perform an autofocus routine.
@@ -30,7 +30,7 @@ RATIO = 0.2
 
 
 class SimulatedCamera(BaseCamera):
-    """A Thing representing an OpenCV camera"""
+    """A Thing that simulates a camera for testing."""
 
     _stage: Optional[BaseStage] = None
     _server: Optional[lt.ThingServer] = None
@@ -42,6 +42,16 @@ class SimulatedCamera(BaseCamera):
         canvas_shape: tuple[int, int, int] = (3000, 4000, 3),
         frame_interval: float = 0.1,
     ):
+        """Initialise the simulated with settings for how images are generated.
+
+        :param shape: The shape (size) of the generated image.
+        :param glyph_shape: The size randomly positioned glyphs.
+        :param canvas_shape: The shape (size) of the canvas generated on initialisation
+            that images are cropped from. If this is too large the it uses resources,
+            but its size limits the range of motion of the simulation.
+        :param frame_interval: Nominally the time between frames on the MJPEG stream,
+            however the rate may be slower due to calculation time for focus.
+        """
         self.shape = shape
         self.glyph_shape = glyph_shape
         self.canvas_shape = canvas_shape
@@ -53,7 +63,7 @@ class SimulatedCamera(BaseCamera):
         self.generate_canvas()
 
     def generate_sprites(self):
-        """Generate sprites to populate the image"""
+        """Generate sprites to populate the image."""
         self.sprites = []
         black = np.zeros(self.glyph_shape, dtype=np.uint8)
         x = np.arange(black.shape[0])
@@ -65,7 +75,7 @@ class SimulatedCamera(BaseCamera):
             self.sprites.append(sprite)
 
     def generate_blobs(self, n_blobs: int = 1000):
-        """Generate coordinates of blobs
+        """Generate coordinates of blobs.
 
         Blobs are characterised by X, Y, sprite
         We also generate a KD tree to rapidly find blobs in an image
@@ -78,7 +88,7 @@ class SimulatedCamera(BaseCamera):
         self.blobs[:, 2] = rng.choice(len(self.sprites), n_blobs)
 
     def generate_canvas(self):
-        """Generate a blank canvas"""
+        """Generate a blank canvas."""
         self.canvas = np.zeros(self.canvas_shape, dtype=np.uint8)
         self.canvas[...] = 255
         w, h, _ = self.glyph_shape
@@ -89,7 +99,7 @@ class SimulatedCamera(BaseCamera):
             ] -= self.sprites[int(sprite)]
 
     def generate_image(self, pos: tuple[int, int, int]):
-        """Generate an image with blobs based on supplied coordinates"""
+        """Generate an image with blobs based on supplied coordinates."""
         canvas_width, canvas_height, _ = self.canvas_shape
         image_width, image_height, _ = self.shape
         pos = tuple(x * RATIO for x in pos)
@@ -115,16 +125,26 @@ class SimulatedCamera(BaseCamera):
     def attach_to_server(
         self, server: lt.ThingServer, path: str, setting_storage_path: str
     ):
+        """Wrap the attach_to_server method so the server instance can be stored.
+
+        Direct access to the server instance is needed to get the stage position while
+        maintaining the same public API as a real camera that doesn't need this access.
+        """
         self._server = server
         return super().attach_to_server(server, path, setting_storage_path)
 
     def get_stage_position(self):
+        """Return the stage position.
+
+        The simulation camera has access to the stage position so it can generate a
+        different image as the stage moves.
+        """
         if not self._stage and self._server:
             self._stage = self._server.things["/stage/"]
         return self._stage.instantaneous_position
 
     def generate_frame(self):
-        """Generate a frame with blobs based on the stage coordinates"""
+        """Generate a frame with blobs based on the stage coordinates."""
         try:
             pos = self.get_stage_position()
         except Exception as e:
@@ -133,19 +153,21 @@ class SimulatedCamera(BaseCamera):
         return self.generate_image((pos["y"], pos["x"], pos["z"]))
 
     def __enter__(self):
+        """Start the capture thread when the Thing context manager is opened."""
         self._capture_enabled = True
         self._capture_thread = Thread(target=self._capture_frames)
         self._capture_thread.start()
         return self
 
     def __exit__(self, _exc_type, _exc_value, _traceback):
+        """Close the capture thread when the Thing context manager is closed."""
         if self.stream_active:
             self._capture_enabled = False
             self._capture_thread.join()
 
     @lt.thing_property
     def stream_active(self) -> bool:
-        "Whether the MJPEG stream is active"
+        """Whether the MJPEG stream is active."""
         if self._capture_enabled and self._capture_thread:
             return self._capture_thread.is_alive()
         return False
@@ -170,13 +192,13 @@ class SimulatedCamera(BaseCamera):
         self,
         resolution: Literal["main", "full"] = "full",
     ) -> ArrayModel:
-        """Acquire one image from the camera and return as an array
+        """Acquire one image from the camera and return as an array.
 
         This function will produce a nested list containing an uncompressed RGB image.
         It's likely to be highly inefficient - raw and/or uncompressed captures using
         binary image formats will be added in due course.
         """
-        logging.warning(f"Simulation camera doen't respect {resolution} setting")
+        logging.warning(f"Simulation camera doesn't respect {resolution} setting")
         return self.generate_frame()
 
     @lt.thing_action
@@ -185,11 +207,11 @@ class SimulatedCamera(BaseCamera):
         metadata_getter: lt.deps.GetThingStates,
         resolution: Literal["main", "full"] = "main",
     ) -> JPEGBlob:
-        """Acquire one image from the camera and return as a JPEG blob
+        """Acquire one image from the camera and return as a JPEG blob.
 
         This function will produce a JPEG image.
         """
-        logging.warning(f"Simulation camera doen't respect {resolution} setting")
+        logging.warning(f"Simulation camera doesn't respect {resolution} setting")
         frame = self.capture_array()
         jpeg = cv2.imencode(".jpg", frame)[1].tobytes()
         exif_dict = {

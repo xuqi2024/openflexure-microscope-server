@@ -1,3 +1,9 @@
+"""Test the scan planning algorithms of the Microscope.
+
+As well as low level function by function tests, this test suite also provides tests
+that simulate scanning a sample, checking that the expected path is followed.
+"""
+
 import pytest
 from copy import copy
 
@@ -6,6 +12,7 @@ from .utilities import scan_test_helpers
 
 
 def test_enforce_xy_tuple():
+    """Check that 2 value tuples (or ValueErrors) are always returned."""
     bad_len_vals = [[1], [], (1,), (2, 4, 4), [1, 4, 5, 7]]
     bad_type_vals = ["hi", 1, {"this": "that"}, {1, 2}]
     for value in bad_len_vals + bad_type_vals:
@@ -17,6 +24,7 @@ def test_enforce_xy_tuple():
 
 
 def test_enforce_xyz_tuple():
+    """Check that 3 value tuples (or ValueErrors) are always returned."""
     bad_len_vals = [[1], [], (1,), (2, 4), [1, 4, 5, 7]]
     bad_type_vals = ["hi!", 1, {"this": "that"}, {1, 2, 3}]
     for value in bad_len_vals + bad_type_vals:
@@ -28,23 +36,25 @@ def test_enforce_xyz_tuple():
 
 
 def test_base_class_not_implemented():
-    intial_position = (100, 50)
+    """Check NotImplementedError is raised when initialising ScanPlanner directly."""
+    initial_position = (100, 50)
     with pytest.raises(NotImplementedError):
-        scan_planners.ScanPlanner(intial_position=intial_position)
+        scan_planners.ScanPlanner(initial_position=initial_position)
 
 
 def test_v_basic_smart_spiral():
-    intial_position = (100, 50)
+    """Check that a SmartSpiral where the first image is not sample completes."""
+    initial_position = (100, 50)
     planner_settings = {"dx": 50, "dy": 50, "max_dist": 10000}
     planner = scan_planners.SmartSpiral(
-        intial_position=intial_position, planner_settings=planner_settings
+        initial_position=initial_position, planner_settings=planner_settings
     )
     # Create a planner. It shouldn't be complete.
     assert not planner.scan_complete
-    # When we start it should want to stay in the inital pos and have
+    # When we start it should want to stay in the initial pos and have
     # no z_estimate
     xy_pos, z_pos = planner.get_next_location_and_z_estimate()
-    assert xy_pos == intial_position
+    assert xy_pos == initial_position
     assert z_pos is None
 
     # Try to mark location as imaged with only xy_position
@@ -65,11 +75,12 @@ def test_v_basic_smart_spiral():
 
 
 def test_bad_smart_spiral_settings():
-    intial_position = (100, 50)
+    """Check that KeyError is raised when SmartSpiral is given bad settings."""
+    initial_position = (100, 50)
 
     # Class init should raise error if no planner_settings dictionary set
     with pytest.raises(ValueError):
-        scan_planners.SmartSpiral(intial_position=intial_position)
+        scan_planners.SmartSpiral(initial_position=initial_position)
 
     planner_settings = {"dx": 50, "dy": 50, "max_dist": 10000}
     keys = ["dx", "dy", "max_dist"]
@@ -80,7 +91,7 @@ def test_bad_smart_spiral_settings():
         del bad_planner_settings[delkey]
         with pytest.raises(KeyError):
             scan_planners.SmartSpiral(
-                intial_position=intial_position, planner_settings=bad_planner_settings
+                initial_position=initial_position, planner_settings=bad_planner_settings
             )
 
     # Class init should raise error if planner_settings if any value can't be cast
@@ -91,29 +102,29 @@ def test_bad_smart_spiral_settings():
         bad_planner_settings[badkey] = "I can't be converted to an int"
         with pytest.raises(ValueError):
             scan_planners.SmartSpiral(
-                intial_position=intial_position, planner_settings=bad_planner_settings
+                initial_position=initial_position, planner_settings=bad_planner_settings
             )
 
 
 def test_smart_spiral_first_few_pos():
-    """
-    This test is  VERY long, not really a "unit". It checks step-by-step
-    that data is added correctly for the first few postions in a scan.
+    """Test for correct data addition during initial scan positions.
 
-    This should catch basic cases of if the algorithm is updated.
+    This is a very long test, not strictly a "unit" test. It checks step by step
+    that data is added correctly for the first few positions in a scan. It is
+    intended to catch basic issues if the algorithm is updated.
     """
-    intial_position = (100, 50)
+    initial_position = (100, 50)
     planner_settings = {"dx": 50, "dy": 50, "max_dist": 10000}
     # Create a planner
     planner = scan_planners.SmartSpiral(
-        intial_position=intial_position, planner_settings=planner_settings
+        initial_position=initial_position, planner_settings=planner_settings
     )
     # it shouldn't start complete
     assert not planner.scan_complete
-    # When we start it should want to stay in the inital pos and have
+    # When we start it should want to stay in the initial pos and have
     # no z_estimate
     xy_pos1, z_pos1 = planner.get_next_location_and_z_estimate()
-    assert xy_pos1 == intial_position
+    assert xy_pos1 == initial_position
     assert z_pos1 is None
     # Set a focus value
     z_focus = 10
@@ -189,11 +200,12 @@ def test_smart_spiral_first_few_pos():
 
 
 def test_smart_spiral_stops_on_max_dist():
-    intial_position = (0, 0)
+    """Test that if max distance is reached smart spiral really does stop."""
+    initial_position = (0, 0)
     planner_settings = {"dx": 100, "dy": 100, "max_dist": 1000}
     # Create a planner
     planner = scan_planners.SmartSpiral(
-        intial_position=intial_position, planner_settings=planner_settings
+        initial_position=initial_position, planner_settings=planner_settings
     )
     while not planner.scan_complete:
         xy_pos, _ = planner.get_next_location_and_z_estimate()
@@ -206,17 +218,12 @@ def test_smart_spiral_stops_on_max_dist():
 
 
 def test_mark_wrong_location():
-    """
-    This test is  VERY long, not really a "unit". It checks step-by-step
-    that data is added correctly for the first few postions in a scan.
-
-    This should catch basic caseses of if the algorithm is updated.
-    """
-    intial_position = (100, 50)
+    """Check that an error is raised if a scan marks the wrong location as visited."""
+    initial_position = (100, 50)
     planner_settings = {"dx": 50, "dy": 50, "max_dist": 10000}
     # Create a planner
     planner = scan_planners.SmartSpiral(
-        intial_position=intial_position, planner_settings=planner_settings
+        initial_position=initial_position, planner_settings=planner_settings
     )
 
     xy_pos, _ = planner.get_next_location_and_z_estimate()
@@ -226,17 +233,18 @@ def test_mark_wrong_location():
         planner.mark_location_visited(wrong_xyz_pos, imaged=True, focused=True)
 
 
-def test_closest_focus_wth_large_numbers():
+def test_closest_focus_with_large_numbers():
+    """Tests to check that everything works well with huge numbers of steps.
+
+    The number of steps gets very large on the micorscope. But most of the tests
+    above use smaller numbers for clarity.
     """
-    The number of steps gets very large in reality runs some tests to check
-    that everything works well with huge numbers of steps
-    """
-    intial_position = (0, 0)
+    initial_position = (0, 0)
     # Set this up, but we won't use the settings
     planner_settings = {"dx": 10000, "dy": 10000, "max_dist": 100000}
     # Create a planner
     planner = scan_planners.SmartSpiral(
-        intial_position=intial_position, planner_settings=planner_settings
+        initial_position=initial_position, planner_settings=planner_settings
     )
     # Directly overwrite the private focussed locations list for test
 
@@ -253,11 +261,19 @@ def test_closest_focus_wth_large_numbers():
 
 
 def test_example_smart_spiral():
-    """Test the smart spiral scan algorithm on the sample types listed
-    below and defined in scan_test_helpers.load_sample_points
+    """Test the smart spiral scan algorithm on the different sample types.
 
-    Will fail if the locations or path between locations visited has changed
-    for any of the samples listed"""
+    The sample types:
+
+    * ``regular``
+    * ``lobed``
+    * ``core"``
+
+    These are defined in scan_test_helpers.load_sample_points
+
+    This will fail if the locations or path between locations visited has changed
+    for any of the samples listed.
+    """
     example_samples = [
         "regular",
         "lobed",
