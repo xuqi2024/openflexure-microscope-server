@@ -1,5 +1,4 @@
-"""
-Check exposure times do not drift.
+"""Check exposure times do not drift.
 
 This can get very tedious. Recommend running pytest with -s option
 to monitor progress.
@@ -19,8 +18,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 def _test_exposure_time_drift(desired_time):
-    """
-    Capture 10 full resolution images and check that the exposure time remains constant
+    """Capture 10 full resolution images and check that the exposure time remains constant.
 
     This confirms that automatic exposure time adjustment is fully turned off
     """
@@ -64,8 +62,6 @@ def _test_exposure_time_drift(desired_time):
 
 
 def test_exposure_time_drift():
-    """
-    Performs the exposure time test for a range of exposure time values.
-    """
+    """Performs the exposure time test for a range of exposure time values."""
     for desired_time in [100, 1000, 10000]:
         _test_exposure_time_drift(desired_time)

@@ -40,6 +40,7 @@ dev = [
   "pytest-mock==3.14",
   "matplotlib~=3.10",
   "hypothesis",
+  "pydoctor"
 ]
 pi = [
   "picamera2~=0.3.27",
@@ -118,10 +119,25 @@ select = [
     "C90", # McCabe complexity!
     "NPY", # Numpy linting
     "N", # PEP8 naming
-#    "D", # Docstring checks these may need to be added gradually
+    "D", # Docstring checks these may need to be added gradually
     "ERA001", # Commented out code!
 ]
 
 ignore = [
-    "E501" # Ignore long lines for now
+    "E501", # Ignore long lines for now
+    "D203",  # incompatible with D204
+    "D213",  # incompatible with D212
+    "D400",  # A stricter version of #415 that doesn't allow !
+    # The checkers below should be turned on as they complain about missing docstrings.
+    "D102",
+    "D101",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
 ]
+
+[tool.ruff.lint.pydocstyle]
+# This lets the D401 checker understand that decorated thing properties and thing
+# settings act like properties so should be documented as such.
+property-decorators = ["labthings_fastapi.thing_property", "labthings_fastapi.thing_setting"]
