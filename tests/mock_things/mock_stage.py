@@ -1,10 +1,10 @@
-"""This testing submodule contains stage things.
+"""Testing submodule with mocks StageThings.
 
-These mocks are designed to be inserted as dependencies to give specific
-functionality and returns.
+These mocks are designed to be inserted as dependencies to provide specific
+functionality and return values.
 
-The mocks do not subclass, and instead return very specific defined answers
-to functions
+The mocks do not subclass existing Things. Instead, they return predefined
+answers to functions.
 """
 
 

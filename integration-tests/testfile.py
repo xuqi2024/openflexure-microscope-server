@@ -1,11 +1,10 @@
 #! /usr/bin/env python3
-"""This module fires up a server in a subprocess to allow for integration tests.
+"""Start a server subprocess for integration tests.
 
-These are separated from the unit tests to stop them artificially inflating the test
-coverage. For now this file should be run directly not with a test framework.
+These tests are separated from unit tests to avoid inflating test coverage.
+For now, this file should be run directly rather than through a test framework.
 
-These tests are designed to run on CI. They should work on Linux or WSL for local
-debugging.
+They are designed to run on CI and should work on Linux or WSL for local debugging.
 """
 
 from typing import Optional
@@ -31,7 +30,7 @@ SERVER_CMD: list[str] = [
 
 
 def main() -> None:
-    """Set up the server, run basic checks, shutdown, check for graceful exit
+    """Set up the server, run basic checks, shutdown, check for graceful exit.
 
     The basic checks include checks that:
       - The server boots
@@ -70,7 +69,7 @@ def main() -> None:
 
 
 def test_client_connection() -> None:
-    """Check a ThingClient can interact with the simulation microscope camera"""
+    """Check a ThingClient can interact with the simulation microscope camera."""
     print("Connecting Python client to microscope, and capturing image")
     cam_client = lt.ThingClient.from_url("http://localhost:5000/camera/")
     img = Image.open(cam_client.grab_jpeg().open())
@@ -82,7 +81,7 @@ def test_client_connection() -> None:
 def subscribe_to_mjpeg_stream() -> subprocess.Popen:
     """Start a background process subscribed to the mjpeg stream.
 
-    :return: The Popen object for the ongoing process.
+    :returns: The Popen object for the ongoing process.
 
     :raises: RuntimeError if the stream is not still connected after 2s
     """
@@ -125,12 +124,11 @@ def set_up_working_dir() -> None:
 
 
 def start_server() -> subprocess.Popen:
-    """
-    Start the server in a subprocess.
+    """Start the server in a subprocess.
 
     The server is started in a subprocess and all outputs are buffered.
 
-    :return: Popen object for the ongoing process
+    :returns: Popen object for the ongoing process
     """
     process = subprocess.Popen(
         SERVER_CMD,
@@ -156,7 +154,6 @@ def error_if_server_not_started(
 
     :raises RuntimeError: If the server is not running as expected.
     """
-
     confirmed_uvicorn_is_running = False
 
     t_start = time()
@@ -181,7 +178,7 @@ def error_if_server_not_started(
 
 
 def check_for_graceful_shutdown(server_process: subprocess.Popen) -> None:
-    """Check the server shutdown gracefully
+    """Check the server shutdown gracefully.
 
     Check the subprocess is not running
     Check the logs have no errors
@@ -204,7 +201,7 @@ def check_for_graceful_shutdown(server_process: subprocess.Popen) -> None:
 
 
 def read_process_buffers(process: subprocess.Popen) -> list[str]:
-    """Return STDOUT from a process"""
+    """Return STDOUT from a process."""
     stdout = []
 
     while line := process.stdout.readline():

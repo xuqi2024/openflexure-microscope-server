@@ -1,9 +1,5 @@
 #! /usr/bin/env python3
-
-"""
-A script to check that the npm version string matches the python
-version string exactly.
-"""
+"""Check that the npm version string matches the Python version string exactly."""
 
 import json
 import tomllib

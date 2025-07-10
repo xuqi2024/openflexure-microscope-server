@@ -1,10 +1,10 @@
-"""This testing submodule contains mock camera stage mapping things.
+"""Testing submodule with mock Camera Stage Mapping Things.
 
-These mocks are designed to be inserted as dependencies to give specific
-functionality and returns.
+These mocks are designed to be inserted as dependencies to provide specific
+functionality and return values.
 
-The mocks do not subclass, and instead return very specific defined answers
-to functions
+The mocks do not subclass Things. Instead, they return predefined
+answers to functions.
 """
 
 

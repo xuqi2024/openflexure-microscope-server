@@ -1,3 +1,5 @@
+"""Add endpoints for static files to the underlying FastAPI server."""
+
 import os
 from typing import Optional
 
@@ -9,9 +11,10 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def add_static_file(app: FastAPI, fname: str, folder: str) -> None:
-    """Add a single file to the root of the FastAPI app
-    The file  with name `fname` will be mounted at `/fname` - the
-    `folder` does not affect where it is mounted in the app.
+    """Add a single file to the root of the FastAPI app.
+
+    The file  with name ``fname`` will be mounted at ``/fname`` - the
+    ``folder`` does not affect where it is mounted in the app.
 
     app: The FastAPI app to add to, in this case the OpenFlexure server
     fname: the name of the file to add
@@ -24,7 +27,7 @@ def add_static_file(app: FastAPI, fname: str, folder: str) -> None:
 
 
 def add_static_files(app: FastAPI, scans_folder: Optional[str]) -> None:
-    """Add the static files responsible for the webapp app to the FastAPI app
+    """Add the static files responsible for the webapp app to the FastAPI app.
 
     app: The FastAPI app to add to, in this case the OpenFlexure server
     """
