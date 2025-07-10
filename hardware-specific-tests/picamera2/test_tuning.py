@@ -46,7 +46,9 @@ def print_tuning(read_file: bool = False):
 
 
 def _test_bad_tuning_after_good_tuning(configure: bool = False):
-    """Load the default tuning file into the camera, re-load with a broken tuning file,
+    """Test loading good, bad, then another good tuning files in sequence.
+
+    Load the default tuning file into the camera, re-load with a broken tuning file,
     check it errors. Finally check the default tuning file will load again afterwards.
 
     :param configure: Boolean, set true to configure the camera on initial loading

@@ -127,10 +127,9 @@ ignore = [
     "E501", # Ignore long lines for now
     "D203",  # incompatible with D204
     "D213",  # incompatible with D212
+    "D400",  # A stricter version of #415
     # Below are checkers to be turned on gradually
-    "D205", # Force single line summary!
     "D415",
-    "D400",
     "D200",
     # These should be turned on before this MR is complete
     "D100",

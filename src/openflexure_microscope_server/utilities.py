@@ -43,8 +43,10 @@ class ErrorCapturingThread(Thread):
         )
 
     def join(self, timeout=None):
-        """Join when the thread is complete. If the thread ended due to an unhandled exception,
-        the exception will be raised when this method is called.
+        """Join when the thread is complete.
+
+        If the thread ended due to an unhandled exception, the exception will be raised
+        when this method is called.
         """
         super().join(timeout)
         # If there is an error in the error buffer clear the buffer and raise it

@@ -183,9 +183,7 @@ def test_scan_sequence_and_listing():
 
 
 def test_scan_name_non_sequential():
-    """Check created scans is the correct name if the directories
-    are not sequential
-    """
+    """Check new scan has the correct name if the directories are not sequential"""
     _clear_scan_dir()
     os.makedirs(os.path.join(BASE_SCAN_DIR, "fake_scan_0001"))
     os.makedirs(os.path.join(BASE_SCAN_DIR, "fake_scan_0002"))

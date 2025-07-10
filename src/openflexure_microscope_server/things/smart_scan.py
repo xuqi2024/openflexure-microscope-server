@@ -311,8 +311,9 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _save_scan_inputs_json(self):
-        """Save scan inputs as a JSON file in the scan folder, to allow
-        the user to review the settings used in the scan
+        """Save scan inputs as a JSON file in the scan folder.
+
+        This file allows the user to review the settings used in the scan.
         """
         # Should this be a method of the scan_data dataclass?
 
@@ -335,11 +336,10 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _update_scan_data_json(self, scan_result: str):
-        """Update scan data as a JSON file in the scan folder, with
-        data only known at the end of the scan.
+        """Update scan data JSON file with data only known at the end of the scan.
 
-        Takes scan_result, a string that is either "success",
-        "cancelled by user", or the error that ended the scan.
+        Takes scan_result, a string that is either "success", "cancelled by user",
+        or the error that ended the scan.
         """
         # Should this be a method of the scan_data dataclass?
         current_time = datetime.now().replace(microsecond=0)
@@ -378,10 +378,11 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _run_scan(self):
-        """Prepare and run the main scan, handling the threads performing
-        stitching. Uses the result (or exception) from the scanning to
-        determine whether the scan should be stitched and the microscope
-        should return to the starting x,y,z position
+        """Prepare and run the main scan, and perform final actions on completion.
+
+        The result (or exception) from the main scan loop determines whether the
+        scan should be stitched and whether  the microscope should return to the
+        starting x,y,z position.
         """
         # Used to check if finally was reached via exception (except
         # cancel by user)
@@ -765,8 +766,7 @@ class SmartScanThing(lt.Thing):
 
     @_scan_running
     def _preview_stitch_start(self, overlap: float) -> None:
-        """Start stitching a preview of the scan in a background subprocess
-
+        """Start stitching a preview of the scan in a background subprocess.
 
         This uses popen and returns immediately
 
@@ -954,8 +954,9 @@ class SmartScanThing(lt.Thing):
         self,
         scan_name: str,
     ):
-        """Update the zip to include the files left until the end, then return the
-        zip file as a Blob
+        """Return zip after including any files left until the end.
+
+        The zipfile is returned as a Blob.
         """
         zip_fname = self._scan_dir_manager.zip_scan(scan_name, final_version=True)
         return ZipBlob.from_file(zip_fname)

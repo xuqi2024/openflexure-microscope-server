@@ -46,7 +46,7 @@ def even_integers(min_value=0, max_value=1000):
     extra_ims=even_integers(min_value=0, max_value=10),
 )
 def test_stack_params_validation(save_ims, extra_ims):
-    """Tests specifically the validation on the image numbers
+    """Test the validation of the image numbers for a stack.
 
     save_ims is the number to save (must be odd and positive)
     extra_ims is how many more images there are in min_images_to_test than
@@ -68,8 +68,9 @@ def test_stack_params_validation(save_ims, extra_ims):
     extra_ims=even_integers(min_value=-10, max_value=-1),
 )
 def test_stack_params_not_enough_test_images(save_ims, extra_ims):
-    """Set the extra_ims negative so that min_images_to_test is smaller
-    than images_to_save.
+    """Test error is raised if min_images_to_test is smaller than images_to_save.
+
+    ``extra_ims`` negative so that min_images_to_test is smaller than images_to_save.
 
     For arguments see test_stack_params_validation
     """

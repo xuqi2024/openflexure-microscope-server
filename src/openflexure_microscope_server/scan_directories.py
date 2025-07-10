@@ -224,8 +224,9 @@ class ScanDirectory:
 
     @property
     def images_dir(self) -> Optional[str]:
-        """The path to the images directory. None is returned if no images directory
-        was created
+        """The path to the images directory.
+
+        None is returned if no images directory was created.
         """
         im_path = os.path.join(self.dir_path, IMG_DIR_NAME)
         if os.path.isdir(im_path):

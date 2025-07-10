@@ -62,8 +62,9 @@ class PicameraStreamOutput(Output):
 
 
 class SensorMode(BaseModel):
-    """A Pydantic model holding all the information about a specific
-    sensor mode as reported by the PiCamera.
+    """A Pydantic model holding all the information about a specific sensor mode.
+
+    This data is as reported by the PiCamera2 module.
     """
 
     unpacked: str
@@ -76,10 +77,11 @@ class SensorMode(BaseModel):
 
 
 class SensorModeSelector(BaseModel):
-    """A Pydantic model holding the two values needed to select a PiCamera
-    Sensor mode. The output size and the bit depth.
+    """A Pydantic model holding the two values needed to select a PiCamera Sensor mode.
 
-    This is a Pydantic modell so that it can be saved to the disk.
+    Theses values are the output size and the bit depth.
+
+    This is a Pydantic model so that it can be saved to disk.
     """
 
     output_size: tuple[int, int]

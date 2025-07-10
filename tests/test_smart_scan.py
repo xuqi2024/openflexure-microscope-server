@@ -63,8 +63,10 @@ def test_initial_properties(smart_scan_thing):
 
 
 def test_inaccessible_scan_methods(smart_scan_thing):
-    """The @_scan_running decorator should make some methods
-    inaccessible unless a scan is running
+    """Test that method with @_scan_running decorator is inaccessible.
+
+    The @_scan_running decorator makes these functions inacessible unless
+    a scan is running.
     """
     with pytest.raises(ScanNotRunningError):
         smart_scan_thing._run_scan()

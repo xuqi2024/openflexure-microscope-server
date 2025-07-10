@@ -477,12 +477,16 @@ def set_static_geq(
     tuning: dict,
     offset: int = 65535,
 ) -> None:
-    """Update the ``rpi.geq`` section of a camera tuning dict to always use green
-    equalisation that averages the green pixels in the red and blue rows.
+    """Update the ``rpi.geq`` section of a camera tuning dict.
 
-    ``tuning`` will be updated in-place to set the geq offest to the given value.
-    The default 65535 is the maximum allowed value. This means
-    the brightness will always be below the threshold where averaging is used.
+    :param tuning: the raspberry pi tuning file. This will be updated in-place to
+        set the geq offest to the given value.
+    :param offset: The desired green equalisation offset. Default 65535. The default is
+        the maximum allowed value. This means the brightness will always be below the
+        threshold where averaging is used. This is default as we always need the green
+        equalisation to averages the green pixels in the red and blue rows due to the
+        chief ray angle compensation issue when the the stock lens is replaced by an
+        objective.
     """
     geq = Picamera2.find_tuning_algo(tuning, "rpi.geq")
     geq["offset"] = offset  # max out offset to disable the adaptive green equalisation

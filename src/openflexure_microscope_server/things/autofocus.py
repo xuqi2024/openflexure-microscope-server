@@ -159,8 +159,7 @@ def _get_capture_by_id(captures: list[CaptureInfo], buffer_id: int) -> CaptureIn
 
 
 def _get_capture_index_by_id(captures: list[CaptureInfo], buffer_id: int) -> int:
-    """Return the index of the capture with the matching id from a list of CaptureInfo
-    objects
+    """Return the index of the capture with the matching id.
 
     :param captures: A list of capture objects
     :param buffer_id: The buffer id of the image to return
@@ -432,10 +431,13 @@ class AutofocusThing(lt.Thing):
         autofocus_dz: int,
         save_resolution: tuple[int, int],
     ) -> tuple[bool, int]:
-        """Run a smart stack, which captures images offset in z, testing
-        whether the sharpest image is towards the centre of the stack.
-        The sharpest image, and optionally images around the sharpest,
-        will be saved using their coordinates to images_dir
+        """Run a smart stack.
+
+        A smart stack captures images offset in z, testing whether the sharpest image
+        is towards the centre of the stack.
+
+        The sharpest image, and optionally images around the sharpest, will be saved
+        to the images_dir with their coordinates in the filename.
 
 
         :param cam: Camera Dependency supplied by LabThings dependency injection
@@ -506,15 +508,13 @@ class AutofocusThing(lt.Thing):
         stage: Stage,
         sharpness_monitor: SharpnessMonitorDep,
     ) -> None:
-        """Return to the initial height of the current stack, and run
-        a looping autofocus.
+        """Return to the initial z position and run a looping autofocus.
 
         :param initial_z_pos: The initial z positions of previous captures
         :param  autofocus_dz: the range in steps to autofocus
 
         ``stage`` and ``sharpness_monitor`` are Thing dependencies passed through
-        from the calling action
-
+        from the calling action.
         """
         stage.move_absolute(z=initial_z_pos)
         self.looping_autofocus(
@@ -530,8 +530,10 @@ class AutofocusThing(lt.Thing):
         stack_parameters: StackParams,
         cam: WrappedCamera,
     ) -> int:
-        """Save the required captures to disk. Will save the sharpest image,
-        and any images either side of focus.
+        """Save the required captures to disk.
+
+        This will save the sharpest image, and optionally extra images either
+        side of focus (see ``stack_parameters.images_to_save``).
 
         :param sharpest_id: the buffer id index of the sharpest image
         :param captures: a list of captures, including file name, image data and
@@ -559,8 +561,12 @@ class AutofocusThing(lt.Thing):
         cam: WrappedCamera,
         stage: Stage,
     ) -> tuple[bool, list[CaptureInfo], Optional[int]]:
-        """Capture a series of images offset by stack_parameters.stack_dz, and test whether
-        the sharpest image is towards the centre of the stack.
+        """Capture a series of images checking that sharpest image central
+
+        The images are seperated in z offset by stack_parameters.stack_dz, as they
+        are captured the last stack_parameters.min_images_to_test images are checked
+        to see if the sharpest image is central enough in the stack. If it is the stack
+        completes.
 
         :param stack_parameters: a StackParams object holding stack parameters
         :param cam: Camera Dependency to be passed through from the calling action
@@ -644,8 +650,7 @@ class AutofocusThing(lt.Thing):
     def check_stack_result(
         self, captures: list[CaptureInfo]
     ) -> tuple[Literal["success", "continue", "restart"], int]:
-        """Test a list of captures, to decide whether the sharpest image from a
-        stack is centrally enough in the stack
+        """Check if the sharpest image in a list of captures is central enough.
 
         :param captures: a list of the capture objects to for testing if the
             sharpness has converged in the centre

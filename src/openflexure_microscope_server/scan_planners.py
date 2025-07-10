@@ -155,8 +155,7 @@ class ScanPlanner:
         return tuple(position) in self._remaining_locations
 
     def get_next_location_and_z_estimate(self) -> tuple[XYPos, Optional[int]]:
-        """Return the next location to scan, and the estimated z-position
-        for this location.
+        """Return the next location to scan and its estimated z-position.
 
         Note z-position may be None! This indicates that the current z, position
         should be used.
@@ -176,9 +175,12 @@ class ScanPlanner:
         return next_location, z
 
     def closest_focus_site(self, xy_pos: XYPos) -> Optional[XYZPos]:
-        """Return the xyz position of the closest site where focus was achieved
-        to the input xy_position, with the most recently taken image returned in
-        the case of a tie
+        """Return the xyz position of the closest site where focus was achieved.
+
+        The most recently taken image is returned in the case of a tie.
+
+        :param xy_pos: The xy_position which the returned position should be closest
+            to.
 
         Returns None if there if no focussed locations are present
         """
@@ -338,9 +340,10 @@ class SmartSpiral(ScanPlanner):
         self._remaining_locations.sort(key=sort_key)
 
     def get_next_location_and_z_estimate(self) -> tuple[XYPos, Optional[int]]:
-        """Return the next location to scan, and the estimated z-position
-        for this location. This overrides the default behaviour of ScanPlanner
-        to take the lowest value of nearest neighbours as this works best for smart stack
+        """Return the next location to scan and its estimated z-position.
+
+        This overrides the default behaviour of ScanPlanner to take the lowest value of
+        nearest neighbours as this works best for smart stack.
 
         Note z-position may be None! This indicates that the current z position
         should be used.
@@ -361,9 +364,11 @@ class SmartSpiral(ScanPlanner):
 
     def select_nearby_focus_site(self, xy_pos: XYPos) -> Optional[XYZPos]:
         """Return the xyz position of the nearby site with the lowest z position.
+
         Lowest position is best, as starting too high causes smart stacking to
         autofocus and restart. Starting too low just requires extra movements in +z.
-        Nearby is defined as within NEIGHBOUR_CUTOFF times the distance to the closest neighbour.
+        Nearby is defined as within NEIGHBOUR_CUTOFF times the distance to the closest
+        neighbour.
 
         Returns None if there if no focused locations are present
         """
@@ -397,12 +402,10 @@ class SmartSpiral(ScanPlanner):
         starting_pos: XYPos | np.ndarray,
         ending_pos: XYPos | np.ndarray,
     ) -> float:
-        """Return the number of moves between two xy positions in the x or y direction
-        whichever is largest
+        """Return the larger of x moves or y moves between two xy positions.
 
-        Args:
-        starting_pos: the position to measure from
-        ending_pos: the position to measure to
+        :param starting_pos: the position to measure from
+        :param ending_pos: the position to measure to
 
         """
         move_size = np.array([self._dx, self._dy])

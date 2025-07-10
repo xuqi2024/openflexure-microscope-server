@@ -9,7 +9,8 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def add_static_file(app: FastAPI, fname: str, folder: str) -> None:
-    """Add a single file to the root of the FastAPI app
+    """Add a single file to the root of the FastAPI app.
+
     The file  with name ``fname`` will be mounted at ``/fname`` - the
     ``folder`` does not affect where it is mounted in the app.
 

@@ -32,8 +32,9 @@ def test_calibration(client):
 
 
 def test_jpeg_and_array(client):
-    """Check that grabbing a jpeg from the stream results in the same size
-    image as a array capture or a jpeg capture.
+    """Check that a jpeg grabbed from the stream is the same size as other captures.
+
+    Compare it to an array capture and a jpeg capture.
     """
     # Grab a jpeg from the stream
     blob = client.grab_jpeg()

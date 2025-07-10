@@ -156,8 +156,10 @@ class BaseCamera(lt.Thing):
     def start_streaming(
         self, main_resolution: tuple[int, int], buffer_count: int
     ) -> None:
-        """Start (or stop and restart) the camera with the given resolution
-        for the main stream, and buffer_count number of images in the buffer
+        """Start (or stop and restart) the camera.
+
+        :param main_resolution: the resolution to use for the main stream.
+        :param buffer_count: number of images in the stream buffer.
         """
         raise NotImplementedError(
             "CameraThings must define their own start_streaming method"
@@ -342,12 +344,14 @@ class BaseCamera(lt.Thing):
         metadata_getter: lt.deps.GetThingStates,
         logger: lt.deps.InvocationLogger,
     ) -> Image:
-        """Capture an image in memory and return it with metadata
-        CaptureError raised if the capture fails for any reason
-        returns tuple with PIL Image, and dict of metadata.
+        """Capture an image in memory and return it with metadata.
 
         This robust capturing method attempts to capture the image five times
         each time with a 5 second timeout set.
+
+        :raises CaptureError: if the capture fails for any reason
+
+        :returns: tuple with PIL Image, and dictionary of metadata.
         """
         for capture_attempts in range(5):
             try:

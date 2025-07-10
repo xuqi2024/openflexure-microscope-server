@@ -68,9 +68,7 @@ def retrieve_log_from_file() -> PlainTextResponse:
 
 
 class OFMHandler(logging.Handler):
-    """A child class of logging.Handler. This class handles storing the most recent
-    logs for access by the server.
-    """
+    """A logging.Handler that stores the most recent logs for access by the server."""
 
     def __init__(self, level=logging.INFO, max_logs=250):
         super().__init__(level=level)
@@ -78,8 +76,11 @@ class OFMHandler(logging.Handler):
         self._max_logs = max_logs
 
     def append_record(self, record):
-        """Use the built in formatter to format the record, then save
-        it to an array. Pop any in excess of the maximum number of logs
+        """Format message and append it to a list of records.
+
+        The built in formatter is used to format the record.
+
+        Any records in excess of the maximum number of logs are removed.
         """
         self._log.append(self.format(record))
         while len(self._log) > self._max_logs:
