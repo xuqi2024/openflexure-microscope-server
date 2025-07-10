@@ -69,7 +69,7 @@
         </li>
       </ul>
       <action-button
-        thing="range_of_motion"
+        thing="rom_methods"
         action="calibration_data_generate"
         submit-label="Generate Calibration Data"
         @response="alertPDF"
