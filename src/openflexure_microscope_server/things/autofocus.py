@@ -235,6 +235,16 @@ class JPEGSharpnessMonitor:
             self.running = False
 
     def focus_rel(self, dz: int, **kwargs) -> tuple[int, int]:
+        """Move the stage by dz, monitoring the position over time.
+
+        This performs exactly one move. Multiple calls of this method
+        will append to the internal postition storage for more complex
+        autofocus procedures.
+
+        This should be run from within the JPEGSharpnessMonitor.run
+        context manager so that sharpness data and timestamps are also
+        collected.
+        """
         # Store the start time and position
         self.stage_times.append(time.time())
         self.stage_positions.append(self.stage.position)

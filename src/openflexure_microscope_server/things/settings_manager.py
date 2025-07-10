@@ -128,6 +128,7 @@ class SettingsManager(lt.Thing):
 
     @property
     def thing_state(self) -> Mapping:
+        """The state of this Thing as reported to the ``metadata_getter``."""
         state = {
             "hostname": self.hostname,
             "microscope-uuid": str(self.microscope_id),

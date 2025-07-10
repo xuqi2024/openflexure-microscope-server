@@ -194,6 +194,7 @@ class BaseCamera(lt.Thing):
         stream_name: Literal["main", "lores", "raw", "full"] = "main",
         wait: Optional[float] = 5,
     ) -> NDArray:
+        """Acquire one image from the camera and return as an array."""
         raise NotImplementedError(
             "CameraThings must define their own capture_array method"
         )

@@ -154,6 +154,7 @@ class BackgroundDetectThing(lt.Thing):
 
     @property
     def thing_state(self) -> Mapping:
+        """Summary metadata describing the current state of the Thing."""
         bd = self.background_distributions
         return {
             "background_distributions": bd.model_dump() if bd else None,

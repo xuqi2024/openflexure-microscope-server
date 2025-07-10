@@ -115,10 +115,20 @@ class SimulatedCamera(BaseCamera):
     def attach_to_server(
         self, server: lt.ThingServer, path: str, setting_storage_path: str
     ):
+        """Wrap the attach_to_server method so the server instance can be stored.
+
+        Direct access to the server instance is needed to get the stage position while
+        maintianing the same public API as a real camera that doesn't need this access.
+        """
         self._server = server
         return super().attach_to_server(server, path, setting_storage_path)
 
     def get_stage_position(self):
+        """Return the stage position.
+
+        The simulation camera has access to the stage position so it can generate a
+        different image as the stage moves.
+        """
         if not self._stage and self._server:
             self._stage = self._server.things["/stage/"]
         return self._stage.instantaneous_position

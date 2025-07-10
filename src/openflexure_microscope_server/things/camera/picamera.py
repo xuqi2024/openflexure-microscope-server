@@ -166,6 +166,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_setting
     def analogue_gain(self) -> float:
+        """The Analogue gain applied by the camera sensor."""
         if not self._setting_save_in_progress and self.streaming:
             with self._streaming_picamera() as cam:
                 cam_value = cam.capture_metadata()["AnalogueGain"]
@@ -185,6 +186,7 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_setting
     def colour_gains(self) -> tuple[float, float]:
+        """The red and blue colour gains, must be betwen 0.0 and 32.0."""
         if not self._setting_save_in_progress and self.streaming:
             with self._streaming_picamera() as cam:
                 cam_value = cam.capture_metadata()["ColourGains"]
@@ -204,6 +206,11 @@ class StreamingPiCamera2(BaseCamera):
 
     @lt.thing_setting
     def exposure_time(self) -> int:
+        """The camera exposure time in microseconds.
+
+        When setting this property the camera will adjust the set value
+        to the nearest allowed value that is lower than the current setting.
+        """
         if not self._setting_save_in_progress and self.streaming:
             with self._streaming_picamera() as cam:
                 cam_value = cam.capture_metadata()["ExposureTime"]

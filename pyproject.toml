@@ -129,7 +129,6 @@ ignore = [
     "D213",  # incompatible with D212
     "D400",  # A stricter version of #415 that doesn't allow !
     # The checkers below should be turned on as they complain about missing docstrings.
-    "D102",
     "D103",
     "D104",
     "D105",
