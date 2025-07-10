@@ -1,3 +1,5 @@
+"""Provide a LabThings-FastAPI interface to the Sangaboard motor controller."""
+
 from __future__ import annotations
 import logging
 import threading
@@ -13,13 +15,26 @@ from . import BaseStage
 
 
 class SangaboardThing(BaseStage):
-    def __init__(self, port: str = None, **kwargs):
-        """A Thing to manage a Sangaboard motor controller
+    """A Thing to manage a Sangaboard motor controller.
 
-        Internally, this uses the `pysangaboard` package from PyPi. This imports
-        as `sangaboard`. As `pysangaboard` does not support some features added
-        to the Sangaboard firmware v1 (LED flashing, aborting moves, etc) this
-        functionality is accessed by directly querying the serial interface.
+    Internally, this uses the ``pysangaboard`` package from PyPi. This imports
+    as ``sangaboard``. As ``pysangaboard`` does not support some features added
+    to the Sangaboard firmware v1 (LED flashing, aborting moves, etc) this
+    functionality is accessed by directly querying the serial interface.
+    """
+
+    def __init__(self, port: str = None, **kwargs):
+        """Initialise SangaboardThing.
+
+        Initialise the "Thing", but do not initialise an underlying
+        ``Sangaboard`` object from ``pysangaboard`` until the Thing context
+        manager is started.
+
+        :param port: The serial port for the Sangaboard. Optional, this is used
+            to stop the Sangaboard object querying available devices.
+        :param ``**kwargs``: Any other keyword arguments to be passed to the
+            Sangaboard class
+
         """
         self.sangaboard_kwargs = kwargs
         self.sangaboard_kwargs["port"] = port
@@ -41,9 +56,9 @@ class SangaboardThing(BaseStage):
 
     @contextmanager
     def sangaboard(self) -> Iterator[sangaboard.Sangaboard]:
-        """Return the wrapped `sangaboard.Sangaboard` instance.
+        """Return the wrapped ``sangaboard.Sangaboard`` instance.
 
-        This is protected by a `threading.RLock`, which may change in future.
+        This is protected by a ``threading.RLock``, which may change in future.
         """
         with self._sangaboard_lock:
             yield self._sangaboard
@@ -102,7 +117,7 @@ class SangaboardThing(BaseStage):
 
     @lt.thing_action
     def set_zero_position(self) -> None:
-        """Make the current position zero in all axes
+        """Make the current position zero in all axes.
 
         This action does not move the stage, but resets the position to zero.
         It is intended for use after manually or automatically recentring the
@@ -119,7 +134,7 @@ class SangaboardThing(BaseStage):
         dt: float = 0.5,
         led_channel: Literal["cc"] = "cc",
     ) -> None:
-        """Flash the LED to identify the board
+        """Flash the LED to identify the board.
 
         This is intended to be useful in situations where there are multiple
         Sangaboards in use, and it is necessary to identify which one is

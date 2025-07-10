@@ -1,3 +1,10 @@
+"""Provide functionality to detect if the camera is imaging sample or background.
+
+An example background image must be captured and analysed by BackgroundDetectThing,
+information from this images is used to detect whether the current camera field of
+view contains sample.
+"""
+
 from typing import Mapping, Optional
 import cv2
 import numpy as np
@@ -22,7 +29,7 @@ class BackgroundDetectThing(lt.Thing):
 
     @lt.thing_setting
     def background_distributions(self) -> Optional[ChannelDistributions]:
-        """The statistics of the background image"""
+        """The statistics of the background image."""
         bd = self._background_distributions
         if bd is None:
             return None
@@ -46,17 +53,17 @@ class BackgroundDetectThing(lt.Thing):
     tolerance = lt.ThingSetting(
         initial_value=7.0,
         model=float,
-        description="How many standard deviations to allow for the background",
     )
+    """How many standard deviations to allow for the background."""
 
     fraction = lt.ThingSetting(
         initial_value=25.0,
         model=float,
-        description="How much of the image needs to be not background to label as sample",
     )
+    """How much of the image needs to be not background to label as sample"""
 
     def background_mask(self, image: np.ndarray) -> np.ndarray:
-        """Calculate a binary image, showing whether each pixel is background
+        """Calculate a binary image, showing whether each pixel is background.
 
         The image should be in LUV format, the ouput will be binary with the
         same shape in the first two dimensions.
@@ -78,7 +85,7 @@ class BackgroundDetectThing(lt.Thing):
 
     @lt.thing_action
     def background_fraction(self, cam: CamDep) -> float:
-        """Determine what fraction of the current image is background
+        """Determine what fraction of the current image is background.
 
         This action will acquire a new image from the preview stream, then
         evaluate whether it is foreground or background, by comparing it
@@ -96,7 +103,7 @@ class BackgroundDetectThing(lt.Thing):
 
     @lt.thing_action
     def image_is_sample(self, cam: CamDep) -> bool:
-        """Label the current image as either background or sample"""
+        """Label the current image as either background or sample."""
         b_fraction = self.background_fraction(cam)
         fraction_threshold = self.fraction
 
@@ -104,7 +111,7 @@ class BackgroundDetectThing(lt.Thing):
 
     @lt.thing_action
     def set_background(self, cam: CamDep):
-        """Grab an image, and use its statistics to set the background
+        """Grab an image, and use its statistics to set the background.
 
         This should be run when the microscope is looking at an empty region,
         and will calculate the mean and standard deviation of the pixel values

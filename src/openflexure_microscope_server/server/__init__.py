@@ -14,11 +14,10 @@ from ..logging import configure_logging, retrieve_log, retrieve_log_from_file
 
 
 def set_shutdown_function(shutdown_function: Callable[[], None]):
-    """
-    Ensure a function is called before the shutdown
+    """Ensure a function is called before the shutdown.
 
     This monkey patches the Uvicorn Server's handle_exit. This is needed because
-    the uvicorn `lifecycle` events and FastAPI `shutdown` events only fire once
+    the uvicorn ``lifecycle`` events and FastAPI ``shutdown`` events only fire once
     background tasks have completed.
 
     Without this the system exits cleanly only if no client is receiving a
@@ -26,9 +25,8 @@ def set_shutdown_function(shutdown_function: Callable[[], None]):
     send streaming responses.
 
     :param shutdown_function: A callable with no arguments or outputs. This
-    should stop any async generators that may be sending to streaming responses.
+        should stop any async generators that may be sending to streaming responses.
     """
-
     original_handler = Server.handle_exit
 
     @wraps(Server.handle_exit)
@@ -53,12 +51,10 @@ def customise_server(
 
 
 def _get_scans_dir(config: dict) -> Optional[str]:
-    """
-    Read the config and return the scans directory.
+    """Read the config and return the scans directory.
 
     Return is None if there is no /smart_scan/ thing loaded.
     """
-
     if "/smart_scan/" in config["things"]:
         try:
             return config["things"]["/smart_scan/"]["kwargs"]["scans_folder"]
@@ -69,7 +65,7 @@ def _get_scans_dir(config: dict) -> Optional[str]:
 
 
 def serve_from_cli(argv: Optional[list[str]] = None):
-    """Start the server from the command line"""
+    """Start the server from the command line."""
     args = lt.cli.parse_args(argv)
 
     log_config = copy(uvicorn.config.LOGGING_CONFIG)

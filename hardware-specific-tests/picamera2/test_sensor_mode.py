@@ -1,3 +1,5 @@
+"""Test changing and setting camerat modes on the Raspberry Picamera."""
+
 import logging
 
 from fastapi.testclient import TestClient
@@ -12,9 +14,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 def test_sensor_mode():
-    """
-    Test capturing raw arrays in two different sensor modes
-    """
+    """Test capturing raw arrays in two different sensor modes."""
     cam = StreamingPiCamera2()
     server = ThingServer()
     server.add_thing(cam, "/camera/")

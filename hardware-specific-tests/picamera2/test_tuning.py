@@ -1,6 +1,4 @@
-"""
-Tests that check that a tuning file can be reloaded
-"""
+"""Tests that check that a tuning file can be reloaded."""
 
 import os
 
@@ -16,17 +14,13 @@ MODEL = Picamera2.global_camera_info()[0]["Model"]
 
 
 def load_default_tuning():
-    """
-    Return the default tuning file for the connected camera.
-    """
+    """Return the default tuning file for the connected camera."""
     fname = f"{MODEL}.json"
     return Picamera2.load_tuning_file(fname)
 
 
 def generate_bad_tuning():
-    """
-    Return a tuning file with an invalid version number to force an error when loaded.
-    """
+    """Return a tuning file with an invalid version number to force an error when loaded."""
     default_tuning = load_default_tuning()
     bad_tuning = default_tuning.copy()
     bad_tuning["version"] = 999
@@ -34,8 +28,7 @@ def generate_bad_tuning():
 
 
 def print_tuning(read_file: bool = False):
-    """
-    Print the path of the default tuning file from the the environment variable.
+    """Print the path of the default tuning file from the the environment variable.
 
     :param read_file: Boolean, set true to also print the file contents.
 
@@ -53,7 +46,8 @@ def print_tuning(read_file: bool = False):
 
 
 def _test_bad_tuning_after_good_tuning(configure: bool = False):
-    """
+    """Test loading good, bad, then another good tuning files in sequence.
+
     Load the default tuning file into the camera, re-load with a broken tuning file,
     check it errors. Finally check the default tuning file will load again afterwards.
 

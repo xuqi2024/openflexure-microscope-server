@@ -1,4 +1,4 @@
-"""OpenFlexure Microscope OpenCV Camera
+"""OpenFlexure Microscope OpenCV Camera.
 
 This module defines a Thing that is responsible for using the stage and
 camera together to perform an autofocus routine.
@@ -30,7 +30,7 @@ RATIO = 0.2
 
 
 class SimulatedCamera(BaseCamera):
-    """A Thing representing an OpenCV camera"""
+    """A Thing representing an OpenCV camera."""
 
     _stage: Optional[BaseStage] = None
     _server: Optional[lt.ThingServer] = None
@@ -53,7 +53,7 @@ class SimulatedCamera(BaseCamera):
         self.generate_canvas()
 
     def generate_sprites(self):
-        """Generate sprites to populate the image"""
+        """Generate sprites to populate the image."""
         self.sprites = []
         black = np.zeros(self.glyph_shape, dtype=np.uint8)
         x = np.arange(black.shape[0])
@@ -65,7 +65,7 @@ class SimulatedCamera(BaseCamera):
             self.sprites.append(sprite)
 
     def generate_blobs(self, n_blobs: int = 1000):
-        """Generate coordinates of blobs
+        """Generate coordinates of blobs.
 
         Blobs are characterised by X, Y, sprite
         We also generate a KD tree to rapidly find blobs in an image
@@ -78,7 +78,7 @@ class SimulatedCamera(BaseCamera):
         self.blobs[:, 2] = rng.choice(len(self.sprites), n_blobs)
 
     def generate_canvas(self):
-        """Generate a blank canvas"""
+        """Generate a blank canvas."""
         self.canvas = np.zeros(self.canvas_shape, dtype=np.uint8)
         self.canvas[...] = 255
         w, h, _ = self.glyph_shape
@@ -89,7 +89,7 @@ class SimulatedCamera(BaseCamera):
             ] -= self.sprites[int(sprite)]
 
     def generate_image(self, pos: tuple[int, int, int]):
-        """Generate an image with blobs based on supplied coordinates"""
+        """Generate an image with blobs based on supplied coordinates."""
         canvas_width, canvas_height, _ = self.canvas_shape
         image_width, image_height, _ = self.shape
         pos = tuple(x * RATIO for x in pos)
@@ -124,7 +124,7 @@ class SimulatedCamera(BaseCamera):
         return self._stage.instantaneous_position
 
     def generate_frame(self):
-        """Generate a frame with blobs based on the stage coordinates"""
+        """Generate a frame with blobs based on the stage coordinates."""
         try:
             pos = self.get_stage_position()
         except Exception as e:
@@ -145,7 +145,7 @@ class SimulatedCamera(BaseCamera):
 
     @lt.thing_property
     def stream_active(self) -> bool:
-        "Whether the MJPEG stream is active"
+        """Whether the MJPEG stream is active."""
         if self._capture_enabled and self._capture_thread:
             return self._capture_thread.is_alive()
         return False
@@ -170,7 +170,7 @@ class SimulatedCamera(BaseCamera):
         self,
         resolution: Literal["main", "full"] = "full",
     ) -> ArrayModel:
-        """Acquire one image from the camera and return as an array
+        """Acquire one image from the camera and return as an array.
 
         This function will produce a nested list containing an uncompressed RGB image.
         It's likely to be highly inefficient - raw and/or uncompressed captures using
@@ -185,7 +185,7 @@ class SimulatedCamera(BaseCamera):
         metadata_getter: lt.deps.GetThingStates,
         resolution: Literal["main", "full"] = "main",
     ) -> JPEGBlob:
-        """Acquire one image from the camera and return as a JPEG blob
+        """Acquire one image from the camera and return as a JPEG blob.
 
         This function will produce a JPEG image.
         """
