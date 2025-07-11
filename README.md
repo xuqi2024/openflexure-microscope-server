@@ -49,7 +49,7 @@ You can manage the server with the `ofm` command, using `ofm start`, `ofm stop`,
 ofm stop
 ofm activate
 cd /var/openflexure
-sudo -u openflexure-ws openflexure-microscope-server -c microscope_configuration.json --host 0.0.0.0 --port 5000
+sudo -u openflexure-ws openflexure-microscope-server --fallback -c microscope_configuration.json --host 0.0.0.0 --port 5000
 ```
 
 Our favourite way of working with the server on a Pi is to follow the instructions above, then open a VSCode Remote session from another computer.  This allows you to use your usual developer environment to write code, but everything runs on the Raspberry Pi with real hardware.  Note that the repository is cloned by default over `https`, so you will probably need to change the "remote" URL to your fork of the repository, or to SSH, before you're able to push changes.
@@ -103,7 +103,8 @@ The Labthings-FastAPI server, written in Python, serves a web application writte
 For more details on the web app see the ReadMe in the [webapp](./webapp) directory.
 
 
-## Formatting, linting, and tests
+## Python: Formatting, linting, and tests
+
 All of the commands below assume that you are running in the OFM virtual environment, i.e. you have run `ofm activate` on an OpenFlexure SD card, or `source .venv/bin/activate` on Linux, or `.venv/Scripts/activate`on Windows.
 
 **Before committing** you should lint and auto-format your code:
@@ -120,6 +121,7 @@ All of the commands below assume that you are running in the OFM virtual environ
 * `mypy src` (currently fails)
 * `pytest`
 
+For more details on out Python conventions please see the **[project contributions guide](./CONTRIBUTING.md)**.
 
 ### Details
 
