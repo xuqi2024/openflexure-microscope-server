@@ -1,94 +1,102 @@
-# Contributing
+# Contributing to the OpenFlexure Microscope Server
 
-When contributing to this repository, please first discuss the change you wish to make via issue,
-email, or any other method with the owners of this repository before making a change. 
+All contributions to the OpenFlexure project should follow our [project contributions guidelines](https://openflexure.org/contribute).
 
-Please note we have a working flow, and a code of conduct. Please follow it in all your interactions with the project.
+Any contributions to this repository should follow [our code of conduct](https://openflexure.org/conduct).
 
-## Flow
-<img src="https://gitlab.com/openflexure/openflexure-identity/raw/master/flow.png"  height="200">
+If you are interested in contributing to the OpenFlexure project and do not know where to start we recommend you visit [our forum](https://openflexure.discourse.group/).
 
-### Development
+**The rest of this page details contribution guidelines that are specific to this repository.**
 
-* Master is the latest working version.
-* New features and bug fixes should be developed on branches (or forks), and merged into master.
+This page generally focusses on the the server not the front-end webapp. For more details on the webapp development see the [webapp's README](./webapp/README.md).
 
-### Releases
+## Python Development
 
-* Once we've merged a few things in and want to make a release, we tag it on master.
-* Not every commit on master will get a tag, we'll accumulate a few changes before making a release, unless there's a reason to release straight away.
-* Once we're confident that the tagged release is building and stable, we merge it into the stable branch.
-* As and when 2.x.x appears, we will move 1.x.x to a branch in case we want to push out bugfixes, but we're not likely to do this for minor releases.
+For installation see the [project README](./README.md).
 
-## Code of Conduct
+### Core packages and concepts
 
-In the interest of fostering an open and welcoming environment, we as
-contributors and maintainers pledge to making participation in our project and
-our community a harassment-free experience for everyone, regardless of age, body
-size, disability, ethnicity, gender identity and expression, level of experience,
-nationality, personal appearance, race, religion, or sexual identity and
-orientation.
+The OpenFlexure Microscope server is built in the [LabThings-FastAPI framework](https://labthings-fastapi.readthedocs.io/en/latest/). This provides a convenient way to expose laboratory hardware over HTTP via a [FastAPI server](https://fastapi.tiangolo.com/).
 
-### Our Standards
+The core elements of the server code are `Things`. A `Thing` creates a [W3C Web of Things](https://www.w3.org/TR/wot-architecture) compliant HTTP interface for hardware interactions and other server functionality.
 
-Examples of behavior that contributes to creating a positive environment
-include:
+The project also makes use of the following libraries:
 
-* Using welcoming and inclusive language
-* Being respectful of differing viewpoints and experiences
-* Gracefully accepting constructive criticism
-* Focusing on what is best for the community
-* Showing empathy towards other community members
+* [Pydantic](https://docs.pydantic.dev/latest/) - For serialising/deserialising data being saved to disk or sent over HTTP.
+* [OpenFlexure Stitching](https://gitlab.com/openflexure/openflexure-stitching) - Our own library for creating composite microscope images from a scan.
+* [OpenCV](https://opencv.org/) and [Picamera2](https://github.com/raspberrypi/picamera2/) - For controlling cameras, and simulating cameras for tests.
+* [Pillow](https://pillow.readthedocs.io) - For image manipulation and saving.
+* [NumPy](https://numpy.org/) and [SciPy](https://scipy.org/) - For mathematical calculations.
 
-Examples of unacceptable behavior by participants include:
+*The list above is not exhaustive!*
 
-* The use of sexualized language or imagery and unwelcome sexual attention or
-advances
-* Trolling, insulting/derogatory comments, and personal or political attacks
-* Public or private harassment
-* Publishing others' private information, such as a physical or electronic
-  address, without explicit permission
-* Other conduct which could reasonably be considered inappropriate in a
-  professional setting
+## Programming style
 
-### Our Responsibilities
+Ideally python code should be:
 
-Project maintainers are responsible for clarifying the standards of acceptable
-behavior and are expected to take appropriate and fair corrective action in
-response to any instances of unacceptable behavior.
+* Broken up into small clear testable functions.
+* Documented with docstrings (For conventions see below).
+* Type hinted
+* Covered by unit tests (using [pytest](https://docs.pytest.org))
 
-Project maintainers have the right and responsibility to remove, edit, or
-reject comments, commits, code, wiki edits, issues, and other contributions
-that are not aligned to this Code of Conduct, or to ban temporarily or
-permanently any contributor for other behaviors that they deem inappropriate,
-threatening, offensive, or harmful.
+The server code is going through significant flux during the transition from v2 to v3, so currently our test coverage is being rebuilt and type checking does not yet pass.
 
-### Scope
+[Ruff](https://docs.astral.sh/ruff/) is used both for linting and formatting, the codebase. Our custom linter rules are in out `pyproject.toml`. As we improve the codebase more rules are being added to the linter, see `ruff-increased-checking.toml` for checks that we plan to get passing.
 
-This Code of Conduct applies both within project spaces and in public spaces
-when an individual is representing the project or its community. Examples of
-representing a project or community include using an official project e-mail
-address, posting via an official social media account, or acting as an appointed
-representative at an online or offline event. Representation of a project may be
-further defined and clarified by project maintainers.
+Run `ruff format` to format the code in a way that will pass on our CI.
 
-### Enforcement
+Run `ruff check` to check for linter errors.
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported by contacting the project team at [INSERT EMAIL ADDRESS]. All
-complaints will be reviewed and investigated and will result in a response that
-is deemed necessary and appropriate to the circumstances. The project team is
-obligated to maintain confidentiality with regard to the reporter of an incident.
-Further details of specific enforcement policies may be posted separately.
+To check your code before each commit we recommend putting the following script in tour `.git/hooks` directory with the filename `pre-commit`.
 
-Project maintainers who do not follow or enforce the Code of Conduct in good
-faith may face temporary or permanent repercussions as determined by other
-members of the project's leadership.
 
-### Attribution
+```python
+#!/bin/bash
 
-This Code of Conduct is adapted from the [Contributor Covenant][homepage], version 1.4,
-available at [http://contributor-covenant.org/version/1/4][version]
+set -e
 
-[homepage]: http://contributor-covenant.org
-[version]: http://contributor-covenant.org/version/1/4/
+function angrymessage()
+{
+    RED='\033[1;31m'
+    NC='\033[0m' # No Color
+    printf "\n${RED}Not committing as ruff failed${NC}\n\n"
+}
+
+trap angrymessage ERR
+
+ruff format --check
+ruff check
+```
+
+
+## Docstrings conventions.
+
+For docstrings we write docstrings in [reStructuredText](https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html), and process them with [pydoctor](https://pydoctor.readthedocs.io/).
+
+For function arguments, return values, and exceptions we use the following style recognised by reStructuredText:
+
+```python
+def a_function(arg1: str, arg2: int) -> tuple[float, int]:
+    """
+    A one sentence summary, in imperative mood, ending with punctuation.
+
+    More detail after a blank line. This could be a whole paragraph.
+
+    When referring to ``code`` in reStructuredText used double backticks
+
+    :param arg1: This is the first argument, we can say everything we need to about it.
+        If the text wrapas ont a new line this line is indented.
+    :param arg2: This is the second argument.
+
+    :returns: Say what it returns without anything within the colons. If returning
+        multiple values a bulleted list is a good idea just make sure:
+
+        * It is indented to 1 level in
+        * There is a blank line before the bullets
+        * The bullet points are ``*`` not ``-``
+    """
+```
+
+The linter rules we use for docstrings are defined by [pydocstyle](https://docs.astral.sh/ruff/rules/#pydocstyle-d). We do not use rules D203, D213, D400.
+
+The documentation generated by pydoctor from docstrings can be viewed in any merge request (if the CI pipeline has passed) using the "View App" button.
