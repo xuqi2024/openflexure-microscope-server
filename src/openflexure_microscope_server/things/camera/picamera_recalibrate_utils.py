@@ -1,9 +1,8 @@
-"""
-Functions to set up a Raspberry Pi Camera v2 for scientific use
+"""Functions to set up a Raspberry Pi Camera v2 for scientific use.
 
 This module provides slower, simpler functions to set the
 gain, exposure, and white balance of a Raspberry Pi camera, using
-the `picamera2` Python library.  It's mostly used by the OpenFlexure
+the ``picamera2`` Python library.  It's mostly used by the OpenFlexure
 Microscope, though it deliberately has no hard dependencies on
 said software, so that it's useful on its own.
 
@@ -20,14 +19,15 @@ to "memory" or nonlinearities in the camera's image processing
 pipeline, is to use raw images.  This is quite slow, but very
 reliable.  The three steps above can be accomplished by:
 
-```
-picamera = picamera2.Picamera2()
+.. code-block:: python
 
-adjust_shutter_and_gain_from_raw(picamera)
-adjust_white_balance_from_raw(picamera)
-lst = lst_from_camera(picamera)
-picamera.lens_shading_table = lst
-```
+    picamera = picamera2.Picamera2()
+
+    adjust_shutter_and_gain_from_raw(picamera)
+    adjust_white_balance_from_raw(picamera)
+    lst = lst_from_camera(picamera)
+    picamera.lens_shading_table = lst
+
 """
 
 # Disable N806 & 803, which checks that all variables and args are lowercase.
@@ -52,10 +52,10 @@ LensShadingTables = tuple[np.ndarray, np.ndarray, np.ndarray]
 
 
 def load_default_tuning(cam: Picamera2) -> dict:
-    """Load the default tuning file for the camera
+    """Load the default tuning file for the camera.
 
     This will open and close the camera to determine its model. If you are
-    using a model that's supported by `picamera2` it should have a tuning
+    using a model that's supported by ``picamera2`` it should have a tuning
     file built in. If not, this will probably crash with an error.
 
     Error handling for unsupported cameras is not something we are likely
@@ -76,7 +76,7 @@ def load_default_tuning(cam: Picamera2) -> dict:
 
 
 def set_minimum_exposure(camera: Picamera2) -> None:
-    """Enable manual exposure, with low gain and shutter speed
+    """Enable manual exposure, with low gain and shutter speed.
 
     We set exposure mode to manual, analog and digital gain
     to 1, and shutter speed to the minimum (8us for Pi Camera v2)
@@ -84,7 +84,7 @@ def set_minimum_exposure(camera: Picamera2) -> None:
     Note ISO is left at auto, because this is needed for the gains
     to be set correctly.
     """
-    # Disable Automatic exposure and gain algoritm (AeEnable), and set analogue
+    # Disable Automatic exposure and gain algorithm (AeEnable), and set analogue
     # gain and exposure time.
     # Setting the shutter speed to 1us will result in it being set
     # to the minimum possible, which is ~8us for PiCamera v2
@@ -93,7 +93,7 @@ def set_minimum_exposure(camera: Picamera2) -> None:
 
 
 class ExposureTest(BaseModel):
-    """Record the results of testing the camera's current exposure settings"""
+    """Record the results of testing the camera's current exposure settings."""
 
     level: int
     exposure_time: int
@@ -101,7 +101,7 @@ class ExposureTest(BaseModel):
 
 
 def test_exposure_settings(camera: Picamera2, percentile: float) -> ExposureTest:
-    """Evaluate current exposure settings using a raw image
+    """Evaluate current exposure settings using a raw image.
 
     CAMERA SHOULD BE STARTED!
 
@@ -136,7 +136,7 @@ def test_exposure_settings(camera: Picamera2, percentile: float) -> ExposureTest
 
 
 def check_convergence(test: ExposureTest, target: int, tolerance: float) -> bool:
-    """Check whether the brightness is within the specified target range"""
+    """Check whether the brightness is within the specified target range."""
     return abs(test.level - target) < target * tolerance
 
 
@@ -152,25 +152,19 @@ def adjust_shutter_and_gain_from_raw(
     This routine is slow but effective.  It uses raw images, so we
     are not affected by white balance or digital gain.
 
+    :param camera: A Picamera2 object.
+    :param target_white_level: The raw, 10-bit value we aim for.  The brightest pixels
+        should be approximately this bright.  Maximum possible is about 900, 700 is
+        reasonable.
+    :param max_iterations: We will terminate once we perform this many iterations,
+        whether or not we converge.  More than 10 shouldn't happen.
+    :param tolerance: How close to the target value we consider "done".  Expressed as a
+        fraction of the ``target_white_level`` so 0.05 means +/- 5%
+    :param percentile: Rather then use the maximum value for each channel, we calculate
+        a percentile.  This makes us robust to single pixels that are bright/noisy.
+        99.9% still picks the top of the brightness range, but seems much more reliable
+        than just ``np.max()``.
 
-    Arguments:
-        target_white_level:
-            The raw, 10-bit value we aim for.  The brightest pixels
-            should be approximately this bright.  Maximum possible
-            is about 900, 700 is reasonable.
-        max_iterations:
-            We will terminate once we perform this many iterations,
-            whether or not we converge.  More than 10 shouldn't happen.
-        tolerance:
-            How close to the target value we consider "done".  Expressed
-            as a fraction of the ``target_white_level`` so 0.05 means
-            +/- 5%
-        percentile:
-            Rather then use the maximum value for each channel, we
-            calculate a percentile.  This makes us robust to single
-            pixels that are bright/noisy.  99.9% still picks the top
-            of the brightness range, but seems much more reliable
-            than just ``np.max()``.
     """
     # TODO: read black level and bit depth from camera?
     if target_white_level * (tolerance + 1) >= 959:
@@ -327,7 +321,7 @@ def channels_from_bayer_array(bayer_array: np.ndarray) -> np.ndarray:
 
 
 def get_16x12_grid(chan: np.ndarray, dx: int, dy: int) -> np.ndarray:
-    """Compresses channel down to a 16x12 grid - from libcamera
+    """Compresses channel down to a 16x12 grid - from libcamera.
 
     This is taken from
     https://git.linuxtv.org/libcamera.git/tree/utils/raspberrypi/ctt/ctt_alsc.py
@@ -349,9 +343,9 @@ def get_16x12_grid(chan: np.ndarray, dx: int, dy: int) -> np.ndarray:
 
 
 def upsample_channels(grids: np.ndarray, shape: tuple[int]) -> np.ndarray:
-    """Zoom an image in the last two dimensions
+    """Zoom an image in the last two dimensions.
 
-    This is effectively the inverse operation of `get_16x12_grid`
+    This is effectively the inverse operation of ``get_16x12_grid``
     """
     zoom_factors = [
         1,
@@ -360,7 +354,7 @@ def upsample_channels(grids: np.ndarray, shape: tuple[int]) -> np.ndarray:
 
 
 def downsampled_channels(channels: np.ndarray, blacklevel=64) -> list[np.ndarray]:
-    """Generate a downsampled, un-normalised image from which to calculate the LST
+    """Generate a downsampled, un-normalised image from which to calculate the LST.
 
     TODO: blacklevel probably ought to be determined from the camera...
     """
@@ -381,22 +375,21 @@ def downsampled_channels(channels: np.ndarray, blacklevel=64) -> list[np.ndarray
 def lst_from_channels(channels: np.ndarray) -> LensShadingTables:
     """Given the 4 Bayer colour channels from a white image, generate a LST.
 
-    Internally, is just calls `downsampled_channels` and `lst_from_grids`.
+    Internally, is just calls ``downsampled_channels`` and ``lst_from_grids``.
     """
     grids = downsampled_channels(channels)
     return lst_from_grids(grids)
 
 
 def lst_from_grids(grids: np.ndarray) -> LensShadingTables:
-    """Given 4 downsampled grids, generate the luminance and chrominance tables
+    """Given 4 downsampled grids, generate the luminance and chrominance tables.
 
     The grids are the 4 BAYER channels RGGB
 
-    The LST format has changed with `picamera2` and now uses a fixed resolution,
+    The LST format has changed with ``picamera2`` and now uses a fixed resolution,
     and is in luminance, Cr, Cb format. This function returns three ndarrays of
     luminance, Cr, Cb, each with shape (12, 16).
     """
-
     # Calculated red, green, and blue channels from Bayer data
     r: np.ndarray = grids[3, ...]
     g: np.ndarray = np.mean(grids[1:3, ...], axis=0)
@@ -415,11 +408,11 @@ def lst_from_grids(grids: np.ndarray) -> LensShadingTables:
 
 
 def grids_from_lst(lum: np.ndarray, Cr: np.ndarray, Cb: np.ndarray) -> np.ndarray:
-    """Convert form luminance/chrominance dict to four RGGB channels
+    """Convert form luminance/chrominance dict to four RGGB channels.
 
     Note that these will be normalised - the maximum green value is always 1.
     Also, note that the channels are BGGR, to be consistent with the
-    `channels_from_raw_image` function. This should probably change in the
+    ``channels_from_raw_image`` function. This should probably change in the
     future.
     """
     G = 1 / np.array(lum)
@@ -434,9 +427,9 @@ def set_static_lst(
     cr: np.ndarray,
     cb: np.ndarray,
 ) -> None:
-    """Update the `rpi.alsc` section of a camera tuning dict to use a static correcton.
+    """Update the ``rpi.alsc`` section of a camera tuning dict to use a static correction.
 
-    `tuning` will be updated in-place to set its shading to static, and disable any
+    ``tuning`` will be updated in-place to set its shading to static, and disable any
     adaptive tweaking by the algorithm.
     """
     for table in luminance, cr, cb:
@@ -459,9 +452,9 @@ def set_static_ccm(
         float, float, float, float, float, float, float, float, float
     ],
 ) -> None:
-    """Update the `rpi.alsc` section of a camera tuning dict to use a static correcton.
+    """Update the ``rpi.alsc`` section of a camera tuning dict to use a static correction.
 
-    `tuning` will be updated in-place to set its shading to static, and disable any
+    ``tuning`` will be updated in-place to set its shading to static, and disable any
     adaptive tweaking by the algorithm.
     """
     ccm = Picamera2.find_tuning_algo(tuning, "rpi.ccm")
@@ -469,13 +462,13 @@ def set_static_ccm(
 
 
 def get_static_ccm(tuning: dict) -> None:
-    """Get the `rpi.ccm` section of a camera tuning dict"""
+    """Get the ``rpi.ccm`` section of a camera tuning dict."""
     ccm = Picamera2.find_tuning_algo(tuning, "rpi.ccm")
     return ccm["ccms"]
 
 
 def lst_is_static(tuning: dict) -> bool:
-    """Whether the lens shading table is set to static"""
+    """Whether the lens shading table is set to static."""
     alsc = Picamera2.find_tuning_algo(tuning, "rpi.alsc")
     return alsc["n_iter"] == 0
 
@@ -484,26 +477,29 @@ def set_static_geq(
     tuning: dict,
     offset: int = 65535,
 ) -> None:
-    """Update the `rpi.geq` section of a camera tuning dict to always use green
-    equalisation that averages the green pixels in the red and blue rows.
+    """Update the ``rpi.geq`` section of a camera tuning dict.
 
-    `tuning` will be updated in-place to set the geq offest to the given value.
-    The default 65535 is the maximum allowed value. This means
-    the brightness will always be below the threshold where averaging is used.
+    :param tuning: the raspberry pi tuning file. This will be updated in-place to
+        set the geq offset to the given value.
+    :param offset: The desired green equalisation offset. Default 65535. The default is
+        the maximum allowed value. This means the brightness will always be below the
+        threshold where averaging is used. This is default as we always need the green
+        equalisation to averages the green pixels in the red and blue rows due to the
+        chief ray angle compensation issue when the the stock lens is replaced by an
+        objective.
     """
-
     geq = Picamera2.find_tuning_algo(tuning, "rpi.geq")
     geq["offset"] = offset  # max out offset to disable the adaptive green equalisation
 
 
 def _geq_is_static(tuning: dict) -> bool:
-    """Whether the green equalisation is set to static"""
+    """Whether the green equalisation is set to static."""
     geq = Picamera2.find_tuning_algo(tuning, "rpi.geq")
     return geq["offset"] == 65535
 
 
 def index_of_algorithm(algorithms: list[dict], algorithm: str) -> int:
-    """Find the index of an algorithm's section in the tuning file"""
+    """Find the index of an algorithm's section in the tuning file."""
     for i, a in enumerate(algorithms):
         if algorithm in a:
             return i
@@ -511,7 +507,7 @@ def index_of_algorithm(algorithms: list[dict], algorithm: str) -> int:
 
 
 def copy_alsc_section(from_tuning: dict, to_tuning: dict) -> None:
-    """Copy the `rpi.alsc` algorithm from one tuning to another.
+    """Copy the ``rpi.alsc`` algorithm from one tuning to another.
 
     This is done in-place, i.e. modifying to_tuning.
     """
@@ -561,5 +557,5 @@ def recreate_camera_manager() -> None:
 
 
 def as_flat_rounded_list(array: np.ndarray, round_to: int = 3) -> list[float]:
-    """Flatten array, round, and then convert to list"""
+    """Flatten array, round, and then convert to list."""
     return np.reshape(array, -1).round(round_to).tolist()

@@ -1,5 +1,4 @@
-"""
-This module contains functionality for planning a scan route
+"""Functionality for planning scan routes.
 
 A scan route can be planned by a ScanPlanner class currently there
 is only one type the SmartSpiral. More can be added using by
@@ -27,8 +26,11 @@ NEIGHBOUR_CUTOFF = 1.4
 
 
 def enforce_xy_tuple(value: XYPos) -> XYPos:
-    """
-    Used for enforcing that an input is a tuple and is the correct length
+    """Check input is a tuple and is of length 2.
+
+    If possible it will coerce the value to a tuple.
+
+    :raises ValueError: if the input cannot be coerced to a tuple of length 2.
     """
     if not isinstance(value, (list, tuple)):
         raise ValueError("2 value tuple expected")
@@ -40,8 +42,11 @@ def enforce_xy_tuple(value: XYPos) -> XYPos:
 
 
 def enforce_xyz_tuple(value: XYZPos) -> XYZPos:
-    """
-    Used for enforcing that an input is a tuple and is the correct length
+    """Check input is a tuple and is of length 3.
+
+    If possible it will coerce the value to a tuple.
+
+    :raises ValueError: if the input cannot be coerced to a tuple of length 3.
     """
     if not isinstance(value, (list, tuple)):
         raise ValueError("3 value tuple expected")
@@ -53,40 +58,39 @@ def enforce_xyz_tuple(value: XYZPos) -> XYZPos:
 
 
 class ScanPlanner:
-    """
-    A base class for a scan planner.
+    """A base class for a scan planner.
 
     This should never be used directly for a scan, it should be subclassed.
 
     Each subclass should implement at least the methods with NotImplementedError
     set:
-    * _parse() - to parse the planner_settings dictionary, saving values to class
-        variables
-    * _intial_location_list() - Sets the list of locations for the scan to follow
 
-    For a simple scan pattern this should be sufficent. For more complex ones that
-    dynanically adjust the path it is suggested to override `mark_location_visited()`
-    calling `super().mark_location_visited()` at the start of the method so that all
+    * ``_parse()`` - to parse the planner_settings dictionary, saving values to class
+        variables
+    * ``_initial_location_list()`` - Sets the list of locations for the scan to follow
+
+    For a simple scan pattern this should be sufficient. For more complex ones that
+    dynamically adjust the path it is suggested to override ``mark_location_visited()``
+    calling ``super().mark_location_visited()`` at the start of the method so that all
     locations are adjusted.
 
-    When subclassing be sure to use enforce_xy_tuple and enforce_xyz_tuple on any user
-    data before running
+    When subclassing be sure to use ``enforce_xy_tuple`` and ``enforce_xyz_tuple`` on
+    any user data before running.
     """
 
-    def __init__(self, intial_position: XYPos, planner_settings: Optional[dict] = None):
-        """
-        Set up lists for the path planning, and scan history.
-        """
-
-        self._initial_position = enforce_xy_tuple(intial_position)
+    def __init__(
+        self, initial_position: XYPos, planner_settings: Optional[dict] = None
+    ):
+        """Set up lists for the path planning, and scan history."""
+        self._initial_position = enforce_xy_tuple(initial_position)
         self._parse(planner_settings)
 
         # The remaining (x,y) locations to scan
         # (This was `path` before refactoring from the long `sample_scan` code)
-        self._remaining_locations: XYPosList = self._intial_location_list()
+        self._remaining_locations: XYPosList = self._initial_location_list()
 
         # This holds a list of all (x,y,z) locations where images were taken
-        # this may not be equivalent to the x,y poistions ins self._path_history
+        # this may not be equivalent to the x,y positions ins self._path_history
         # if background detect is used
         # (This was not used in the `sample_scan` code)
         self._imaged_locations: XYZPosList = []
@@ -103,48 +107,37 @@ class ScanPlanner:
 
     @property
     def scan_complete(self) -> bool:
-        """
-        Return True if there are no locations left to scan.
-        """
+        """Return True if there are no locations left to scan."""
         return not self._remaining_locations
 
     @property
     def remaining_locations(self) -> XYPosList:
-        """
-        Property to access a copy of the remaining_locations
-        """
+        """Property to access a copy of the remaining_locations."""
         return copy(self._remaining_locations)
 
     @property
     def imaged_locations(self) -> XYZPosList:
-        """
-        Property to access a copy of the imaged_locations
-        """
+        """Property to access a copy of the imaged_locations."""
         return copy(self._imaged_locations)
 
     @property
     def focused_locations(self) -> XYZPosList:
-        """
-        Property to access a copy of the focused_locations
-        """
+        """Property to access a copy of the focused_locations."""
         return copy(self._focused_locations)
 
     @property
     def path_history(self) -> XYPosList:
-        """
-        Property to access a copy of the path_history
-        """
+        """Property to access a copy of the path_history."""
         return copy(self._path_history)
 
     def _parse(self, planner_settings: Optional[dict] = None) -> None:
-        """
-        Parse any settings sent to this planner and store them if needed.
-        """
+        """Parse any settings sent to this planner and store them if needed."""
         raise NotImplementedError("Did you call the ScanPlanner base class?")
 
-    def _intial_location_list(self) -> XYPosList:
-        """
-        Called on initalisation. Sets the initial list of locations for this scan planner
+    def _initial_location_list(self) -> XYPosList:
+        """Set the initial list of locations for this scan planner.
+
+        This is called on initialisation.
 
         For a simple grid scan/snake scan this would be all locations to move to.
 
@@ -154,23 +147,17 @@ class ScanPlanner:
         raise NotImplementedError("Did you call the ScanPlanner base class?")
 
     def position_visited(self, position: XYPos) -> bool:
-        """
-        Return True if input xy position has been visited before
-        """
+        """Return True if input xy position has been visited before."""
         # Ensure tuple for correct matching!
         return tuple(position) in self._path_history
 
     def position_planned(self, position: XYPos) -> bool:
-        """
-        Return True if input xy position is planned
-        """
+        """Return True if input xy position is planned."""
         # Ensure tuple for correct matching!
         return tuple(position) in self._remaining_locations
 
     def get_next_location_and_z_estimate(self) -> tuple[XYPos, Optional[int]]:
-        """
-        Return the next location to scan, and the estimated z-position
-        for this location.
+        """Return the next location to scan and its estimated z-position.
 
         Note z-position may be None! This indicates that the current z, position
         should be used.
@@ -190,10 +177,12 @@ class ScanPlanner:
         return next_location, z
 
     def closest_focus_site(self, xy_pos: XYPos) -> Optional[XYZPos]:
-        """
-        Return the xyz position of the closest site where focus was achieved
-        to the input xy_position, with the most recently taken image returned in
-        the case of a tie
+        """Return the xyz position of the closest site where focus was achieved.
+
+        The most recently taken image is returned in the case of a tie.
+
+        :param xy_pos: The xy_position which the returned position should be closest
+            to.
 
         Returns None if there if no focussed locations are present
         """
@@ -218,13 +207,13 @@ class ScanPlanner:
     def mark_location_visited(
         self, xyz_pos: XYZPos, imaged: bool, focused: bool
     ) -> None:
-        """
-        Mark the location as visited
+        """Mark the location as visited.
 
         Args:
             xyz_pos: the x_y_z position
             imaged: true if an image was taken, false if not (due to background detect)
             focused: true if autofocus completed successfully
+
         """
         # ensure is tuple!
         xyz_pos = enforce_xyz_tuple(xyz_pos)
@@ -246,14 +235,14 @@ class ScanPlanner:
 
 
 class SmartSpiral(ScanPlanner):
-    """
-    This is a smart spiral scan that spirals out from the centre, but prioritises
-    short moves over rigidly sticking to minimising radius from the centre of the
-    scan.
+    """A scan planner that spirals outward from the centre, prioritising short moves.
+
+    This planner spirals out from the centre, but prioritises short moves over rigidly
+    sticking to minimising radius from the centre of the scan.
 
     Each time and image is taken the four neighbouring images are added
-    to the list of poisitions to image (unless they are already listed or
-    tried). However if a location is not imaged due no sample being detected
+    to the list of positions to image (unless they are already listed or
+    tried). However, if a location is not imaged due no sample being detected
     then neibouring positions are not imaged.
 
     The next image taken is the closes to the centre (considering the largest
@@ -266,14 +255,12 @@ class SmartSpiral(ScanPlanner):
     _dy: int = 0
 
     def _parse(self, planner_settings: Optional[dict] = None) -> None:
-        """
-        Parse SmartSpiral Settings. This should be a dictionary
+        """Parse SmartSpiral Settings dictionary.
 
-        "dx" - the movement size in x
-        "dy" - the movement size in y
-        "max_dist" - The maximum distance to a location can be from the centre.
+        * ``dx`` - the movement size in x
+        * ``dy`` - the movement size in y
+        * ``max_dist`` - The maximum distance to a location can be from the centre.
         """
-
         expected_keys = ["max_dist", "dx", "dy"]
         invalid_msg = "SmartSpiral requires a planner_settings dictionary with keys: "
         if not planner_settings:
@@ -285,9 +272,10 @@ class SmartSpiral(ScanPlanner):
         self._dy = int(planner_settings["dy"])
         self._max_dist = int(planner_settings["max_dist"])
 
-    def _intial_location_list(self) -> XYPosList:
-        """
-        Called on initalisation. Sets the initial list of locations for this scan planner
+    def _initial_location_list(self) -> XYPosList:
+        """Set the initial list of locations for this scan planner.
+
+        This is salled on initialisation.
 
         For smart spiral this is just the first point
         """
@@ -296,13 +284,13 @@ class SmartSpiral(ScanPlanner):
     def mark_location_visited(
         self, xyz_pos: XYZPos, imaged: bool = True, focused: bool = True
     ) -> None:
-        """
-        Mark the location as visited. Adjust extra positions accordingly
+        """Mark the location as visited. Adjust extra positions accordingly.
 
         Args:
             xyz_pos: the x_y_z position
             imaged: true if an image was taken, false if not (due to background detect)
             focused: true if autofocus completed successfully
+
         """
         # First call the base class to update the positions
         super().mark_location_visited(xyz_pos, imaged, focused)
@@ -313,10 +301,14 @@ class SmartSpiral(ScanPlanner):
         self._re_sort_remaining_locations(xy_pos)
 
     def _add_surrounding_positions(self, xy_pos: XYPos) -> None:
-        """
-        This adds the surrounding (4 point connectivity) positions
-        to the remaining locations if they are not too far away or
-        already planned or already visited
+        """Add the 4 surrounding positions to the list of remaining locations to visit.
+
+        This adds the surrounding positions (with 4 point connectivity) to the
+        remaining locations list if they are not:
+
+        * too far away
+        * already planned
+        * already visited
         """
         new_positions = [
             (xy_pos[0] - self._dx, xy_pos[1]),
@@ -337,9 +329,7 @@ class SmartSpiral(ScanPlanner):
             self._remaining_locations.append(new_pos)
 
     def _re_sort_remaining_locations(self, current_pos: XYPos) -> None:
-        """
-        Sort the remaining positions besed on the current location
-        """
+        """Sort the remaining positions based on the current location."""
 
         # Defined rather than use a lambda for readability
         def sort_key(pos):
@@ -352,10 +342,10 @@ class SmartSpiral(ScanPlanner):
         self._remaining_locations.sort(key=sort_key)
 
     def get_next_location_and_z_estimate(self) -> tuple[XYPos, Optional[int]]:
-        """
-        Return the next location to scan, and the estimated z-position
-        for this location. This overrides the default behaviour of ScanPlanner
-        to take the lowest value of nearest neighbours as this works best for smart stack
+        """Return the next location to scan and its estimated z-position.
+
+        This overrides the default behaviour of ScanPlanner to take the lowest value of
+        nearest neighbours as this works best for smart stack.
 
         Note z-position may be None! This indicates that the current z position
         should be used.
@@ -375,11 +365,12 @@ class SmartSpiral(ScanPlanner):
         return next_location, z
 
     def select_nearby_focus_site(self, xy_pos: XYPos) -> Optional[XYZPos]:
-        """
-        Return the xyz position of the nearby site with the lowest z position.
+        """Return the xyz position of the nearby site with the lowest z position.
+
         Lowest position is best, as starting too high causes smart stacking to
         autofocus and restart. Starting too low just requires extra movements in +z.
-        Nearby is defined as within NEIGHBOUR_CUTOFF times the distance to the closest neighbour.
+        Nearby is defined as within NEIGHBOUR_CUTOFF times the distance to the closest
+        neighbour.
 
         Returns None if there if no focused locations are present
         """
@@ -413,13 +404,11 @@ class SmartSpiral(ScanPlanner):
         starting_pos: XYPos | np.ndarray,
         ending_pos: XYPos | np.ndarray,
     ) -> float:
-        """
-        Return the number of moves between two xy positions in the x or y direction
-        whichever is largest
+        """Return the larger of x moves or y moves between two xy positions.
 
-        Args:
-        starting_pos: the position to measure from
-        ending_pos: the position to measure to
+        :param starting_pos: the position to measure from
+        :param ending_pos: the position to measure to
+
         """
         move_size = np.array([self._dx, self._dy])
 
@@ -434,10 +423,9 @@ class SmartSpiral(ScanPlanner):
 def distance_between(
     current_pos: XYPos | np.ndarray, next_pos: XYPos | np.ndarray
 ) -> float:
-    """
-    Calculate the distance between the two xy positions
+    """Calculate the distance between the two xy positions.
 
-    This was previously called `distance_to_site`
+    This was previously called ``distance_to_site``
     """
     next_pos = np.array(next_pos, dtype="float64")
     current_pos = np.array(current_pos, dtype="float64")

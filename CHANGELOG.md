@@ -83,7 +83,7 @@ The following merge requests have been merged into v3:
 * !286 Use same version number for server and webapp, add CI check
 * !285 Swapped the order of CSM so y axis is completed first 
 * !283 Add scan directory to json config 
-* !287 Update depedencies and changelog prior to v3.0.0-alpha1 release
+* !287 Update depedencies and changelog prior to v3.0.0-alpha1 release <!-- codespell:ignore depedencies -->
 
 # [v2.11.0](https://gitlab.com/openflexure/openflexure-microscope-server/compare/v2.10.1...v2.11.0) (2022-08-08)
 ## New features

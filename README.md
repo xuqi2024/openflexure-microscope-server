@@ -2,7 +2,7 @@
 
 > ## This is the v3 development branch
 > We are no longer actively developing v2, but v3 is not yet released.
-> v3 is not yet stable enough for wider public release. Deveopment snapshots are released from time to time.
+> v3 is not yet stable enough for wider public release. Development snapshots are released from time to time.
 > If you want to use a development snapshot before we do a wider alpha release the best thing to do is get in contact on the [forum](https://openflexure.discourse.group/).
  If you want to look at the code for v2 you should look at the [master branch](https://gitlab.com/openflexure/openflexure-microscope-server/-/tree/master).
 
