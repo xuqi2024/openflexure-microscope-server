@@ -4,8 +4,13 @@ import subprocess
 import os
 import re
 import tempfile
+import shutil
+import warnings
+
 
 from hypothesis import strategies as st
+from hypothesis.errors import NonInteractiveExampleWarning
+import pytest
 
 from openflexure_microscope_server import utilities
 
@@ -21,15 +26,27 @@ SEMVER_REGEX = re.compile(
 # Use hypothesis to generate random filenames
 FILE_NAME_GEN = st.from_regex(r"[a-zA-Z_-]{5,20}\.[a-z]{1,5}", fullmatch=True)
 # Use hypothesis to generate random data for files
-FILE_Data_GEN = st.from_regex(r"[a-zA-Z_-]{5,20}\.[a-z]{1,5}", fullmatch=True)
+FILE_DATA_GEN = st.from_regex(r"[a-zA-Z_-]{5,20}\.[a-z]{1,5}", fullmatch=True)
+
+
+def create_fake_file() -> None:
+    """Create a file with a random name and random content in the working directory."""
+    with warnings.catch_warnings():
+        # Ignore hypothesis warning as we are not using for hypothesis testing but just
+        #  as a convenient way to create random files for Git.
+        warnings.filterwarnings("ignore", category=NonInteractiveExampleWarning)
+
+        fname = FILE_NAME_GEN.example()
+        with open(fname, "w", encoding="utf-8") as file_obj:
+            file_obj.write(FILE_DATA_GEN.example())
 
 
 def _git(command: str) -> str:
     """Run a git command in a subprocess."""
     git_command = ["git"] + command.split()
     # Use check=True so an error is raised if git has a problem. Only read STDOUT
-    result = subprocess.run(git_command, shell=True, check=True, capture_output=True)
-    return result.stdout.decode()
+    result = subprocess.run(git_command, check=True, capture_output=True)
+    return result.stdout.decode().strip()
 
 
 def test_reading_hash_from_git():
@@ -45,13 +62,121 @@ def test_reading_hash_from_git():
             # Git dir not created yet. Returns Undefined
             assert utilities._get_hash_from_git_dir(git_dir) == "Undefined"
 
-            # Intialised. Should still be undefined.
+            # Initialised. Should still be undefined.
             _git("init")
             assert utilities._get_hash_from_git_dir(git_dir) == "Undefined"
+
+            # Create some fake files and commit them.
+            create_fake_file()
+            create_fake_file()
+            _git("add -A")
+            _git("commit -m 'message'")
+            git_hash1 = _git("rev-parse HEAD")
+            # Check we read the hash the same as the git executable
+            assert utilities._get_hash_from_git_dir(git_dir) == git_hash1
+
+            # Create more fake files and check again.
+            create_fake_file()
+            create_fake_file()
+            _git("add -A")
+            _git("commit -m 'message'")
+            git_hash2 = _git("rev-parse HEAD")
+            assert utilities._get_hash_from_git_dir(git_dir) == git_hash2
+
+            # Save the branch name (robust to the default branch name changing)
+            branch_name = _git("rev-parse --abbrev-ref HEAD")
+
+            # Check out the old commit in detached HEAD and check it is correct
+            _git(f"checkout {git_hash1}")
+            assert utilities._get_hash_from_git_dir(git_dir) == git_hash1
+
+            # Check out the branch and check commit changed back
+            _git(f"checkout {branch_name}")
+            assert utilities._get_hash_from_git_dir(git_dir) == git_hash2
+    finally:
+        # Return to original working dir
+        os.chdir(working_dir)
+
+
+@pytest.fixture
+def git_repo():
+    """Return a git repo path (set as working dir) with couple of commits."""
+    working_dir = os.getcwd()
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.chdir(tmpdir)
+            # Initialise, create files and commit a couple of times
+            _git("init")
+            create_fake_file()
+            create_fake_file()
+            _git("add -A")
+            _git("commit -m 'message'")
+            create_fake_file()
+            create_fake_file()
+            _git("add -A")
+            _git("commit -m 'message'")
+
+            yield tmpdir
 
     finally:
         # Return to original working dir
         os.chdir(working_dir)
+
+
+def test_reading_hash_from_broken_git_dir(git_repo):
+    """Break a git dir and check the hash is "Undefined"."""
+    git_dir = os.path.join(git_repo, ".git")
+
+    # Break the git directory and check the hash is undefined
+    shutil.move(
+        os.path.join(git_dir, "refs"),
+        os.path.join(git_dir, "refs1"),
+        copy_function=shutil.copytree,
+    )
+    assert utilities._get_hash_from_git_dir(git_dir) == "Undefined"
+
+    # Fix it and check it works again
+    shutil.move(
+        os.path.join(git_dir, "refs1"),
+        os.path.join(git_dir, "refs"),
+        copy_function=shutil.copytree,
+    )
+
+    commit_hash = utilities._get_hash_from_git_dir(git_dir)
+    assert utilities.COMMIT_REGEX.match(commit_hash) is not None
+
+    # Break the git directory differently and check the hash is undefined
+    os.remove(os.path.join(git_dir, "HEAD"))
+    assert utilities._get_hash_from_git_dir(git_dir) == "Undefined"
+
+
+def test_reading_hash_from_broken_git_ref_file(git_repo):
+    """Break the git ref file and check the hash is "Undefined"."""
+    git_dir = os.path.join(git_repo, ".git")
+    branch_name = _git("rev-parse --abbrev-ref HEAD")
+    ref_path = os.path.join(git_dir, "refs", "heads", branch_name)
+    # Check commit can be read
+    commit_hash = utilities._get_hash_from_git_dir(git_dir)
+    assert utilities.COMMIT_REGEX.match(commit_hash) is not None
+    # Write something into the ref file
+    with open(ref_path, "w", encoding="utf-8") as head_file:
+        head_file.write("This is now broken")
+    # It is now undefined
+    assert utilities._get_hash_from_git_dir(git_dir) == "Undefined"
+
+
+def test_reading_hash_from_broken_git_head_file(git_repo):
+    """Break the git HEAD file and check the hash is "Undefined"."""
+    git_dir = os.path.join(git_repo, ".git")
+    head_path = os.path.join(git_dir, "HEAD")
+    # Check commit can be read
+    commit_hash = utilities._get_hash_from_git_dir(git_dir)
+    assert utilities.COMMIT_REGEX.match(commit_hash) is not None
+    # Write something into the ref file
+    with open(head_path, "w", encoding="utf-8") as ref_file:
+        ref_file.write("This is now broken")
+    # It is now undefined
+    assert utilities._get_hash_from_git_dir(git_dir) == "Undefined"
 
 
 def test_reading_version_from_toml():

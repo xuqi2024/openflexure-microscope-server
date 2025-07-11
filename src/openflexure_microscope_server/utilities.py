@@ -97,7 +97,7 @@ class VersionData(BaseModel):
     :param version: The version string for the server. Or "Undefined" if there is an
         error.
     :param version_source: Either a Git commit hash, "TOML", "Dist" or in the case of
-         an error - "Undefined".
+        an error - "Undefined".
     """
 
     version: str
@@ -108,7 +108,7 @@ def robust_version_strings() -> tuple[str, str]:
     """Return a version string and information on its source.
 
     Returning a python version string is not without problems. If the package is
-    installed in an editable way, often METDATA is never updated. This provides 4
+    installed in an editable way, often METADATA is never updated. This provides 4
     ways to provide a version string:
 
     1. If both a Git directory and a pyproject.toml are available. Return the version
