@@ -1,5 +1,4 @@
-"""
-Test the SmartScanThing *without* connecting it to a LabThings Server.
+"""Test the SmartScanThing *without* connecting it to a LabThings Server.
 
 By testing without connecting to the LabThings server it is possible to
 directly poll any properties and to start any methods.
@@ -31,7 +30,7 @@ from openflexure_microscope_server.things.smart_scan import (
 from .mock_things.mock_csm import MockCSMThing
 from .mock_things.mock_autofocus import MockAutoFocusThing
 from .mock_things.mock_stage import MockStageThing
-from .mock_things.mock_background_detect import MockBackgoundDetectThing
+from .mock_things.mock_background_detect import MockBackgroundDetectThing
 
 # A global logger to pass in as an Invocation Logger
 LOGGER = logging.getLogger("mock-invocation_logger")
@@ -42,14 +41,14 @@ SCAN_DIR = os.path.join(tempfile.gettempdir(), "scans")
 
 
 def _clear_scan_dir() -> None:
-    """Delete the scan dir"""
+    """Delete the scan dir."""
     if os.path.exists(SCAN_DIR):
         shutil.rmtree(SCAN_DIR)
 
 
 @pytest.fixture
 def smart_scan_thing():
-    """Return a smart scan thing as a fixture"""
+    """Return a smart scan thing as a fixture."""
     return SmartScanThing(SCAN_DIR)
 
 
@@ -64,8 +63,11 @@ def test_initial_properties(smart_scan_thing):
 
 
 def test_inaccessible_scan_methods(smart_scan_thing):
-    """The @_scan_running decorator should make some methods
-    inaccessible unless a scan is running"""
+    """Test that method with @_scan_running decorator is inaccessible.
+
+    The @_scan_running decorator makes these functions inaccessible unless
+    a scan is running.
+    """
     with pytest.raises(ScanNotRunningError):
         smart_scan_thing._run_scan()
     with pytest.raises(ScanNotRunningError):
@@ -73,8 +75,7 @@ def test_inaccessible_scan_methods(smart_scan_thing):
 
 
 def test_private_delete_scan(smart_scan_thing, caplog):
-    """Test the private _delete_scan method deletes directories or warns if it can't"""
-
+    """Test the private _delete_scan method deletes directories or warns if it can't."""
     _clear_scan_dir()
     with caplog.at_level(logging.INFO):
         fake_scan_name = "fake_scan_0001"
@@ -100,8 +101,7 @@ def test_private_delete_scan(smart_scan_thing, caplog):
 
 
 def test_public_delete_scan(smart_scan_thing, caplog):
-    """Test the delete_scan API call deletes directories or warns if it can't"""
-
+    """Test the delete_scan API call deletes directories or warns if it can't."""
     _clear_scan_dir()
     with caplog.at_level(logging.INFO):
         fake_scan_name = "fake_scan_0001"
@@ -151,9 +151,8 @@ def test_delete_all_scans(smart_scan_thing, caplog):
         assert len(caplog.records) == 0
 
 
-def _run_only_outer_scan(adjust_inital_state: Optional[Callable] = None):
-    """
-    Create a subclass of SmartScanThing to mock _run_scan and run sample_scan
+def _run_only_outer_scan(adjust_initial_state: Optional[Callable] = None):
+    """Create a subclass of SmartScanThing to mock _run_scan and run sample_scan.
 
     This should do all the set up for a scan, move into the mocked
     _run_scan method where this can be tested. Once this is done
@@ -166,7 +165,6 @@ def _run_only_outer_scan(adjust_inital_state: Optional[Callable] = None):
     This seems hard to do with a fixture so it is being done with a private
     function
     """
-
     # cancel handle shouldn't be used. Set to arbitrary value for checking
     cancel_mock = 1  # not called
     af_mock = MockAutoFocusThing()
@@ -174,19 +172,13 @@ def _run_only_outer_scan(adjust_inital_state: Optional[Callable] = None):
     cam_mock = 4  # not called
     meta_mock = 5  # not called
     csm_mock = MockCSMThing()
-    bkgrnd_det_mock = MockBackgoundDetectThing()
+    bkgrnd_det_mock = MockBackgroundDetectThing()
 
     class MockedSmartScanThing(SmartScanThing):
-        """
-        This is a subclass of SmartScanThing with a mocked method and
-        mocked thing_settings.
-        """
+        """Mocked version of SmartScanThing with a patched _run_scan method."""
 
         # Counter for checking functions were called
         mock_call_count = {"_run_scan": 0}
-
-        # Mock thing settings as a dictionary
-        thing_settings = {"skip_background": True}
 
         def _run_scan(self):
             self.mock_call_count["_run_scan"] += 1
@@ -207,8 +199,8 @@ def _run_only_outer_scan(adjust_inital_state: Optional[Callable] = None):
     # mock smart scan thing
     mock_ss_thing = MockedSmartScanThing(SCAN_DIR)
 
-    if adjust_inital_state is not None:
-        adjust_inital_state(mock_ss_thing)
+    if adjust_initial_state is not None:
+        adjust_initial_state(mock_ss_thing)
 
     exec_info = None
     try:
@@ -240,7 +232,7 @@ def _run_only_outer_scan(adjust_inital_state: Optional[Callable] = None):
     assert mock_ss_thing._scan_images_taken is None
 
     # Return the mock thing for further state testing, and the
-    # exec_info of any uncaught exeptions that were raised
+    # exec_info of any uncaught exceptions that were raised
     return mock_ss_thing, exec_info
 
 
