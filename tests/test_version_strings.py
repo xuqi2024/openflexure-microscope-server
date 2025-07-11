@@ -6,7 +6,7 @@ import re
 import tempfile
 import shutil
 import warnings
-
+import logging
 
 from hypothesis import strategies as st
 from hypothesis.errors import NonInteractiveExampleWarning
@@ -14,6 +14,12 @@ import pytest
 
 from openflexure_microscope_server import utilities
 
+# Useful for really finding the repo dir when we mock where it is.
+THIS_DIR = os.path.dirname(__file__)
+TRUE_REPO_DIR = os.path.dirname(THIS_DIR)
+
+# For explicit version checking.
+VER_STRING = "3.0.0-alpha1"
 
 # This is the regex provided by https://semver.org/
 SEMVER_REGEX = re.compile(
@@ -47,6 +53,64 @@ def _git(command: str) -> str:
     # Use check=True so an error is raised if git has a problem. Only read STDOUT
     result = subprocess.run(git_command, check=True, capture_output=True)
     return result.stdout.decode().strip()
+
+
+@pytest.fixture
+def temp_dir():
+    """Return the path of a temporary directory (set as working dir)."""
+    working_dir = os.getcwd()
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.chdir(tmpdir)
+            yield tmpdir
+    finally:
+        # Return to original working dir
+        os.chdir(working_dir)
+
+
+@pytest.fixture
+def git_repo(temp_dir):
+    """Return a git repo path (set as working dir) with couple of commits."""
+    # Initialise, create files and commit a couple of times
+    _git("init")
+    create_fake_file()
+    create_fake_file()
+    _git("add -A")
+    _git("commit -m 'message'")
+    create_fake_file()
+    create_fake_file()
+    _git("add -A")
+    _git("commit -m 'message'")
+
+    yield temp_dir
+
+
+def test_version_data_git_and_toml(mocker, git_repo):
+    """Check expected version reported if git repo and pyproject.toml are available."""
+    mocker.patch.object(utilities, "REPO_DIR", new=git_repo)
+    git_hash = _git("rev-parse HEAD")
+    shutil.copy(os.path.join(TRUE_REPO_DIR, "pyproject.toml"), git_repo)
+    version_data = utilities.robust_version_strings()
+    # Check versions are as expected. Prepending the v to the semantic version.
+    assert version_data.version == "v" + VER_STRING
+    assert version_data.version_source == git_hash
+
+
+def test_version_data_git_only(mocker, git_repo, caplog):
+    """In the odd case of a git repo and no pyproject.toml. Check the hash is reported.
+
+    The version string should just be reported as "Undefined". This is weird, so we
+    expect there to be errors logged.
+    """
+    with caplog.at_level(logging.ERROR):
+        mocker.patch.object(utilities, "REPO_DIR", new=git_repo)
+        git_hash = _git("rev-parse HEAD")
+        version_data = utilities.robust_version_strings()
+        # Check versions are as expected. Prepending the v to the semantic version.
+        assert version_data.version == "Undefined"
+        assert version_data.version_source == git_hash
+        # There should be 1 error level log
+        assert len(caplog.records) == 1
 
 
 def test_reading_hash_from_git():
@@ -93,31 +157,6 @@ def test_reading_hash_from_git():
             # Check out the branch and check commit changed back
             _git(f"checkout {branch_name}")
             assert utilities._get_hash_from_git_dir(git_dir) == git_hash2
-    finally:
-        # Return to original working dir
-        os.chdir(working_dir)
-
-
-@pytest.fixture
-def git_repo():
-    """Return a git repo path (set as working dir) with couple of commits."""
-    working_dir = os.getcwd()
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.chdir(tmpdir)
-            # Initialise, create files and commit a couple of times
-            _git("init")
-            create_fake_file()
-            create_fake_file()
-            _git("add -A")
-            _git("commit -m 'message'")
-            create_fake_file()
-            create_fake_file()
-            _git("add -A")
-            _git("commit -m 'message'")
-
-            yield tmpdir
-
     finally:
         # Return to original working dir
         os.chdir(working_dir)
@@ -190,7 +229,7 @@ def test_reading_version_from_toml():
     # Check version does follow semantic versioning.
     assert SEMVER_REGEX.match(ver_string)
     # Explicit check
-    assert ver_string == "3.0.0-alpha1"
+    assert ver_string == VER_STRING
 
 
 def test_error_reading_version_from_toml():
