@@ -7,6 +7,8 @@ import logging
 from importlib.metadata import version
 import tomllib
 
+from pydantic import BaseModel
+
 LOGGER = logging.getLogger(__name__)
 
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -89,7 +91,43 @@ def _wrap_and_catch_errors(target, error_buffer, *args, **kwargs):
         error_buffer.append(e)
 
 
+class VersionData(BaseModel):
+    """A BaseModel containing the information about the server version.
+
+    :param version: The version string for the server. Or "Undefined" if there is an
+        error.
+    :param version_source: Either a Git commit hash, "TOML", "Dist" or in the case of
+         an error - "Undefined".
+    """
+
+    version: str
+    version_source: str
+
+
 def robust_version_strings() -> tuple[str, str]:
+    """Return a version string and information on its source.
+
+    Returning a python version string is not without problems. If the package is
+    installed in an editable way, often METDATA is never updated. This provides 4
+    ways to provide a version string:
+
+    1. If both a Git directory and a pyproject.toml are available. Return the version
+        string from the toml file and the git hash from the ``.git`` directory as its
+        source.
+    2. If a pyproject.toml is available but no Git directory then this is likely an
+        installation from source. Return the version string from the toml file and
+        return the literal string "TOML" as its source.
+    3. If a Git directory is available but no pyproject.toml then something is very
+        weird log an error. Then return "Undefined" as the version string, but still
+        return the Git hash as the source.
+    4. Finally if neither a Git directory nor a pyproject.toml are available then the
+       server has been installed from a distribution package (i.e. a wheel). In this
+       case use the standard library function ``importlib.metadata.version`` for the
+       version string (prepending a "v") and return "Dist" as its source.
+
+    :returns: a VersionData instance with the version string and source.
+
+    """
     project_toml_path = os.path.join(REPO_DIR, "pyproject.toml")
     git_dir_path = os.path.join(REPO_DIR, ".git")
     has_project_toml = os.path.isfile(project_toml_path)
@@ -108,8 +146,8 @@ def robust_version_strings() -> tuple[str, str]:
         source = "TOML"
     elif has_git_dir:
         # Only .git dir, that is weird.
-        LOGGER.warning(
-            "Unexpected installation cofiguration. Version number cannot be verified."
+        LOGGER.error(
+            "Unexpected installation configuration. Version number cannot be verified."
         )
         ver = "Undefined"
         source = _get_hash_from_git_dir(git_dir_path)
@@ -119,10 +157,27 @@ def robust_version_strings() -> tuple[str, str]:
         # This is why it is the last option.
         ver = "v" + version("openflexure_microscope_server")
         source = "Dist"
-    return (ver, source)
+    return VersionData(version=ver, version_source=source)
 
 
 def _get_hash_from_git_dir(git_dir_path: str) -> str:
+    """Get the commit hash from a .git directory directly.
+
+    This function doesn't rely on GIT being on the PATH or even installed. It doesn't
+    require any packages outside the Python standard library. It directly inspects the
+    .git directory to get the commit hash:
+
+    * If the repository is on a detached HEAD then the hash will be in the file
+        .git/HEAD. A detached HEAD is could be from checking out a tag or checking out
+        a commit directly.
+    * In normal operation .git/HEAD points to a reference or "ref". This ref file
+        contains the hash.
+
+    :param git_dir_path: The path to the .git directory.
+
+    :returns: The hash, or "Undefined" if there is any error, errors are logged not
+        raised.
+    """
     head_path = os.path.join(git_dir_path, "HEAD")
     try:
         with open(head_path, "r", encoding="utf-8") as head_file:
@@ -141,8 +196,21 @@ def _get_hash_from_git_dir(git_dir_path: str) -> str:
 
 
 def _get_hash_from_git_ref(git_ref_path: str) -> str:
-    with open(git_ref_path, "r", encoding="utf-8") as ref_file:
-        ref = ref_file.read()
+    """Get the commit hash from a ref in the .git directory.
+
+    For more detail see `_get_hash_from_git_dir`
+
+    :param git_ref_path: The full path to the ref file in the .git directory.
+
+    :returns: The hash, or "Undefined" if there is any error, errors are logged not
+        raised.
+    """
+    try:
+        with open(git_ref_path, "r", encoding="utf-8") as ref_file:
+            ref = ref_file.read()
+    except IOError:
+        LOGGER.error("Problem opening Git branch reference.")
+        return "Undefined"
     if ref_match := COMMIT_REGEX.match(ref):
         return ref_match.group(0)
     LOGGER.error("No hash found in Git ref")
@@ -150,10 +218,16 @@ def _get_hash_from_git_ref(git_ref_path: str) -> str:
 
 
 def _get_version_from_toml(toml_path: str) -> str:
+    """Get the version string from a pyproject.toml file.
+
+    :param toml_path: The path to the toml file.
+
+    :returns: The version string directly as reported in the toml file.
+    """
     try:
         with open(toml_path, "rb") as toml_file:
             toml_dict = tomllib.load(toml_file)
         return toml_dict["project"]["version"]
     except (IOError, ValueError, KeyError):
-        LOGGER.error("Problem opening .git/HEAD")
+        LOGGER.error("Problem opening pyproject.toml")
         return "Undefined"

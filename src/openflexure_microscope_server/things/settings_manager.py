@@ -12,6 +12,8 @@ from uuid import UUID, uuid4
 
 import labthings_fastapi as lt
 
+from openflexure_microscope_server.utilities import VersionData, robust_version_strings
+
 
 class SettingsManager(lt.Thing):
     """Provides functionality to other Things about the current server state.
@@ -44,6 +46,23 @@ class SettingsManager(lt.Thing):
         """The hostname of the microscope, as reported by its operating system."""
         return gethostname()
 
+    _version_data: Optional[VersionData] = None
+
+    @lt.thing_property
+    def version_data(self) -> VersionData:
+        """The version string and version source for the server.
+
+        The source may be a commit hash if installed from git. "TOML" if installed from
+        source, or "Dist" if installed from a distribution package.
+
+        If the version or its source cannot be determined an error will be Logged.
+        """
+        # Don't save as a setting as it may change. Get the version string the first
+        # time the property is requested this boot.
+        if self._version_data is None:
+            self._version_data = robust_version_strings()
+        return self._version_data
+
     @lt.thing_action
     def get_things_state(self, metadata_getter: lt.deps.GetThingStates) -> Mapping:
         """Metadata summarising the current state of all Things in the server."""
@@ -55,4 +74,6 @@ class SettingsManager(lt.Thing):
         return {
             "hostname": self.hostname,
             "microscope-uuid": str(self.microscope_id),
+            "version": self.version_data.version,
+            "version_source": self.version_data.version_source,
         }
