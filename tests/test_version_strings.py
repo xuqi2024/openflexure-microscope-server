@@ -87,6 +87,7 @@ def git_repo(temp_dir):
 
 def test_version_data_git_and_toml(mocker, git_repo):
     """Check expected version reported if git repo and pyproject.toml are available."""
+    # Patch the variable for this repo to the repo provided by the fixture.
     mocker.patch.object(utilities, "REPO_DIR", new=git_repo)
     git_hash = _git("rev-parse HEAD")
     shutil.copy(os.path.join(TRUE_REPO_DIR, "pyproject.toml"), git_repo)
@@ -96,14 +97,25 @@ def test_version_data_git_and_toml(mocker, git_repo):
     assert version_data.version_source == git_hash
 
 
+def test_version_data_toml_only(mocker, temp_dir):
+    """In the case of a pyproject.toml but not git dir, check version is reported."""
+    # Patch the variable for this repo to the temp dir provided by the fixture.
+    mocker.patch.object(utilities, "REPO_DIR", new=temp_dir)
+    shutil.copy(os.path.join(TRUE_REPO_DIR, "pyproject.toml"), temp_dir)
+    version_data = utilities.robust_version_strings()
+    # Check versions are as expected. Prepending the v to the semantic version.
+    assert version_data.version == "v" + VER_STRING
+    assert version_data.version_source == "TOML"
+
+
 def test_version_data_git_only(mocker, git_repo, caplog):
     """In the odd case of a git repo and no pyproject.toml. Check the hash is reported.
 
     The version string should just be reported as "Undefined". This is weird, so we
     expect there to be errors logged.
     """
+    mocker.patch.object(utilities, "REPO_DIR", new=git_repo)
     with caplog.at_level(logging.ERROR):
-        mocker.patch.object(utilities, "REPO_DIR", new=git_repo)
         git_hash = _git("rev-parse HEAD")
         version_data = utilities.robust_version_strings()
         # Check versions are as expected. Prepending the v to the semantic version.
@@ -111,6 +123,26 @@ def test_version_data_git_only(mocker, git_repo, caplog):
         assert version_data.version_source == git_hash
         # There should be 1 error level log
         assert len(caplog.records) == 1
+
+
+def test_version_distribution(mocker, temp_dir):
+    """Simulate a distribution package with no pyproject.toml or git directory.
+
+    Check the returned result is from importlib.
+    """
+    mocker.patch.object(utilities, "REPO_DIR", new=temp_dir)
+    # As `openflexure_microscope_server.utilities` imported `version` from
+    # `importlib.metadata` to mock the already imported:
+    # `openflexure_microscope_server.utilities.version`, this is `version` from
+    # `importlib.metadata`
+    mocker.patch(
+        "openflexure_microscope_server.utilities.version", return_value="oobar"
+    )
+    version_data = utilities.robust_version_strings()
+    # Expect the version is the output from importlib.metadata.version, prepended by a
+    # "v". So, voobar, as we mocked the version to be oobar.!
+    assert version_data.version == "voobar"
+    assert version_data.version_source == "Dist"
 
 
 def test_reading_hash_from_git():
