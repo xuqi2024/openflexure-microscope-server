@@ -125,6 +125,10 @@ pytest:
   stage: testing
   extends: .python
   script:
+    # Our unit tests  create fake Git repositories. This doesn't work unless
+    # Git is configured with a name and email.
+    - git config --global user.name "Sir Unit of Test"
+    - git config --global user.email "fake@email.no"
     - pytest
 #    --gitlab-code-quality-report=pytest-warnings.json # can restore when it installs ok
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
