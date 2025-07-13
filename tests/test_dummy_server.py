@@ -24,9 +24,6 @@ from openflexure_microscope_server.things.camera.simulation import SimulatedCame
 from openflexure_microscope_server.things.stage.dummy import DummyStage
 from openflexure_microscope_server.things.autofocus import AutofocusThing
 from openflexure_microscope_server.things.camera_stage_mapping import CameraStageMapper
-from openflexure_microscope_server.things import camera_stage_mapping
-
-camera_stage_mapping.DEFAULT_SETTLING_TIME = 0  # skip the settling time for tests
 
 
 @pytest.fixture
@@ -117,5 +114,7 @@ def test_capture_array(client):
 
 def test_camera_stage_mapping_calibration(client):
     """Check that camera stage mapping can run without an exception."""
+    camera = lt.ThingClient.from_url("/camera/", client)
+    camera.settling_time = 0
     camera_stage_mapping = lt.ThingClient.from_url("/camera_stage_mapping/", client)
     camera_stage_mapping.calibrate_xy()

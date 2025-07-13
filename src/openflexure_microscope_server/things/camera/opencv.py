@@ -76,6 +76,11 @@ class OpenCVCamera(BaseCamera):
             self.lores_mjpeg_stream.add_frame(jpeg_lores, portal)
 
     @lt.thing_action
+    def discard_frames(self) -> None:
+        """Discard frames so that the next frame captured is fresh."""
+        self.capture_array()
+
+    @lt.thing_action
     def capture_array(
         self,
         resolution: Literal["main", "full"] = "full",

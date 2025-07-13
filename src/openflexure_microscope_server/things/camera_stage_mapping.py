@@ -12,21 +12,16 @@ server, and depends on that server and its underlying LabThings library.
 
 import time
 from typing import (
-    Annotated,
     Any,
-    Callable,
     Dict,
     List,
-    Mapping,
     NamedTuple,
     Optional,
-    Sequence,
     Tuple,
 )
-from fastapi import Depends, HTTPException
+from fastapi import HTTPException
 
 import numpy as np
-from pydantic import BaseModel
 from camera_stage_mapping.camera_stage_calibration_1d import (
     calibrate_backlash_1d,
     image_to_stage_displacement_from_1d,
@@ -34,7 +29,7 @@ from camera_stage_mapping.camera_stage_calibration_1d import (
 from camera_stage_mapping.exceptions import MappingError
 
 import labthings_fastapi as lt
-from labthings_fastapi.types.numpy import NDArray, DenumpifyingDict
+from labthings_fastapi.types.numpy import DenumpifyingDict
 
 from camera_stage_mapping.camera_stage_tracker import Tracker
 from .camera import CameraDependency as Camera
@@ -42,89 +37,6 @@ from .stage import StageDependency as Stage
 
 CoordinateType = Tuple[float, float, float]
 XYCoordinateType = Tuple[float, float]
-
-
-class HardwareInterfaceModel(BaseModel):
-    """A pydantic base model for a stage and camera interface.
-
-    This code has been flagged as confusing and will be replaced soon, see #476.
-    """
-
-    move: Callable[[NDArray], None]
-    get_position: Callable[[], NDArray]
-    grab_image: Callable[[], NDArray]
-    settle: Callable[[], None]
-    grab_image_downsampling: float = 1
-
-
-def downsample(factor: int, image: np.ndarray) -> np.ndarray:
-    """Downsample an image by taking the mean of each nxn region.
-
-    This should be very efficient: we calculate the mean of each
-    ``factor * factor`` square, no interpolation. If the image is
-    not an integer multiple of the resampling factor, we discard
-    the left-over pixels. This avoids odd edge effects and keeps
-    performance quick.
-    """
-    if factor == 1:
-        return image
-    new_size = [d // factor for d in image.shape[:2]]
-    # First, we ensure we have something that's an integer multiple
-    # of `factor`
-    cropped = image[: new_size[0] * factor, : new_size[1] * factor, ...]
-    reshaped = cropped.reshape(
-        (new_size[0], factor, new_size[1], factor) + image.shape[2:]
-    )
-    return reshaped.mean(axis=(1, 3))
-
-
-DEFAULT_SETTLING_TIME = 0.2
-
-
-def make_hardware_interface(
-    stage: Stage, camera: Camera, downsample_factor: int = 2
-) -> HardwareInterfaceModel:
-    """Construct the functions we need to interface with the hardware."""
-    axes = stage.axis_names
-
-    def pos2dict(pos: Sequence[float]) -> Mapping[str, float]:
-        return dict(zip(axes, pos))
-
-    def dict2pos(posd: Mapping[str, float]) -> Sequence[float]:
-        return tuple(posd[k] for k in axes if k in posd)
-
-    def move(pos: CoordinateType) -> None:
-        current_pos = stage.position
-        new_pos = pos2dict(pos)
-        displacement = {k: new_pos[k] - current_pos[k] for k in new_pos.keys()}
-        stage.move_relative(**displacement)
-
-    def get_position() -> CoordinateType:
-        return dict2pos(stage.position)
-
-    def grab_image() -> np.ndarray:
-        img = camera.capture_array()
-        return downsample(downsample_factor, img)
-
-    def settle() -> None:
-        time.sleep(DEFAULT_SETTLING_TIME)
-        try:
-            camera.capture_metadata  # This discards frames on a picamera
-        except AttributeError:
-            pass  # Don't raise an error for other cameras (may consider grabbing a frame)
-
-    return HardwareInterfaceModel(
-        move=move,
-        get_position=get_position,
-        grab_image=grab_image,
-        settle=settle,
-        grab_image_downsampling=downsample_factor,
-    )
-
-
-HardwareInterfaceDep = Annotated[
-    HardwareInterfaceModel, Depends(make_hardware_interface)
-]
 
 
 class MoveHistory(NamedTuple):
@@ -140,30 +52,29 @@ class MoveHistory(NamedTuple):
     stage_positions: List[CoordinateType]
 
 
-class LoggingMoveWrapper:
-    """Wrap a move function, and maintain a log position/time.
+class RecordedMove:
+    """Call stage movement and maintain a record of position and time.
 
-    This class is callable, so it doesn't change the signature
-    of the function it wraps - it just makes it possible to get
-    a list of all the moves we've made, and how long they took.
+    This class is callable, the callable wraps stage.move_to_xyz_position.
 
-    Said list is intended to be useful for calibrating the stage
-    so we can estimate how long moves will take.
+    The class records a list of all moves made and how long they took. This is useful
+    for calibrating the stage as it allows measuring how long moves take.
     """
 
-    def __init__(self, move_function: Callable):
-        """Set the movement function to be wrapped.
+    def __init__(self, stage: Stage):
+        """Set the stage client used for for movement.
 
-        :param move_function: the movement function to be wrapped
+        :param stage: the stage client to be used. ``stage.move_to_xyz_position`` will
+            be called whenever the instance is called.
         """
-        self._move_function: Callable = move_function
+        self._stage: Stage = stage
         self._current_position: Optional[CoordinateType] = None
-        self.clear_history()
+        self._history: List[Tuple[float, Optional[CoordinateType]]] = []
 
-    def __call__(self, new_position: CoordinateType, *args, **kwargs):
+    def __call__(self, new_position: CoordinateType):
         """Move to a new position, and record it."""
         self._history.append((time.time(), self._current_position))
-        self._move_function(new_position, *args, **kwargs)
+        self._stage.move_to_xyz_position(xyz_pos=new_position)
         self._current_position = new_position
         self._history.append((time.time(), self._current_position))
 
@@ -176,7 +87,7 @@ class LoggingMoveWrapper:
 
     def clear_history(self):
         """Reset our history to be an empty list."""
-        self._history: List[Tuple[float, Optional[CoordinateType]]] = []
+        self._history = []
 
 
 class CSMUncalibratedError(HTTPException):
@@ -200,26 +111,34 @@ class CSMUncalibratedError(HTTPException):
 
 
 class CameraStageMapper(lt.Thing):
-    """A Thing to manage mapping between image and stage coordinates."""
+    """A Thing to manage mapping between image and stage coordinates.
+
+    To use this Thing, the stage must have axes named "x", "y", and "z", or must
+    override the ``get_xyz_position()`` and ``move_to_xyz_position()`` methods.
+    """
 
     @lt.thing_action
     def calibrate_1d(
         self,
-        hw: HardwareInterfaceDep,
+        camera: Camera,
         stage: Stage,
         logger: lt.deps.InvocationLogger,
         direction: Tuple[float, float, float],
     ) -> DenumpifyingDict:
         """Move a microscope's stage in 1D, and figure out the relationship with the camera."""
-        # log positions and times for stage calibration
-        move = LoggingMoveWrapper(hw.move)
-        tracker = Tracker(hw.grab_image, hw.get_position, settle=hw.settle)
+        # Record positions and times for stage calibration
+        recorded_move = RecordedMove(stage)
+        tracker = Tracker(
+            camera.capture_downsampled_array,
+            stage.get_xyz_position,
+            settle=camera.settle,
+        )
         direction_array: np.ndarray = np.array(direction)
 
         starting_position = stage.position
         try:
             result: dict = calibrate_backlash_1d(
-                tracker, move, direction_array, logger=logger
+                tracker, recorded_move, direction_array, logger=logger
             )
         except lt.exceptions.InvocationCancelledError as e:
             logger.info("User cancelled the camera stage mapping calibration")
@@ -230,37 +149,41 @@ class CameraStageMapper(lt.Thing):
             logger.info("Returning to starting position due to failed calibration")
             stage.move_absolute(**starting_position, block_cancellation=True)
             raise e
-        result["move_history"] = move.history
-        result["image_resolution"] = hw.grab_image().shape[:2]
+        result["move_history"] = recorded_move.history
+        result["image_resolution"] = camera.capture_downsampled_array().shape[:2]
         return result
 
     @lt.thing_action
     def calibrate_xy(
-        self, hw: HardwareInterfaceDep, stage: Stage, logger: lt.deps.InvocationLogger
+        self, camera: Camera, stage: Stage, logger: lt.deps.InvocationLogger
     ) -> DenumpifyingDict:
         """Move the microscope's stage in X and Y, to calibrate its relationship to the camera.
 
         This performs two 1d calibrations in x and y, then combines their results.
         """
+        downsampling_factor = camera.downsampled_array_factor
         # Calibrate y-axis first as it is more likely to fail.
         # The x-y difference is due to the camera aspect ratio, not the stage hardware.
         logger.info("Calibrating Y axis:")
-        cal_y: dict = self.calibrate_1d(hw, stage, logger, (0, 1, 0))
+        cal_y: dict = self.calibrate_1d(camera, stage, logger, (0, 1, 0))
         logger.info("Calibrating X axis:")
-        cal_x: dict = self.calibrate_1d(hw, stage, logger, (1, 0, 0))
+        cal_x: dict = self.calibrate_1d(camera, stage, logger, (1, 0, 0))
         logger.info("Calibration complete, updating metadata.")
 
         # Combine X and Y calibrations to make a 2D calibration
         cal_xy: dict = image_to_stage_displacement_from_1d([cal_x, cal_y])
         # Correct the result for downsampling performed in the hardware interface
         # (this may be to speed up correlation, or to avoid debayering artifacts)
-        cal_xy["image_to_stage_displacement"] /= hw.grab_image_downsampling
+        cal_xy["image_to_stage_displacement"] /= downsampling_factor
         corrected_resolution = tuple(
-            r * hw.grab_image_downsampling for r in cal_x["image_resolution"]
+            r * downsampling_factor for r in cal_x["image_resolution"]
         )
 
         csm_matrix = cal_xy["image_to_stage_displacement"]
-        csm_as_string = f"[{round(csm_matrix[0][0], 2)}, {round(csm_matrix[0][1], 2)},],[{round(csm_matrix[1][0], 2)}, {round(csm_matrix[1][1], 2)}]"
+        csm_as_string = (
+            f"[{round(csm_matrix[0][0], 2)}, {round(csm_matrix[0][1], 2)},],"
+            f"[{round(csm_matrix[1][0], 2)}, {round(csm_matrix[1][1], 2)}]"
+        )
         logger.info(f"CSM matrix is {csm_as_string}.")
 
         data: Dict[str, dict] = {
@@ -269,7 +192,7 @@ class CameraStageMapper(lt.Thing):
             "linear_calibration_y": cal_y,
             "downsampled_image_resolution": cal_x["image_resolution"],
             "image_resolution": corrected_resolution,
-            "downsampling": hw.grab_image_downsampling,
+            "downsampling": downsampling_factor,
         }
 
         self.last_calibration = DenumpifyingDict(data).model_dump()
