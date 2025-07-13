@@ -77,8 +77,7 @@ For function arguments, return values, and exceptions we use the following style
 
 ```python
 def a_function(arg1: str, arg2: int) -> tuple[float, int]:
-    """
-    A one sentence summary, in imperative mood, ending with punctuation.
+    """A one sentence summary, in imperative mood, ending with punctuation.
 
     More detail after a blank line. This could be a whole paragraph.
 
