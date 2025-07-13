@@ -25,7 +25,8 @@
 
       <div>
         <b>Server Version:</b> <br />
-        v{{ app_version() }}
+        {{ version }}<br />
+        ({{ version_source }})
       </div>
 
       <hr />
@@ -66,11 +67,40 @@ export default {
   name: "StatusPane",
   components: { ActionButton },
 
+  data: function() {
+    return {
+      version: undefined,
+      version_source: undefined
+    }
+  },
+
+  async mounted() {
+    let version_data = await this.readThingProperty(
+      "settings",
+      "version_data"
+    );
+    this.version = version_data.version;
+    this.version_source = this.truncate(version_data.version_source);
+
+  },
+
   computed: {
     things: function() {
       return this.$store.getters["wot/thingDescriptions"];
     }
   },
+
+  methods: {
+    truncate(string, max_length=15) {
+      if (!(typeof string === 'string' || string instanceof String)) {
+        return string;
+      }
+      if (string.length <= max_length) {
+        return string;
+      }
+      return string.slice(0, max_length - 3) + "...";
+    }
+  }
 };
 </script>
 
