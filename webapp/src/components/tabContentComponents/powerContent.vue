@@ -9,14 +9,14 @@
   </p>
     <div class="buttons">
       <button
-        v-show="'shutdown' in things.system_control.actions"
+        v-show="'shutdown' in things.system.actions"
         class="uk-button uk-button-primary uk-width-1-3"
         @click="systemRequest('shutdown')"
       >
         Shutdown
       </button>
       <button
-        v-show="'reboot' in things.system_control.actions"
+        v-show="'reboot' in things.system.actions"
         class="uk-button uk-button-primary uk-width-1-3"
         @click="systemRequest('reboot')"
       >
@@ -55,7 +55,7 @@ export default {
           this.$store.commit("wot/deleteAllThingDescriptions");
           // Post and silence errors
           axios
-            .post(this.thingActionUrl("system_control", action))
+            .post(this.thingActionUrl("system", action))
             .catch(() => {});
         },
         () => {}
