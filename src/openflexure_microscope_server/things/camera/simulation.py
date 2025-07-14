@@ -188,6 +188,13 @@ class SimulatedCamera(BaseCamera):
                 logging.error(f"Failed to capture frame: {e}, retrying...")
 
     @lt.thing_action
+    def discard_frames(self) -> None:
+        """Discard frames so that the next frame captured is fresh.
+
+        There is nothing to do as this is a simulation!
+        """
+
+    @lt.thing_action
     def capture_array(
         self,
         resolution: Literal["main", "full"] = "full",
