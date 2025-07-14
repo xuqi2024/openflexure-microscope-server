@@ -9,7 +9,9 @@ See repository root for licensing information.
 from __future__ import annotations
 from typing import Literal, Optional, Tuple, Any
 import json
+import time
 
+import numpy as np
 from pydantic import RootModel
 from PIL import Image
 import piexif
@@ -196,6 +198,13 @@ class BaseCamera(lt.Thing):
         )
 
     @lt.thing_action
+    def discard_frames(self) -> None:
+        """Discard frames so that the next frame captured is fresh."""
+        raise NotImplementedError(
+            "CameraThings must define their own discard_frames method"
+        )
+
+    @lt.thing_action
     def capture_array(
         self,
         stream_name: Literal["main", "lores", "raw", "full"] = "main",
@@ -205,6 +214,21 @@ class BaseCamera(lt.Thing):
         raise NotImplementedError(
             "CameraThings must define their own capture_array method"
         )
+
+    downsampled_array_factor = lt.ThingProperty(int, 2)
+    """The downsampling factor when calling capture_downsampled_array."""
+
+    @lt.thing_action
+    def capture_downsampled_array(self) -> NDArray:
+        """Acquire one image from the camera, downsample, and return as an array.
+
+        * The array is downsamples by the thing property `downsampled_array_factor`.
+        * The default capture array arguments are used.
+
+        This method provides the interface expected by the camera_stage_mapping.
+        """
+        img = self.capture_array()
+        return downsample(self.downsampled_array_factor, img)
 
     @lt.thing_action
     def capture_jpeg(
@@ -415,6 +439,44 @@ class BaseCamera(lt.Thing):
         except Exception as e:
             raise IOError(f"An error occurred while saving {jpeg_path}") from e
 
+    settling_time = lt.ThingSetting(float, 0.2)
+    """The settling time when calling the ``settle()`` method."""
+
+    @lt.thing_action
+    def settle(self) -> None:
+        """Sleep for the settling time, ready to provide a fresh frame.
+
+        This function will sleep for the given time, and clear the buffer after sleeping.
+        As such, the next frame captured from the camera after running this function will
+        always be captured after settling.
+
+        This method provides the interface expected by the camera_stage_mapping.
+        """
+        time.sleep(self.settling_time)
+        self.discard_frames()
+
 
 CameraDependency = lt.deps.direct_thing_client_dependency(BaseCamera, "/camera/")
 RawCameraDependency = lt.deps.raw_thing_dependency(BaseCamera)
+
+
+def downsample(factor: int, image: np.ndarray) -> np.ndarray:
+    """Downsample an image by taking the mean of each nxn region.
+
+    This should be very efficient:
+
+    * calculate each pixel as the mean of each ``factor * factor`` square without
+        interpolation.
+    * If the image is not an integer multiple of the resampling factor, discard
+        the left-over pixels to avoid odd edge effects and keep performance quick.
+    """
+    if factor == 1:
+        return image
+    new_size = [d // factor for d in image.shape[:2]]
+    # First, we ensure we have something that's an integer multiple
+    # of `factor`
+    cropped = image[: new_size[0] * factor, : new_size[1] * factor, ...]
+    reshaped = cropped.reshape(
+        (new_size[0], factor, new_size[1], factor) + image.shape[2:]
+    )
+    return reshaped.mean(axis=(1, 3))

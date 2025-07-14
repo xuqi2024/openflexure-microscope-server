@@ -240,12 +240,8 @@ class StreamingPiCamera2(BaseCamera):
                 cam.set_controls({"ExposureTime": value + 1})
 
     def _get_persistent_controls(self) -> dict:
-        discard_frames: int = 1
         if self.streaming:
-            with self._streaming_picamera() as cam:
-                # Discard frames, so data is fresh
-                for i in range(discard_frames):
-                    cam.capture_metadata()
+            self.discard_frames()
         return {
             "AeEnable": False,
             "AnalogueGain": self.analogue_gain,
@@ -473,6 +469,12 @@ class StreamingPiCamera2(BaseCamera):
 
             # Adding a sleep to prevent camera getting confused by rapid commands
             time.sleep(0.2)
+
+    @lt.thing_action
+    def discard_frames(self) -> None:
+        """Discard frames so that the next frame captured is fresh."""
+        with self._streaming_picamera() as cam:
+            cam.capture_metadata()
 
     @lt.thing_action
     def capture_image(

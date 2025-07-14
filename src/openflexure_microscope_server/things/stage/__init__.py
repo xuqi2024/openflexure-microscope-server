@@ -88,5 +88,32 @@ class BaseStage(lt.Thing):
             "StageThings must define their own set_zero_position method"
         )
 
+    @lt.thing_action
+    def get_xyz_position(self) -> tuple[int, int, int]:
+        """Return a tuple containing (x, y, z) position.
+
+        :raises KeyError: if this stage does not have axes named "x", "y", and "z".
+
+        This method provides the interface expected by the camera_stage_mapping.
+        """
+        position_dict = self.position
+        return (position_dict["x"], position_dict["y"], position_dict["z"])
+
+    @lt.thing_action
+    def move_to_xyz_position(
+        self, cancel: lt.deps.CancelHook, xyz_pos: tuple[int, int, int]
+    ) -> None:
+        """Move to the location specified by an (x, y, z) tuple.
+
+        :param cancel: A cancel hook for cancelling the move. This dependency should be
+            injected automatically by LabThings-FastAPI
+        :param xyz_pos: The (x, y, z) position to move to.
+
+        :raises KeyError: if this stage does not have axes named "x", "y", and "z".
+
+        This method provides the interface expected by the camera_stage_mapping.
+        """
+        self.move_absolute(cancel=cancel, x=xyz_pos[0], y=xyz_pos[1], z=xyz_pos[2])
+
 
 StageDependency = lt.deps.direct_thing_client_dependency(BaseStage, "/stage/")
