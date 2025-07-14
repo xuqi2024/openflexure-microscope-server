@@ -1,23 +1,23 @@
 <template>
   <!-- Grid managing tab content -->
-  <div class="center">
-  <h1 style="text-align: center;"> Power</h1>
-  <p style="text-align: center;"> It's essential to turn off your OpenFlexure Microscope here before unplugging it.
-  <br>
-  <br>
-  Unplugging the microscope unexpectedly can damage the SD card or onboard computer.
-  </p>
-    <div class="buttons">
+  <div class="container">
+    <h1 id="power-title"> Power</h1>
+    <p id="power-msg"> It's essential to turn off your OpenFlexure Microscope here before unplugging it.
+    <br>
+    <br>
+    Unplugging the microscope unexpectedly can damage the SD card or onboard computer.
+    </p>
+    <div class="buttons-container">
       <button
-        v-show="'shutdown' in things.system_control.actions"
-        class="uk-button uk-button-primary uk-width-1-3"
+        v-show="'shutdown' in things.system.actions"
+        class="uk-button uk-button-primary uk-width-1-3 shutdown-button"
         @click="systemRequest('shutdown')"
       >
         Shutdown
       </button>
       <button
-        v-show="'reboot' in things.system_control.actions"
-        class="uk-button uk-button-primary uk-width-1-3"
+        v-if="isRaspberrypi"
+        class="uk-button uk-button-primary uk-width-1-3 shutdown-button"
         @click="systemRequest('reboot')"
       >
         Restart
@@ -33,6 +33,12 @@ export default {
   name: "PowerContent",
 
   components: {},
+
+  data: function() {
+    return {
+      isRaspberrypi: undefined,
+    }
+  },
   
   computed: {
     things: function() {
@@ -40,8 +46,15 @@ export default {
     }
   },
 
+  async mounted() {
+    this.isRaspberrypi = await this.readThingProperty(
+      "system",
+      "is_raspberrypi"
+    );
+  },
+
   methods: {
-  systemRequest: function(action) {
+    systemRequest: function(action) {
       let message = "";
       if (action == "reboot") {
         message = "Restart microscope?"
@@ -55,7 +68,7 @@ export default {
           this.$store.commit("wot/deleteAllThingDescriptions");
           // Post and silence errors
           axios
-            .post(this.thingActionUrl("system_control", action))
+            .post(this.thingActionUrl("system", action))
             .catch(() => {});
         },
         () => {}
@@ -69,14 +82,32 @@ export default {
 // Custom UIkit CSS modifications
 @import "../../assets/less/theme.less";
 
-.center {
-    right: 50%;
-    bottom: 50%;
-    transform: translate(50%,50%);
-    position: absolute;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 2em;
+  box-sizing: border-box;
 }
 
-.uk-button {
+#power-title {
+  text-align: center;
+}
+
+#power-msg {
+  text-align: center;
+}
+
+.buttons-container {
+  width: 100%;
+  text-align: center;
+}
+
+.shutdown-button {
   display: inline;
   text-align:center;
   margin: 30px 30px 30px 30px;

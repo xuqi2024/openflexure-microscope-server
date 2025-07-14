@@ -236,7 +236,7 @@ export default {
           }
         }
         try {
-          let hostname = await this.readThingProperty("settings", "hostname");
+          let hostname = await this.readThingProperty("system", "hostname");
           this.$store.commit("changeMicroscopeHostname", hostname);
           document.title = `OpenFlexure Microscope: ${hostname}`;
         } catch {
