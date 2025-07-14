@@ -5,8 +5,7 @@
         "/auto_recentre_stage/": "openflexure_microscope_server.things.auto_recentre_stage:RecentringThing",
         "/autofocus/": "openflexure_microscope_server.things.autofocus:AutofocusThing",
         "/camera_stage_mapping/": "openflexure_microscope_server.things.camera_stage_mapping:CameraStageMapper",
-        "/system_control/": "openflexure_microscope_server.things.system_control:SystemControlThing",
-        "/settings/": "openflexure_microscope_server.things.settings_manager:SettingsManager",
+        "/system/": "openflexure_microscope_server.things.system:OpenFlexureSystem",
         "/smart_scan/": {
             "class": "openflexure_microscope_server.things.smart_scan:SmartScanThing",
             "kwargs": {
