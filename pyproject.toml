@@ -1,5 +1,8 @@
 [project]
 name = "openflexure-microscope-server"
+
+# Note that version needs to match a string stored in a unit test, and
+# the package.json file in the webapp or the CI will fail.
 version = "3.0.0-alpha1"
 authors = [
   { name="Richard Bowman", email="richard.bowman@cantab.net" },
