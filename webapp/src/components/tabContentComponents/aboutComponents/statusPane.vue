@@ -76,7 +76,7 @@ export default {
 
   async mounted() {
     let version_data = await this.readThingProperty(
-      "settings",
+      "system",
       "version_data"
     );
     this.version = version_data.version;

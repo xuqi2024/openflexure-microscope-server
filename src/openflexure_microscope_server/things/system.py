@@ -1,25 +1,39 @@
-"""OpenFlexure Settings Management.
+"""OpenFlexure System.
 
-This module provides some settings management across the other Things, and
-for code that currently lives in clients but needs to persist settings on
-the server.
+A module to control the underlying microscope system and to expose information about
+the microscope, server, and thing states to the web API.
 """
 
 from collections.abc import Mapping
 from socket import gethostname
 from typing import Optional
 from uuid import UUID, uuid4
+import subprocess
+import os
+
+from pydantic import BaseModel
 
 import labthings_fastapi as lt
 
 from openflexure_microscope_server.utilities import VersionData, robust_version_strings
 
 
-class SettingsManager(lt.Thing):
-    """Provides functionality to other Things about the current server state.
+class CommandOutput(BaseModel):
+    """A pydantic model passing the STDOUT and STDERR from a subprocess over HTTP."""
 
-    The SettingsManager is used to get information the microscope ID, the hostname
-    and the state of other Things.
+    output: str
+    error: str
+
+
+class OpenFlexureSystem(lt.Thing):
+    """Describe and control the OpenFlexure system.
+
+    This Things:
+
+    * Exposes information about the Microscope, Server, and Thing states to the web
+        API.
+    * Controls the underlying OS on the Raspberry Pi allowing shutdown and restarting
+        of the system.
     """
 
     _microscope_id: Optional[str] = None
@@ -57,6 +71,34 @@ class SettingsManager(lt.Thing):
         if self._version_data is None:
             self._version_data = robust_version_strings()
         return self._version_data
+
+    @lt.thing_property
+    def is_raspberrypi(self) -> bool:
+        """Return True if running on a Raspberry Pi."""
+        return os.path.exists("/usr/bin/raspi-config")
+
+    @lt.thing_action
+    def shutdown(self) -> CommandOutput:
+        """Attempt to shutdown the device."""
+        p = subprocess.Popen(
+            ["sudo", "shutdown", "-h", "now"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+
+        out, err = p.communicate()
+        return CommandOutput(output=out, error=err)
+
+    @lt.thing_action
+    def reboot(self) -> CommandOutput:
+        """Attempt to reboot the device."""
+        p = subprocess.Popen(
+            ["sudo", "shutdown", "-r", "now"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+        out, err = p.communicate()
+        return CommandOutput(output=out, error=err)
 
     @lt.thing_action
     def get_things_state(self, metadata_getter: lt.deps.GetThingStates) -> Mapping:
